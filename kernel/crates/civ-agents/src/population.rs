@@ -104,6 +104,7 @@ pub use resolution::{DayBlock, NOT_TAKEN, SwitchInvariants};
 pub use rounds::{MAX_ROUND_HOMES, ROUND_EVERY_DAYS};
 pub use sickhouse::sickhouse_bed_m2;
 pub use telegraph::{TELEGRAM_FEE_FOOD_DAYS, TelegraphReckoning};
+pub use tips::TIP_M2_PER_PERSON;
 pub use transit::{RoadRide, road_departures};
 mod credit;
 mod custody;

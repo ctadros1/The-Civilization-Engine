@@ -39,6 +39,7 @@ pub mod power;
 pub mod rail;
 pub mod sewers;
 pub mod soil;
+pub mod tips;
 pub mod trains;
 pub mod water;
 pub mod ways;
@@ -470,6 +471,9 @@ pub struct Land {
     pub water: Water,
     /// Wells, in the order begun (M6a slice AY, step three; ADR-0021 §3). Saved.
     pub wells: wells::Wells,
+    /// The ground refuse tips lie on, in the order opened (ADR-0038's amendment of 2026-11-18).
+    /// Saved.
+    pub tips: tips::Tips,
     /// River hydraulics and precomputed floodplain storage curves (M6b slice BF). Derived.
     pub floodplain: WorldFloodplain,
     /// The rivers as a graph a boat goes on, and their banks (M8b slice CO). Derived.
@@ -711,6 +715,7 @@ impl Land {
             enclosures: enclosures::Enclosures::default(),
             water: Water::default(),
             wells: wells::Wells::default(),
+            tips: tips::Tips::default(),
             floodplain,
             rivers: boating::RiverGraph::new(map),
             reach_discharges: map.reaches.iter().map(|r| r.discharge_m3s).collect(),
@@ -1094,6 +1099,7 @@ impl Land {
         out.extend(self.ways.problems(map.width * map.height));
         out.extend(self.water.problems());
         out.extend(self.wells.problems(usize::MAX));
+        out.extend(self.tips.problems());
         let p = &self.patches;
         let pc = p.patch_cells.max(1);
         if p.patch_cells == 0

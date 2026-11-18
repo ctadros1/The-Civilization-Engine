@@ -154,6 +154,18 @@ table Land {
   // Absent in older saves, whose heads are settled where the landscape's mean recharge holds
   // them, the store holding what that mean keeps in it.
   water: Groundwater (id: 16);
+  // ADR-0038's amendment of 2026-11-18 (appended within the unreleased saves 220): the ground
+  // each tip lies on, in the order opened. Absent, none: a tip opened before keeps no ground.
+  tips: [TipGroundSave] (id: 17);
+}
+
+// A tip's ground (ADR-0038's amendment of 2026-11-18): its tip's id and its rectangle, cm.
+table TipGroundSave {
+  id: ulong (id: 0);
+  x_cm: int (id: 1);
+  y_cm: int (id: 2);
+  w_cm: int (id: 3);
+  h_cm: int (id: 4);
 }
 
 // Schema 72: the water table's head in each patch, metres, in the patches' order, and the water

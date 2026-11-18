@@ -242,6 +242,10 @@ fn under_the_law_households_carry_their_heaps_to_a_tip_clear_of_the_water_and_th
     let mut sim = world_with(5);
     sim.advance_minutes(2 * DAY).expect("advances");
     let def = tip_def(&sim);
+    // Where the content's terms find its place, asked before it opens: once open, its own
+    // ground is taken (ADR-0038's amendment of 2026-11-18).
+    let sited =
+        sim.with_ctx_for_tests(|pop, ctx| pop.tip_site_for_tests(ctx, pop.polities[0].settlement));
     let (law, tip) = the_law_passed(&mut sim);
     let tip = tip.expect("a place qualifies in this valley, or this test shows nothing");
     // The tip stands more than the law's distance from every source and every home, on land.
@@ -265,7 +269,7 @@ fn under_the_law_households_carry_their_heaps_to_a_tip_clear_of_the_water_and_th
         (0.0, 0.0, sim.now().day_index())
     );
     assert_eq!(
-        sim.with_ctx_for_tests(|pop, ctx| pop.tip_site_for_tests(ctx, pop.polities[0].settlement)),
+        sited,
         Some(tip.place),
         "the place is chosen once, as the content's terms find it"
     );
@@ -1025,4 +1029,104 @@ fn a_review_puts_a_covered_tip_before_the_gathering_where_an_open_tip_is_kept() 
         t.tipped_kg()
     );
     saves_and_goes_on_alike(&mut sim, DAY);
+}
+
+/// A tip takes ground (ADR-0038's amendment of 2026-11-18): passing the law opens a tip whose
+/// footprint, two square metres for each of its settlement's people (12-10 §2.5's hectare for a
+/// town of 5,000), is the land's, a square about its place; nothing may be built or laid out
+/// on it, though the same ground without the tip is clear; and the world saves and loads with it
+/// exactly.
+#[test]
+fn a_tip_opened_takes_its_ground_and_nothing_may_be_built_on_it() {
+    let mut sim = world_with(5);
+    sim.advance_minutes(2 * DAY).expect("advances");
+    let settlement = sim.people().polities[0].settlement;
+    let people: usize = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .filter(|h| h.settlement == Some(settlement))
+        .map(|h| h.members.len())
+        .sum();
+    let (_, tip) = the_law_passed(&mut sim);
+    let tip = tip.expect("a place qualifies in this valley");
+    let ground = sim.land().tips.list.clone();
+    assert_eq!(ground.len(), 1);
+    let g = ground[0];
+    assert_eq!(g.id, tip.id);
+    let side_cm = civ_agents::population::Population::tip_side_m(people) * 100.0;
+    assert!(
+        (f64::from(g.rect.w) - side_cm).abs() <= 1.0,
+        "{g:?} for {people}"
+    );
+    assert_eq!(g.rect.w, g.rect.h, "a square");
+    let centre = (
+        (g.rect.x + g.rect.w / 2) as f32 / 100.0,
+        (g.rect.y + g.rect.h / 2) as f32 / 100.0,
+    );
+    assert!((centre.0 - tip.place.0).abs() < 0.02 && (centre.1 - tip.place.1).abs() < 0.02);
+    assert!(
+        (f64::from(g.rect.w) * f64::from(g.rect.h) / 1e4
+            - civ_agents::population::TIP_M2_PER_PERSON * people as f64)
+            .abs()
+            < 1.0,
+        "two square metres a person"
+    );
+    // A plot on it is refused; on the same ground with no tip it would be clear.
+    let plot = civ_land::RectCm {
+        x: g.rect.x + 10,
+        y: g.rect.y + 10,
+        w: 200,
+        h: 200,
+    };
+    assert!(!civ_agents::build::plot_clear(
+        sim.land(),
+        sim.map(),
+        sim.nav(),
+        &plot
+    ));
+    let mut bare = sim.land().clone();
+    bare.tips.list.clear();
+    assert!(civ_agents::build::plot_clear(
+        &bare,
+        sim.map(),
+        sim.nav(),
+        &plot
+    ));
+    saves_and_goes_on_alike(&mut sim, DAY);
+    assert_eq!(sim.land().tips.list, ground);
+}
+
+/// A home is not sited on a tip's ground (ADR-0038's amendment of 2026-11-18): where a
+/// household would build, the ground taken by a tip there, its home is sited off it.
+#[test]
+fn a_home_is_sited_off_a_tip_s_ground() {
+    let mut sim = world_with(5);
+    sim.advance_minutes(2 * DAY).expect("advances");
+    let h = our_households(&sim)[0];
+    let site = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.home_site_for_tests(ctx, h))
+            .expect("clear ground")
+            .0
+    };
+    let first = site(&mut sim);
+    // A tip's ground, thirty metres square, over where it would build.
+    let rect = civ_land::RectCm {
+        x: (first.0 * 100.0) as i32 - 1500,
+        y: (first.1 * 100.0) as i32 - 1500,
+        w: 3000,
+        h: 3000,
+    };
+    let id = sim.allocate_id_for_tests();
+    sim.land_mut_for_tests()
+        .tips
+        .list
+        .push(civ_land::tips::TipGround { id, rect });
+    let then = site(&mut sim);
+    let (x, y) = ((then.0 * 100.0) as i32, (then.1 * 100.0) as i32);
+    assert!(
+        !(x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h),
+        "sited at {then:?}, on the tip's ground about {first:?}"
+    );
 }

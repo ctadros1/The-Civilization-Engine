@@ -29335,6 +29335,7 @@ impl<'a> Land<'a> {
   pub const VT_RESOURCE_UNIT_KG: ::flatbuffers::VOffsetT = 32;
   pub const VT_WEATHER: ::flatbuffers::VOffsetT = 34;
   pub const VT_WATER: ::flatbuffers::VOffsetT = 36;
+  pub const VT_TIPS: ::flatbuffers::VOffsetT = 38;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -29350,6 +29351,7 @@ impl<'a> Land<'a> {
     builder.add_climate_deviate(args.climate_deviate);
     builder.add_climate_year(args.climate_year);
     builder.add_stock_day(args.stock_day);
+    if let Some(x) = args.tips { builder.add_tips(x); }
     if let Some(x) = args.water { builder.add_water(x); }
     if let Some(x) = args.weather { builder.add_weather(x); }
     if let Some(x) = args.resource_unit_kg { builder.add_resource_unit_kg(x); }
@@ -29486,6 +29488,13 @@ impl<'a> Land<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<Groundwater>>(Land::VT_WATER, None)}
   }
+  #[inline]
+  pub fn tips(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TipGroundSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TipGroundSave>>>>(Land::VT_TIPS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Land<'_> {
@@ -29511,6 +29520,7 @@ impl ::flatbuffers::Verifiable for Land<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("resource_unit_kg", Self::VT_RESOURCE_UNIT_KG, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<Weather>>("weather", Self::VT_WEATHER, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<Groundwater>>("water", Self::VT_WATER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TipGroundSave>>>>("tips", Self::VT_TIPS, false)?
      .finish();
     Ok(())
   }
@@ -29533,6 +29543,7 @@ pub struct LandArgs<'a> {
     pub resource_unit_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
     pub weather: Option<::flatbuffers::WIPOffset<Weather<'a>>>,
     pub water: Option<::flatbuffers::WIPOffset<Groundwater<'a>>>,
+    pub tips: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TipGroundSave<'a>>>>>,
 }
 impl<'a> Default for LandArgs<'a> {
   #[inline]
@@ -29555,6 +29566,7 @@ impl<'a> Default for LandArgs<'a> {
       resource_unit_kg: None,
       weather: None,
       water: None,
+      tips: None,
     }
   }
 }
@@ -29633,6 +29645,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LandBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<Groundwater>>(Land::VT_WATER, water);
   }
   #[inline]
+  pub fn add_tips(&mut self, tips: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<TipGroundSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Land::VT_TIPS, tips);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LandBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     LandBuilder {
@@ -29667,6 +29683,171 @@ impl ::core::fmt::Debug for Land<'_> {
       ds.field("resource_unit_kg", &self.resource_unit_kg());
       ds.field("weather", &self.weather());
       ds.field("water", &self.water());
+      ds.field("tips", &self.tips());
+      ds.finish()
+  }
+}
+pub enum TipGroundSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TipGroundSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for TipGroundSave<'a> {
+  type Inner = TipGroundSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> TipGroundSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_X_CM: ::flatbuffers::VOffsetT = 6;
+  pub const VT_Y_CM: ::flatbuffers::VOffsetT = 8;
+  pub const VT_W_CM: ::flatbuffers::VOffsetT = 10;
+  pub const VT_H_CM: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    TipGroundSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args TipGroundSaveArgs
+  ) -> ::flatbuffers::WIPOffset<TipGroundSave<'bldr>> {
+    let mut builder = TipGroundSaveBuilder::new(_fbb);
+    builder.add_id(args.id);
+    builder.add_h_cm(args.h_cm);
+    builder.add_w_cm(args.w_cm);
+    builder.add_y_cm(args.y_cm);
+    builder.add_x_cm(args.x_cm);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TipGroundSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn x_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(TipGroundSave::VT_X_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn y_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(TipGroundSave::VT_Y_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn w_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(TipGroundSave::VT_W_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn h_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(TipGroundSave::VT_H_CM, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for TipGroundSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<i32>("x_cm", Self::VT_X_CM, false)?
+     .visit_field::<i32>("y_cm", Self::VT_Y_CM, false)?
+     .visit_field::<i32>("w_cm", Self::VT_W_CM, false)?
+     .visit_field::<i32>("h_cm", Self::VT_H_CM, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TipGroundSaveArgs {
+    pub id: u64,
+    pub x_cm: i32,
+    pub y_cm: i32,
+    pub w_cm: i32,
+    pub h_cm: i32,
+}
+impl<'a> Default for TipGroundSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    TipGroundSaveArgs {
+      id: 0,
+      x_cm: 0,
+      y_cm: 0,
+      w_cm: 0,
+      h_cm: 0,
+    }
+  }
+}
+
+pub struct TipGroundSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TipGroundSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(TipGroundSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_x_cm(&mut self, x_cm: i32) {
+    self.fbb_.push_slot::<i32>(TipGroundSave::VT_X_CM, x_cm, 0);
+  }
+  #[inline]
+  pub fn add_y_cm(&mut self, y_cm: i32) {
+    self.fbb_.push_slot::<i32>(TipGroundSave::VT_Y_CM, y_cm, 0);
+  }
+  #[inline]
+  pub fn add_w_cm(&mut self, w_cm: i32) {
+    self.fbb_.push_slot::<i32>(TipGroundSave::VT_W_CM, w_cm, 0);
+  }
+  #[inline]
+  pub fn add_h_cm(&mut self, h_cm: i32) {
+    self.fbb_.push_slot::<i32>(TipGroundSave::VT_H_CM, h_cm, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TipGroundSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    TipGroundSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<TipGroundSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for TipGroundSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("TipGroundSave");
+      ds.field("id", &self.id());
+      ds.field("x_cm", &self.x_cm());
+      ds.field("y_cm", &self.y_cm());
+      ds.field("w_cm", &self.w_cm());
+      ds.field("h_cm", &self.h_cm());
       ds.finish()
   }
 }

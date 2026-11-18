@@ -788,6 +788,8 @@ pub fn find_site(
                 .map(|e| e.rect),
         )
         .chain(land.wells.list.iter().map(|w| w.rect))
+        // A tip's ground is no field's (ADR-0038's amendment of 2026-11-18).
+        .chain(land.tips.list.iter().map(|t| t.rect))
         .filter(|r| r.near(&around, FIELD_GAP_CM))
         .collect();
     // Ground where a body shows at the surface is its outcrop, not soil to break (ADR-0010 §1):

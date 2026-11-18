@@ -21,6 +21,12 @@ use crate::sickness::Outcome;
 /// How far from a tip's place, metres beyond a cell, a carrier may stand and tip there.
 const AT_TIP_CELLS: f64 = 2.0;
 
+/// The ground a tip takes for each person of the settlement that opens it, square metres
+/// (ADR-0038's amendment of 2026-11-18): research 12-10 §2.5's worked example, a town of 5,000
+/// whose refuse a tip of a hectare raised two metres holds for about five years loose, scaled to
+/// the people it serves: 10,000 m² over 5,000 people.
+pub const TIP_M2_PER_PERSON: f64 = 2.0;
+
 impl Population {
     /// The terms of the first template that carries refuse to a tip, if the content has one.
     fn tip_def(ctx: &Ctx) -> Option<TipDef> {
@@ -63,8 +69,9 @@ impl Population {
     /// of the cells about the settlement's homes on clear dry ground more than `from_m` from every
     /// open well, spring and stream and from every home, and from every open well as far as a
     /// rule keeping middens from wells in force there asks, the one nearest its homes (least
-    /// summed distance), as a cell's centre; none where the settlement has no homes or no cell
-    /// qualifies.
+    /// summed distance), as a cell's centre, where the tip's footprint about it
+    /// ([`Population::tip_side_m`]) is clear ground; none where the settlement has no homes or no
+    /// cell qualifies.
     pub(super) fn tip_site(
         &self,
         ctx: &Ctx,
@@ -121,7 +128,7 @@ impl Population {
         let (cx0, cx1) = (cell(x0 - pad, map.width), cell(x1 + pad, map.width));
         let (cy0, cy1) = (cell(y0 - pad, map.height), cell(y1 + pad, map.height));
         let cm = |m: f64| (m * 100.0).round() as i32;
-        let half = cm(size / 2.0).max(1);
+        let half = cm(Self::tip_side_m(self.tip_people(settlement)) / 2.0).max(1);
         let mut best: Option<((f32, f32), f64)> = None;
         for y in cy0..=cy1 {
             for x in cx0..=cx1 {
@@ -164,8 +171,42 @@ impl Population {
         best.map(|b| b.0)
     }
 
+    /// The people of settlement `settlement`'s households, whom a tip it opens serves.
+    fn tip_people(&self, settlement: PermanentId) -> usize {
+        self.households
+            .iter()
+            .map(|(_, x)| x)
+            .filter(|x| x.settlement == Some(settlement))
+            .map(|x| x.members.len())
+            .sum()
+    }
+
+    /// The side of the square a tip serving `people` takes, metres: [`TIP_M2_PER_PERSON`] for
+    /// each (ADR-0038's amendment of 2026-11-18), a person at least.
+    pub fn tip_side_m(people: usize) -> f64 {
+        (TIP_M2_PER_PERSON * people.max(1) as f64).sqrt()
+    }
+
+    /// The ground a tip at `place` serving `people` takes: the square of [`Population::tip_side_m`]
+    /// about it.
+    fn tip_ground(place: (f32, f32), people: usize) -> civ_land::RectCm {
+        let half = ((Self::tip_side_m(people) / 2.0) * 100.0).round().max(1.0) as i32;
+        let (cx, cy) = (
+            (f64::from(place.0) * 100.0).round() as i32,
+            (f64::from(place.1) * 100.0).round() as i32,
+        );
+        civ_land::RectCm {
+            x: cx - half,
+            y: cy - half,
+            w: 2 * half,
+            h: 2 * half,
+        }
+    }
+
     /// Opens the tip of law `law` of polity `pi`, just passed (ADR-0038 §3), where
-    /// [`Population::tip_site`] finds one; none where no place qualifies.
+    /// [`Population::tip_site`] finds one; none where no place qualifies. Its ground is the
+    /// land's from then on (ADR-0038's amendment of 2026-11-18): nothing is built, laid out,
+    /// dug or broken on it.
     pub(super) fn open_tip(&mut self, ctx: &mut Ctx, pi: usize, law: PermanentId) {
         let Some(def) = self.polities[pi]
             .laws
@@ -181,6 +222,11 @@ impl Population {
             return;
         };
         let id = ctx.ids.allocate();
+        let rect = Self::tip_ground(place, self.tip_people(settlement));
+        ctx.land
+            .tips
+            .list
+            .push(civ_land::tips::TipGround { id, rect });
         self.polities[pi].tips.push(Tip {
             id,
             law,

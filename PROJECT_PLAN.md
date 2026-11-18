@@ -10311,6 +10311,31 @@ and M6a gives rivers a daily flow.
       payment good without the review's own reckoning in the test; left for a pass that can
       afford that scene. **Tested:** credit (24), the civ-agents and civ-sim unit tests, the
       civ-host lib tests; the ten smoke seeds pass; fmt and clippy clean.
+    - *Backlog C, ADR-0038 §6's deferrals, a first half (2026-11-18): a tip takes ground*
+      (ADR-0038's amendment of 2026-11-18). **Before:** a tip was a polity's record with a place;
+      nothing kept its ground, so a home, field, plot or pit could be laid where refuse lay.
+      **Now:** opening a tip gives it a footprint the land keeps (`Land::tips`, `TipGround`: its
+      id and rectangle), a square about its place of `TIP_M2_PER_PERSON` (2 m²) for each person
+      of the settlement opening it (research 12-10 §2.5: a hectare for a town of 5,000; a village
+      of 100 takes 200 m², about 14 m a side); the tip is sited only where that footprint is
+      clear ground (`tip_site`, which checked one cell before); and `plot_clear` (homes and
+      other buildings, plans, wells, banks), new fields (`farm::find_site`), pits and their
+      heaps, and ditches all keep off it, as off a well. A tip opened in a world saved before keeps
+      no ground: nothing standing where it lies is moved or refused afterwards (saves are
+      unreleased, and refusal not repair). No capacity, filling or `tip_full` issue; no law,
+      forecast, content, wire or web change. Saves stay 220: the land section's table gains its
+      tips' ground (absent while none, so a world with no tip saves byte for byte as before);
+      `tools/gen-schema.sh --check` clean. **Tested:** tips (10, two new: passing the law opens a
+      tip whose ground is the land's, a square about its place of two square metres a person,
+      on which a plot is refused though the same ground without the tip is clear, saved and loaded
+      exactly; and a household's home, where a tip's ground is laid over the site it would have
+      chosen, is sited off it; both fail without the change), the first tips test now asking
+      where the tip would open before it opens (its own ground is taken once open; the same
+      assertion, asked at the right time), rounds, destructor, salvage, homes, deposits, wells,
+      roundtrip and determinism, civ-land's unit tests (one new), the civ-agents and civ-sim unit
+      tests, the civ-host lib tests; the ten smoke seeds pass; fmt, clippy and gen-schema --check
+      clean. **Not yet:** capacity (a tip's ground filling, and what a full tip does); burning
+      tips; the observer drawing a tip's ground.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads
@@ -12188,3 +12213,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **A road line ended for want of a keeper says whose it had been (2026-11-18, backlog D's twenty-fourth item; the twenty-third item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-18). **Said in the ending's words, still naming nobody as stopping it.** *Reason:* the history now keeps whose a household no more was, and the ending is the one moment the line's record tells of the household that ran it. **The record is kept before the road line is weighed at a merge, and before a household with nobody left goes to its heir, then forgotten if nothing is left in its name.** *Reason:* otherwise the ending is told before anything is kept; keeping it first changes nothing else, since the record is read only by the chronicle's words. In a merge its ways now pass before its road line is weighed (they passed after it before), which changes nothing the road line reads. Chosen as the coordinator's first and most self-contained candidate. No content, schema, wire or web change; saves stay 220.
 - **A household that moves takes its boats and carts (2026-11-18, backlog D's twenty-fifth item; the twentieth item's corrected "Not yet"):** Decided by Claude under standing owner authority (2026-11-18). **What goes:** a made boat or cart a way would bring to the new home today, by the rule an heir's are brought home by (`way_home`), and a motor cart where the household holds its trip's fuel, which it burns. *Reason:* a household that moves takes its store with it, so leaving behind what it could take along a way was the odd case, not a rule; the ninth item's "a way would bring it" and M11b's "a household without a trip's fuel cannot take it" already say which can go. **No hours counted for bringing them.** *Reason:* moving counts none for carrying its goods either; the move is one step. **Wagons stay.** *Reason:* a rail vehicle goes nowhere off its rails (the eighteenth item). No weighing changes. No content, schema, wire or web change; saves stay 220.
 - **A keeper that moves reposts its runs through its own review, as any keeper does (2026-11-18, backlog D's twenty-sixth item):** Decided by Claude under standing owner authority (2026-11-18). Recorded with a test rather than built: the yearly review already posts runs for any household keeping a motor cart and no line where its settlement's people run a dozen errands a year to another, so a moved keeper whose cart came with it posts from its new door once its new settlement's people run there. *Reason:* the coordinator's instruction, and the plan's rule that a household's weighing is unchanged. No code, content, schema, wire or web change.
+- **A tip takes ground (2026-11-18, backlog C: ADR-0038 §6's deferrals, the first half of a tip's capacity; ADR-0038's amendment of 2026-11-18):** Decided by Claude under standing owner authority (2026-11-18), the coordinator having chosen this half of the option. **The ground is the land's,** a record beside the wells' (`Land::tips`), not the polity's tip record. *Reason:* everything that places buildings, fields, plots, pits and ditches reads the land, as it reads wells' ground; a polity's record would need every placement to read the polities too. **Its footprint is 2 m² for each person of the settlement opening it.** *Reason:* 12-10 §2.5's worked example is the research's one figure, a hectare raised two metres for a town of 5,000 for about five years loose, and scaling it by the people served keeps that ground-to-people ratio; the smallest footprint the research gives is that one. **The tip is sited only where its footprint is clear.** *Reason:* a tip opening over a home or field would contradict the ground it keeps. **A tip opened before keeps no ground, and nothing already where it lies moves.** *Reason:* saves are refused, never repaired; giving an old tip ground on load would either cover what stands there or move the tip, and saves 220 are unreleased, so no released world carries such a tip. **No capacity, filling or `tip_full` issue,** and no law or forecast change. *Reason:* the coordinator's scope; a full tip's answer is a polity trigger. No content, wire or web change; saves stay 220 (a field appended to the land table).

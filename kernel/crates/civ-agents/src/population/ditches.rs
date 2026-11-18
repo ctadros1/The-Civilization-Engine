@@ -400,5 +400,6 @@ pub(super) fn line_clear(ctx: &Ctx, field: PermanentId, a: [f64; 2], b: [f64; 2]
             .any(|f| f.id != field && f.rect.near(&point, 0))
             && !ctx.land.plots.iter().any(|p| p.rect.near(&point, 0))
             && !ctx.land.wells.near(&point, 0)
+            && !ctx.land.tips.near(&point, 0)
     })
 }

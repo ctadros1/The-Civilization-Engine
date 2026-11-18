@@ -4905,6 +4905,25 @@ fn encode_land(land: &Land, rules: &Rules) -> Vec<u8> {
             runoff_mm: land.water.runoff_mm,
         },
     );
+    // The ground tips lie on (ADR-0038's amendment of 2026-11-18), absent while none.
+    let tips: Vec<_> = land
+        .tips
+        .list
+        .iter()
+        .map(|t| {
+            save::TipGroundSave::create(
+                &mut fbb,
+                &save::TipGroundSaveArgs {
+                    id: t.id.get(),
+                    x_cm: t.rect.x,
+                    y_cm: t.rect.y,
+                    w_cm: t.rect.w,
+                    h_cm: t.rect.h,
+                },
+            )
+        })
+        .collect();
+    let tips = (!tips.is_empty()).then(|| fbb.create_vector(&tips));
     let root = save::Land::create(
         &mut fbb,
         &save::LandArgs {
@@ -4922,6 +4941,7 @@ fn encode_land(land: &Land, rules: &Rules) -> Vec<u8> {
             resource_unit_kg: Some(resource_unit_kg),
             weather: Some(weather),
             water: Some(water),
+            tips,
             ..Default::default()
         },
     );
@@ -5191,6 +5211,7 @@ fn decode_land(
         water: Default::default(),
         // Read from its own section (schema 74 on).
         wells: Default::default(),
+        tips: Default::default(),
         floodplain,
         rivers: civ_land::boating::RiverGraph::new(map),
         reach_discharges: map.reaches.iter().map(|r| r.discharge_m3s).collect(),
@@ -5235,6 +5256,23 @@ fn decode_land(
             }
         }
         land.derive_floodplain(map, &rules.land);
+    }
+    // The ground tips lie on (ADR-0038's amendment of 2026-11-18, appended within saves 220):
+    // none in older saves, whose tips keep no ground.
+    for t in l.tips().iter().flatten() {
+        land.tips.list.push(civ_land::tips::TipGround {
+            id: required(t.id(), "a tip's ground")?,
+            rect: civ_land::RectCm {
+                x: t.x_cm(),
+                y: t.y_cm(),
+                w: t.w_cm(),
+                h: t.h_cm(),
+            },
+        });
+    }
+    let problems = land.tips.problems();
+    if !problems.is_empty() {
+        return Err(LoadError::Invalid(problems));
     }
     Ok(land)
 }

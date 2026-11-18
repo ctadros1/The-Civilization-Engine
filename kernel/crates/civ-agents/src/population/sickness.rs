@@ -50,6 +50,8 @@ impl Population {
         // yesterday's carers at a sickhouse (M10c slice EE, fourth part).
         let met = std::mem::take(&mut self.met);
         let staffed = std::mem::take(&mut self.staffed);
+        // And yesterday's hours at fields of those who shed by water (ADR-0021 §4).
+        let worked = std::mem::take(&mut self.worked);
         if self.sickness.quiet() && self.contagion.is_empty() && !self.sickness.outbreak_open() {
             return;
         }
@@ -122,7 +124,7 @@ impl Population {
         // The sickhouses' admissions and discharges (M10c slice EE, fourth part).
         self.admit_day(ctx, day);
         // What people shed moves through the ground and water (step two).
-        self.contagion_day(ctx, day);
+        self.contagion_day(ctx, day, &worked);
         // Who is exposed today, by every route, before anyone takes it: nobody infected today
         // sheds before tomorrow, so no chain runs within a day.
         let mut shedding: BTreeMap<(PermanentId, u16), u32> = BTreeMap::new();

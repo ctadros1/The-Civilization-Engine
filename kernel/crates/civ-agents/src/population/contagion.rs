@@ -162,7 +162,56 @@ impl Population {
     }
 
     /// The day's turn for loads (see the module documentation), before anyone is exposed.
-    pub(super) fn contagion_day(&mut self, ctx: &Ctx, day: i64) {
+    /// Someone, `who`, worked field `field` for `hours` today: kept for midnight if they shed a
+    /// disease that passes by water today, so that a share of their day's shedding goes to the
+    /// ground there rather than to their heap (ADR-0021 §4).
+    pub(super) fn note_worked(
+        &mut self,
+        ctx: &Ctx,
+        who: PermanentId,
+        field: PermanentId,
+        hours: f64,
+    ) {
+        let day = ctx.now.day_index();
+        let sheds = self.sickness.running().iter().any(|&i| {
+            self.sickness.get(i).is_some_and(|e| {
+                e.person == who
+                    && e.shedding(day)
+                    && ctx
+                        .catalog
+                        .diseases
+                        .get(usize::from(e.disease))
+                        .is_some_and(|d| d.passes_by(crate::params::DiseaseRoute::Water))
+            })
+        });
+        if !sheds || hours <= 0.0 {
+            return;
+        }
+        match self.worked.iter_mut().find(|w| w.0 == who && w.1 == field) {
+            Some(w) => w.2 += hours as f32,
+            None => self.worked.push((who, field, hours as f32)),
+        }
+    }
+
+    /// Someone, `who`, worked field `field` for `hours` today, as [`Population::note_worked`]
+    /// keeps it: for tests.
+    #[doc(hidden)]
+    pub fn note_worked_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        who: PermanentId,
+        field: PermanentId,
+        hours: f64,
+    ) {
+        self.note_worked(ctx, who, field, hours);
+    }
+
+    pub(super) fn contagion_day(
+        &mut self,
+        ctx: &Ctx,
+        day: i64,
+        worked: &[(PermanentId, PermanentId, f32)],
+    ) {
         let diseases = &ctx.catalog.diseases;
         // What passed the rivers yesterday has gone downstream.
         self.contagion
@@ -211,13 +260,35 @@ impl Population {
             } else {
                 def.shed_silent_per_day
             };
+            // Its share of the day spent working a field yesterday goes to the ground there, the
+            // rest to the household's heap (ADR-0021 §4; a design prior: shedding spread evenly
+            // over the day's 24 hours).
+            let mut home = amount;
+            for &(_, field, hours) in worked.iter().filter(|w| w.0 == e.person) {
+                if !ctx.land.fields.iter().any(|f| f.id == field) {
+                    continue;
+                }
+                let there = (amount * f64::from(hours) / 24.0).min(home);
+                if there <= 0.0 {
+                    continue;
+                }
+                home -= there;
+                shed.push(Move {
+                    day,
+                    disease: e.disease,
+                    how: How::Shed,
+                    from: Node::Person(e.person),
+                    to: Node::Field(field),
+                    amount: there,
+                });
+            }
             shed.push(Move {
                 day,
                 disease: e.disease,
                 how: How::Shed,
                 from: Node::Person(e.person),
                 to: Node::Midden(p.household),
-                amount,
+                amount: home,
             });
         }
         for &m in &shed {
@@ -373,7 +444,8 @@ impl Population {
     /// The day's turn for loads now, whatever else the day does: for tests.
     #[doc(hidden)]
     pub fn contagion_day_for_tests(&mut self, ctx: &Ctx) {
-        self.contagion_day(ctx, ctx.now.day_index());
+        let worked = std::mem::take(&mut self.worked);
+        self.contagion_day(ctx, ctx.now.day_index(), &worked);
     }
 
     /// Someone of `household` drew `share` of the water standing in well `well` on `day`: the

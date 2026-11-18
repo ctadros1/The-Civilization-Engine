@@ -1153,3 +1153,111 @@ fn a_rule_keeps_new_homes_and_their_middens_from_the_wells() {
          what is begun from its day"
     );
 }
+
+/// Shedding where people work (ADR-0021 §4: an infected person's shedding goes to the ground
+/// where they work, otherwise to their heap): someone shedding by water who worked a field
+/// yesterday sheds that share of the day there, by the hours worked over the day's 24, and the
+/// rest to their household's heap, the day's shedding whole; the field then washes and seeps as a
+/// heap does, from its own place. Someone not shedding is not kept, and the hours kept save and
+/// load exactly.
+#[test]
+fn someone_shedding_who_worked_a_field_sheds_that_share_of_the_day_there() {
+    let mut sim = village(6);
+    let d = cholera(&sim);
+    let def = sim.rules().catalog.diseases[usize::from(d)].clone();
+    // A household and a field it works, once the band has broken one.
+    for _ in 0..24 {
+        if !sim.land().fields.is_empty() {
+            break;
+        }
+        sim.advance_minutes(5 * DAY).expect("lives");
+    }
+    let (h, field) = households(&sim)
+        .into_iter()
+        .find_map(|h| {
+            sim.land()
+                .fields
+                .iter()
+                .find(|f| f.household == h)
+                .map(|f| (h, f.id))
+        })
+        .expect("a household working a field");
+    let (_, members) = household(&sim, h);
+    let (who, other) = (members[0], members.get(1).copied());
+    let note = |sim: &mut Sim, p: PermanentId, hours: f64| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.note_worked_for_tests(ctx, p, field, hours));
+    };
+    // Not shedding, nobody is kept.
+    note(&mut sim, who, 8.0);
+    assert!(sim.people().worked.is_empty());
+    // Shedding without symptoms from today, as a silent carrier who still works.
+    let day = sim.now().day_index();
+    sim.people_mut_for_tests().sickness.add(
+        who,
+        Some(h),
+        d,
+        day,
+        Acquired::Observer { influence: 0 },
+        civ_agents::sickness::Course {
+            shed_from: day,
+            shed_until: day + 30,
+            ill_from: day,
+            ill_until: day,
+            severe: false,
+            immune_until: day + 365,
+        },
+    );
+    note(&mut sim, who, 6.0);
+    note(&mut sim, who, 2.0);
+    if let Some(o) = other {
+        note(&mut sim, o, 8.0);
+    }
+    assert_eq!(
+        sim.people().worked,
+        vec![(who, field, 8.0)],
+        "only the shedder, summed"
+    );
+    let loaded = reloaded(&mut sim);
+    assert_eq!(loaded.people().worked, sim.people().worked);
+    // Midnight: a third of the day's shedding to the field, the rest to the heap.
+    sim.land_mut_for_tests().water.last_surplus_mm = 0.0;
+    let today = sim.now().day_index();
+    sim.with_ctx_for_tests(|pop, ctx| pop.contagion_day_for_tests(ctx));
+    let c = &sim.people().contagion;
+    let shed = |to: Node| -> f64 {
+        c.moves
+            .iter()
+            .filter(|m| m.day == today && m.how == How::Shed && m.to == to)
+            .map(|m| m.amount)
+            .sum()
+    };
+    let daily = def.shed_silent_per_day;
+    let (there, home) = (shed(Node::Field(field)), shed(Node::Midden(h)));
+    assert!(
+        (there - daily * 8.0 / 24.0).abs() < 1e-9,
+        "{there} at the field of {daily}"
+    );
+    assert!(
+        (there + home - daily).abs() < 1e-9,
+        "the day's shedding whole"
+    );
+    // The field holds it, less what soaks in toward wells and rivers the same day.
+    let seep = sim.rules().land.contamination.seep_per_day;
+    let held = c.load(Node::Field(field), d);
+    assert!(
+        (held - there * (1.0 - seep)).abs() < 1e-9,
+        "{held} held of {there}"
+    );
+    assert!(sim.people().worked.is_empty(), "drawn at midnight");
+    // Lived on, the day's field work keeps their hours there by the evening.
+    let mut kept = None;
+    for _ in 0..20 {
+        to_morning(&mut sim, 20 * 60);
+        if let Some(w) = sim.people().worked.iter().find(|w| w.0 == who) {
+            kept = Some(*w);
+            break;
+        }
+    }
+    let (_, worked_field, hours) = kept.expect("a day's field work kept");
+    assert!(hours > 0.0 && sim.land().fields.iter().any(|f| f.id == worked_field));
+}

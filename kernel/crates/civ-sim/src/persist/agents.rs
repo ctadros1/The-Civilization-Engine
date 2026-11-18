@@ -1239,6 +1239,7 @@ pub(super) fn decode<R: Read + Seek>(
         people.sickness = decode_sickness(&bytes, rules)?;
         people.met = decode_met(&bytes)?;
         people.staffed = decode_staffed(&bytes)?;
+        people.worked = decode_worked(&bytes)?;
     }
     // What people shed (schema 76); before, nothing lies anywhere.
     if schema >= Schema::V76 {
@@ -14474,6 +14475,16 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
         .map(|&(p, b)| save::StaffedSave::new(p.get(), b.get()))
         .collect();
     let staffed = fbb.create_vector(&staffed);
+    // Today's hours at fields of those shedding by water (ADR-0021 §4); absent while none, so a
+    // world where nobody sheds saves as before.
+    let worked = (!people.worked.is_empty()).then(|| {
+        let worked: Vec<_> = people
+            .worked
+            .iter()
+            .map(|&(p, f, h)| save::FieldHoursSave::new(p.get(), f.get(), h))
+            .collect();
+        fbb.create_vector(&worked)
+    });
     // Today's company kept (schema 198, M10c slice ED).
     let met: Vec<_> = people
         .met
@@ -14494,6 +14505,7 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
             met: Some(met),
             admitted: Some(admitted),
             staffed: Some(staffed),
+            worked,
             inoculation_calls: Some(inoculation_calls),
             vaccinated: Some(vaccinated),
             register: Some(register),
@@ -15385,6 +15397,23 @@ fn decode_staffed(bytes: &[u8]) -> Result<Vec<(PermanentId, PermanentId)>, LoadE
             Some((
                 PermanentId::from_raw(s.carer())?,
                 PermanentId::from_raw(s.building())?,
+            ))
+        })
+        .collect())
+}
+
+fn decode_worked(bytes: &[u8]) -> Result<Vec<(PermanentId, PermanentId, f32)>, LoadError> {
+    let root =
+        section_root::<save::SicknessSave>(bytes).map_err(|e| unreadable(SECTION_SICKNESS, &e))?;
+    Ok(root
+        .worked()
+        .into_iter()
+        .flatten()
+        .filter_map(|w| {
+            Some((
+                PermanentId::from_raw(w.person())?,
+                PermanentId::from_raw(w.field())?,
+                w.hours(),
             ))
         })
         .collect())

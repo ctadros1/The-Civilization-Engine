@@ -847,6 +847,10 @@ pub struct Population {
     /// Who tended at a sickhouse today, and which (M10c slice EE, fourth part): the day's
     /// exposure of its carers, drawn at midnight.
     pub staffed: Vec<(PermanentId, PermanentId)>,
+    /// Who worked which field today, and for how many hours, kept only for those shedding a
+    /// disease that passes by water (ADR-0021 §4: shedding goes to the ground where they work):
+    /// at midnight their day's shedding is shared between those fields and their heap.
+    pub worked: Vec<(PermanentId, PermanentId, f32)>,
     /// What each money is worth to each household from its use as money, by household and money
     /// (M10d slice EF, first part; ADR-0035 §12): built at midnight.
     pub money: Vec<crate::market::MoneyBelief>,
@@ -6765,6 +6769,8 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
                         self.field_work(ctx, who, household, field, task, hours);
+                        // Where they shed while they work (ADR-0021 §4).
+                        self.note_worked(ctx, who, field, f64::from(minutes) / 60.0);
                     }
                 }
                 // A session taught or studied, tallied for midnight (M10c slice EB, second part).

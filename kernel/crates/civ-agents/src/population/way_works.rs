@@ -1227,6 +1227,19 @@ impl Population {
         );
     }
 
+    /// The way work `person` of household `household` may do by daylight, as
+    /// [`Population::way_facts`] finds it: for tests.
+    #[doc(hidden)]
+    pub fn way_facts_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+        person: PermanentId,
+    ) -> Option<crate::decide::WayFacts> {
+        let x = self.household(household)?;
+        self.way_facts(ctx, x, person, false)
+    }
+
     /// `hours` of work by someone of `household` on way `way`: for tests.
     #[doc(hidden)]
     pub fn way_work_for_tests(

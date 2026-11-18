@@ -5358,6 +5358,19 @@ impl Population {
             return;
         };
         let (sponsor, policy, kind) = (law.sponsor, law.policy, law.kind);
+        // A law put in place of one in force of its own template (a faction's petition: another
+        // holder, or the store at another share above none) does nothing to what they hold dear
+        // that the law in force does not, and settles nothing of its template's question: neither
+        // weighs, as its stake is already what it would bring over that law (M4c slice AH).
+        let in_its_own_place = law
+            .ends
+            .and_then(|e| self.polities[pi].laws.iter().find(|l| l.id == e))
+            .is_some_and(|l| {
+                l.status == LawStatus::InForce
+                    && l.kind == kind
+                    && l.policy == policy
+                    && !(kind == PolicyKind::CommonStore && law.levy_share <= 0.0)
+            });
         // An end to a law, a repeal or a store's levy at none (M4c slices AH-AI), weighs what
         // that law does to people, turned about.
         let (policy, sign) = law
@@ -5418,10 +5431,18 @@ impl Population {
                 };
                 // How far talk at the hearth has moved them from their household's lot (M4c
                 // slice AG).
-                let talk = sign * self.opinion_points(p, policy, w_position);
+                let talk = if in_its_own_place {
+                    0.0
+                } else {
+                    sign * self.opinion_points(p, policy, w_position)
+                };
                 // And what it does to what they hold dear (M4c slice AG).
-                let values = sign * self.value_points(ctx, p, policy)
-                    - replaces.map_or(0.0, |o| self.value_points(ctx, p, o));
+                let values = if in_its_own_place {
+                    0.0
+                } else {
+                    sign * self.value_points(ctx, p, policy)
+                        - replaces.map_or(0.0, |o| self.value_points(ctx, p, o))
+                };
                 let view = other.map_or(0.0, |o| {
                     let rp = &params.relations;
                     let warmth = self

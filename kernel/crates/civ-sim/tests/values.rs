@@ -243,3 +243,124 @@ fn what_a_law_does_to_what_they_hold_dear_weighs_in_their_stance() {
         );
     }
 }
+
+/// The seventh coverage pass's deliberation entries, "recorded, not chased" (M4c slice AH): a
+/// faction's petition for another holder in place of the one in force, of the same template, does
+/// nothing to what anyone holds dear that the law in force does not, and settles nothing of the
+/// template's question. Before a village that holds what a hearer bears dear, and whose talk at
+/// the hearth has moved it on whether one should hear cases, neither weighs in a stance on
+/// another hearer: what they hold dear counted the template in full, and their talk too.
+#[test]
+fn a_petition_for_another_holder_weighs_nothing_of_its_template_s_values() {
+    let mut sim = world_with(content(), 4);
+    sim.advance_minutes(40 * DAY).expect("advances");
+    let security = value_index(&sim, "core:value/security");
+    let hearer = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|p| p.id == "core:policy/name_a_hearer")
+        .expect("in core") as u16;
+    let now = sim.now();
+    let next = sim.ids().peek_next() + 1_000_000;
+    let (forum, petition) = (
+        PermanentId::from_raw(next).expect("non-zero"),
+        PermanentId::from_raw(next + 1).expect("non-zero"),
+    );
+    let params = sim.rules().people.clone();
+    let pop = sim.people_mut_for_tests();
+    for h in &mut pop.values.held {
+        h.v = if h.value == security { 0.8 } else { 0.0 };
+    }
+    pop.ideologies.held.clear();
+    let mut adults: Vec<PermanentId> = pop
+        .people
+        .iter()
+        .map(|(_, p)| p)
+        .filter(|p| p.age_years(now) >= params.family.independent_age)
+        .map(|p| p.id)
+        .collect();
+    adults.sort_unstable();
+    // Talk at the hearth has moved everyone toward a hearer, from their household's lot.
+    for &a in &adults {
+        match pop.opinion.position_mut(a, hearer) {
+            Some(p) => p.x = p.anchor + 0.5,
+            None => pop.opinion.insert(civ_agents::opinion::Position {
+                holder: a,
+                policy: hearer,
+                x: 0.5,
+                anchor: 0.0,
+                salience: 1.0,
+                since: now.day_index(),
+                heard: 0,
+            }),
+        }
+    }
+    let (sponsor, sitting, named) = (adults[0], adults[1], adults[2]);
+    let mut stakes: Vec<(PermanentId, f32)> =
+        pop.households.iter().map(|(_, h)| (h.id, 0.0)).collect();
+    stakes.sort_by_key(|s| s.0);
+    let p = &mut pop.polities[0];
+    p.laws.retain(|l| l.kind != PolicyKind::Plan);
+    let kept: Vec<PermanentId> = p.laws.iter().map(|l| l.id).collect();
+    p.plans.retain(|(law, _)| kept.contains(law));
+    if p.gathering
+        .as_ref()
+        .is_some_and(|g| g.law.is_some_and(|l| !kept.contains(&l)))
+    {
+        p.gathering = None;
+    }
+    assert!(p.laws.is_empty() && p.gathering.is_none());
+    let law = |id, holder, status, ends| Law {
+        id,
+        policy: hearer,
+        kind: PolicyKind::HearCases,
+        levy_share: 0.0,
+        holder: Some(holder),
+        relief_days: 0.0,
+        sanction: Default::default(),
+        hours: (0, 0),
+        status,
+        sponsor,
+        proposed: now,
+        issue: IssueKind::Petition,
+        meets_day: now.day_index() + 1,
+        decided: None,
+        outcome: None,
+        eligible: 0,
+        stances: Vec::new(),
+        known: vec![(sponsor, now.day_index())],
+        compliance: Default::default(),
+        watch: Default::default(),
+        ends,
+        agreement: None,
+        target: None,
+        body: None,
+    };
+    p.laws.push(law(forum, sitting, LawStatus::InForce, None));
+    p.laws
+        .push(law(petition, named, LawStatus::Proposed, Some(forum)));
+    p.gathering = Some(Gathering {
+        law: Some(petition),
+        day: now.day_index() + 1,
+        stakes,
+        present: Vec::new(),
+        cases: Vec::new(),
+    });
+    pop.hear_of_gatherings_called(now, &params);
+    sim.advance_minutes(2 * DAY).expect("advances");
+    let law = sim.people().polities[0]
+        .laws
+        .iter()
+        .find(|l| l.id == petition)
+        .expect("kept")
+        .clone();
+    assert!(law.outcome.is_some(), "the gathering sat: {law:?}");
+    let others: Vec<_> = law.stances.iter().filter(|r| r.person != sponsor).collect();
+    assert!(!others.is_empty(), "{law:?}");
+    for r in others {
+        assert_eq!(r.values, 0.0, "{r:?}");
+        assert_eq!(r.opinion, 0.0, "{r:?}");
+    }
+}

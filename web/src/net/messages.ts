@@ -2081,6 +2081,21 @@ export interface MillInfo {
   words: string;
 }
 
+/** A tip's ground (wire 1.113, ADR-0038's amendment of 2026-11-18): its centre and size, metres,
+ * whether all that was tipped there lies under earth, the kilograms tipped and lying open, and
+ * all of it in words. */
+export interface TipInfo {
+  id: number;
+  x: number;
+  y: number;
+  wM: number;
+  hM: number;
+  covered: boolean;
+  tippedKg: number;
+  openKg: number;
+  words: string;
+}
+
 export interface WaterInfo {
   rev: number;
   wells: WellInfo[];
@@ -2092,6 +2107,8 @@ export interface WaterInfo {
   flooded: FloodCellInfo[];
   /** Every water mill (wire 1.97). */
   mills: MillInfo[];
+  /** Every tip's ground (wire 1.113). */
+  tips: TipInfo[];
 }
 
 /** A source of water as one home stands to it (wire 1.66): `kind` 1 its own well, 2 a well by
@@ -3547,7 +3564,23 @@ function water(w: W.Water): WaterInfo {
       words: v.words() ?? "",
     });
   }
-  return { rev: Number(w.rev()), wells, springs, flow: w.flow(), banks, flooded, mills };
+  const tips: TipInfo[] = [];
+  for (let i = 0; i < w.tipsLength(); i++) {
+    const v = w.tips(i);
+    if (!v) continue;
+    tips.push({
+      id: Number(v.id()),
+      x: v.x(),
+      y: v.y(),
+      wM: v.wM(),
+      hM: v.hM(),
+      covered: v.covered(),
+      tippedKg: v.tippedKg(),
+      openKg: v.openKg(),
+      words: v.words() ?? "",
+    });
+  }
+  return { rev: Number(w.rev()), wells, springs, flow: w.flow(), banks, flooded, mills, tips };
 }
 
 function earthworks(w: W.Earthworks): EarthworksInfo {

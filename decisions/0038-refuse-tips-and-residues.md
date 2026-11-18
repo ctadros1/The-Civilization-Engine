@@ -96,3 +96,25 @@ feeding (no beasts).
 - Sewers are designed: treatment follows 12-10 §5.8.
 - Beasts are kept: garbage as feed, and the laws against it.
 - A non-pathogen harm model exists: residues get a dose.
+
+## Amendment (2026-11-05): covering, as built
+
+Decided by Claude under the owner's standing authority (plan §9, "A covered tip"). Of §6's
+"covering, compaction and burning tips", covering is built as a policy kind of its own,
+`cover_tip` (content API 230): where a polity keeps an open tip, what lies open on it and each load
+tipped after are asked covered, 0.15 m³ of earth to a cubic metre of loose refuse (220 kg) at the
+people's digging hours a cubic metre (12-10 §2.4, §5.4), as common work at the tip; while all of
+it lies under earth nothing washes off the tip in rain, and it seeps as before. Each tip saves the
+kilograms under earth (saves 220, appended). Compaction (no roller or engine tool, and tips have
+no capacity) and burning tips stay deferred.
+
+## Amendment (2026-11-18): a tip takes ground
+
+Decided by Claude under the owner's standing authority (plan §9, "A tip takes ground"). A tip a
+polity opens now keeps its footprint as land, as a well's ground is kept: `Land::tips` holds each
+tip's ground, saved with the land section (saves 220, a field appended to its table), and no
+plot, building, plan, field, pit or ditch is laid on it. Its footprint is a square of two square
+metres for each person of the settlement that opens it, about its place (research 12-10 §2.5: a
+hectare for a town of 5,000), and the tip is sited only where that footprint is clear. A tip
+opened before keeps no ground, so nothing already standing where it lies is moved. Capacity, a
+tip filling its ground, and a `tip_full` issue are not built.

@@ -106,6 +106,25 @@ impl Population {
                 .all(|s| s.built_m + 1e-3 >= s.corridor_m)
     }
 
+    /// The share of line `way`'s track not yet laid, 0 to 1: what is left of its bed's widening
+    /// to the corridor, stretch by stretch by their cells, as its laying measures it
+    /// ([`Population::way_work`]) and the observer shows it.
+    pub(super) fn left_to_lay(way: &civ_land::ways::Way) -> f64 {
+        let from = f64::from(super::way_works::LAID_FROM_M);
+        let (left, whole) = way.segments.iter().fold((0.0, 0.0), |(l, w), s| {
+            let n = s.cells.len() as f64;
+            (
+                l + n * (f64::from(s.corridor_m) - f64::from(s.built_m)).max(0.0),
+                w + n * (f64::from(s.corridor_m) - from).max(0.0),
+            )
+        });
+        if whole > 0.0 {
+            (left / whole).clamp(0.0, 1.0)
+        } else {
+            0.0
+        }
+    }
+
     /// Whether cell `cell`'s centre lies within [`DOOR_LEG_M`] of `at`.
     fn by(ctx: &Ctx, cell: u32, at: (f32, f32)) -> bool {
         let c = cell_centre(ctx.map, cell as usize);
@@ -324,10 +343,11 @@ impl Population {
             return;
         }
         // A line nobody holds any more from the pit it digs most to beside its home (backlog D,
-        // eighteenth item): taken up, with what stands on it, rather than another laid beside
-        // it, and a wagon begun on it where none stands there.
+        // eighteenth item), laid whole or still being laid (backlog D: a line nobody is left to
+        // finish): taken up, with what stands on it, rather than another laid beside it, and a
+        // wagon begun on it where none stands there; the rest of its track is then its own to lay.
         if let Some((way, home_end, saves_h_year)) = self.nobodys_line(ctx, household, vehicle) {
-            self.take_up_line(ctx, household, way, home_end);
+            self.take_up_line(ctx, household, way, home_end, saves_h_year);
             if ctx.land.wagons.of(household).next().is_none() {
                 self.begin_wagon(ctx, household, vehicle, home_end, saves_h_year);
             }
@@ -790,13 +810,16 @@ impl Population {
 
     /// The line nobody holds any more that household `household` would take up for a wagon of
     /// vehicle `vehicle`, if any (backlog D, eighteenth item; research 08-09 §1.2: what nobody
-    /// holds any more is taken up): a line laid whole of the wagon's gauge whose every stretch
-    /// a household that is no more kept, running from beside the pit it digs most to beside its
-    /// home. It is weighed as a wagon on its polity's line is ([`Population::public_wagon`]): the
-    /// hours a year a wagon there would spare it over the wagon's life against the wagon's labour
-    /// and timber at its own cost, or nothing where a made wagon nobody holds stands at an end of
-    /// it. The first such line, in the order lines were begun: its id, its cell beside home and
-    /// the hours a year it would spare.
+    /// holds any more is taken up by first use, and a claim is made by the investment): a line
+    /// of the wagon's gauge whose every stretch a household that is no more kept, running from
+    /// beside the pit it digs most to beside its home, laid whole or still being laid. It is
+    /// weighed as a line of its own is ([`Population::line_reckoning`]), on what is left to do:
+    /// the hours a year a wagon on it would spare over the wagon's life against the labour and
+    /// timber of the track not yet laid (none on a line laid whole) and of the wagon, at its own
+    /// cost, the wagon's nothing where a made wagon nobody holds stands at an end of it; the
+    /// track already laid is no cost of its (08-09 §1.3's investment rule weighs what is still to
+    /// be spent). The first such line, in the order lines were begun: its id, its cell beside
+    /// home and the hours a year it would spare.
     fn nobodys_line(
         &self,
         ctx: &Ctx,
@@ -814,7 +837,7 @@ impl Population {
                 continue;
             };
             let keeper = way.segments.first().map(|s| s.keeper);
-            if !Self::laid_whole(way)
+            if way.modes & RAIL == 0
                 || !keeper.is_some_and(gone)
                 || way.segments.iter().any(|s| Some(s.keeper) != keeper)
                 || (def.gauge_m - f64::from(track.gauge_m)).abs() >= 1e-3
@@ -854,9 +877,18 @@ impl Population {
                     && (w.at == first || w.at == last)
                     && Self::wagon_of_gauge(ctx, w, track.gauge_m)
             });
-            let cost_h = if standing {
+            // What is left of its track to lay (backlog D: a line still being laid nobody is
+            // left to finish), and the wagon unless one stands there made.
+            let left = if Self::laid_whole(way) {
                 0.0
             } else {
+                Self::left_to_lay(way)
+            };
+            let (labour_h, timber_kg) = (
+                left * f64::from(track.labour_h) + if standing { 0.0 } else { def.labour_h },
+                left * f64::from(track.good_kg) + if standing { 0.0 } else { def.material_kg },
+            );
+            let cost_h = if timber_kg > 0.0 {
                 let Some(timber_h) = self
                     .own_costs_of(ctx, x)
                     .get(params.good)
@@ -865,7 +897,9 @@ impl Population {
                 else {
                     continue;
                 };
-                def.labour_h + def.material_kg * timber_h
+                labour_h + timber_kg * timber_h
+            } else {
+                labour_h
             };
             if saves_h_year * def.life_years > cost_h {
                 return Some((way.id, home_end, saves_h_year));
@@ -876,25 +910,34 @@ impl Population {
 
     /// Household `household` takes up line `way`, which nobody holds any more (backlog D,
     /// eighteenth item): it keeps every stretch, and the wagons and engines standing at its ends
-    /// whose household is no more, made or being made, are its own, with any run of theirs. It is
-    /// told in the chronicle, placed at `home_end`, its end beside the household's home.
+    /// whose household is no more, made or being made, are its own, with any run of theirs; each
+    /// wagon is reckoned to spare it `saves_h_year`, what its review found a wagon there would
+    /// (the reckoning of the household that made it was that household's, and a line still being
+    /// laid is weighed for its laying by its wagon's). It is told in the chronicle, placed at
+    /// `home_end`, its end beside the household's home.
     fn take_up_line(
         &mut self,
         ctx: &mut Ctx,
         household: PermanentId,
         way: PermanentId,
         home_end: u32,
+        saves_h_year: f64,
     ) {
         let cell_m = f64::from(ctx.map.cell_size_m);
         let land = &mut *ctx.land;
         let Some(w) = land.ways.list.iter_mut().find(|w| w.id == way) else {
             return;
         };
+        let was = w.segments.first().and_then(|s| match s.keeper {
+            Keeper::Household(g) => Some(g),
+            _ => None,
+        });
         for s in &mut w.segments {
             s.keeper = Keeper::Household(household);
         }
         let ends = w.ends();
         let length_m = cell_m * w.segments.iter().map(|s| s.cells.len()).sum::<usize>() as f64;
+        let laid = (!Self::laid_whole(w)).then(|| 1.0 - Self::left_to_lay(w));
         land.ways.changed();
         let taken: Vec<PermanentId> = match ends {
             Some((first, last)) => land
@@ -907,7 +950,22 @@ impl Population {
             None => Vec::new(),
         };
         Self::rail_vehicles_to(land, &taken, household);
-        self.tell_line_taken_up(ctx, household, &taken, length_m, home_end);
+        for v in land
+            .wagons
+            .list
+            .iter_mut()
+            .filter(|v| taken.contains(&v.id))
+        {
+            if ctx
+                .catalog
+                .vehicles
+                .get(usize::from(v.vehicle))
+                .is_some_and(crate::params::VehicleDef::is_wagon)
+            {
+                v.saves_h_year = saves_h_year as f32;
+            }
+        }
+        self.tell_line_taken_up(ctx, household, &taken, length_m, laid, home_end, was);
     }
 
     /// The chronicle's word that household `household` took up a line of track of `length_m`
@@ -915,14 +973,20 @@ impl Population {
     /// elder, the line's length, and what stood at its ends, wagons and engines, made or half
     /// made ("Runa's household took up a line of track nobody was left to keep, 140 m from a pit
     /// to its home, with a wagon and an engine, one half made, standing at its ends."); placed at
-    /// `home_end`, the line's end beside its home.
+    /// `home_end`, the line's end beside its home. Whose it had been (`was`, the household no
+    /// more) is said where it is kept (backlog D, twenty-third item). A line still being laid,
+    /// `laid` the share of it laid, is one nobody was left to finish, and says how much of it was
+    /// laid ("…, 140 m from a pit to its home, 40% laid, with nothing standing on it.").
+    #[allow(clippy::too_many_arguments)]
     fn tell_line_taken_up(
         &mut self,
         ctx: &Ctx,
         household: PermanentId,
         taken: &[PermanentId],
         length_m: f64,
+        laid: Option<f64>,
         home_end: u32,
+        was: Option<PermanentId>,
     ) {
         let (mut wagons, mut engines, mut half) = (0usize, 0usize, 0usize);
         for v in ctx
@@ -979,10 +1043,22 @@ impl Population {
             settlement,
             Some(at),
             total as f64,
-            format!(
-                "{who} took up a line of track nobody was left to keep, {length_m:.0} m from a \
-                 pit to its home, {stood}."
-            ),
+            {
+                let (left, laid) = match laid {
+                    Some(l) => ("finish", format!(", {:.0}% laid", (l * 100.0).floor())),
+                    None => ("keep", String::new()),
+                };
+                match was.map(|g| self.had_been(g)).unwrap_or_default() {
+                    had if had.is_empty() => format!(
+                        "{who} took up a line of track nobody was left to {left}, {length_m:.0} m \
+                         from a pit to its home{laid}, {stood}."
+                    ),
+                    had => format!(
+                        "{who} took up a line of track{had}, which nobody was left to {left}, \
+                         {length_m:.0} m from a pit to its home{laid}, {stood}."
+                    ),
+                }
+            },
         );
     }
 

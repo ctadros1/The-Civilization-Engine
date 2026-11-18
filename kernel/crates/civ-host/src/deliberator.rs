@@ -25,7 +25,8 @@ pub const KEY_VAR: &str = "TCE_LLM_KEY";
 pub const DEADLINE: Duration = Duration::from_secs(10);
 /// Requests sent in a real hour at most (ADR-0039 §3).
 pub const PER_HOUR: usize = 60;
-/// The longest reply read.
+/// The reply body's size limit: replies of up to 65,535 bytes are read, and one of 65,536 bytes
+/// or more is no answer (`ureq` refuses a body that reaches the limit).
 const REPLY_LIMIT: u64 = 64 * 1024;
 
 /// The fixed instruction (ADR-0039 §5): everything after it is data.
@@ -493,6 +494,150 @@ mod tests {
         assert!(HttpProvider::new("http://[::1]:8080/v1", "", key(), DEADLINE, 1).is_ok());
         assert!(HttpProvider::new("ftp://127.0.0.1/", "", None, DEADLINE, 1).is_err());
         assert!(!loopback("http://127.0.0.1.example.org/"));
+    }
+
+    /// The hourly budget is a window an hour wide, not a count by the clock's hour: a request
+    /// sent an hour ago or more no longer counts, one sent less than an hour ago still does, and
+    /// only the oldest are let go. The provider reads the clock itself, so the old requests are
+    /// set an hour back from now; where the clock cannot go back that far (on Windows an
+    /// `Instant` counts from boot, so on a machine up for less than an hour), those cases are
+    /// skipped and say so.
+    #[test]
+    fn the_hourly_budget_is_a_window_an_hour_wide() {
+        let req = request();
+        // A budget of none sends nothing.
+        let s = stub("1", Duration::ZERO);
+        let mut p = provider(&s.url, DEADLINE, 0);
+        assert_eq!(p.answer(&req), ModelAnswer::Unanswered);
+        assert_eq!(s.count.load(Ordering::SeqCst), 0);
+        let hour = Duration::from_secs(3600);
+        if Instant::now()
+            .checked_sub(hour + Duration::from_secs(120))
+            .is_none()
+        {
+            eprintln!(
+                "skipped the hourly window's cases: they set requests more than an hour back, \
+                 and this machine's clock cannot go back that far (up for less than an hour?)"
+            );
+            return;
+        }
+        let back = |d: Duration| Instant::now().checked_sub(d).expect("the clock goes back");
+        // One sent an hour ago: let go, so the budget of one is free.
+        let s = stub("1", Duration::ZERO);
+        let mut p = provider(&s.url, DEADLINE, 1);
+        p.limits.lock().expect("lock").sent.push_back(back(hour));
+        assert_eq!(p.answer(&req), ModelAnswer::Move(0));
+        assert_eq!(s.count.load(Ordering::SeqCst), 1);
+        let sent = p.limits.lock().expect("lock").sent.len();
+        assert_eq!(sent, 1, "the hour-old one let go, today's kept");
+        assert_eq!(p.answer(&req), ModelAnswer::Unanswered);
+        assert_eq!(s.count.load(Ordering::SeqCst), 1);
+        // One sent a second short of an hour ago: it still counts, and nothing is sent.
+        let s = stub("1", Duration::ZERO);
+        let mut p = provider(&s.url, DEADLINE, 1);
+        p.limits
+            .lock()
+            .expect("lock")
+            .sent
+            .push_back(back(hour - Duration::from_secs(1)));
+        assert_eq!(p.answer(&req), ModelAnswer::Unanswered);
+        assert_eq!(s.count.load(Ordering::SeqCst), 0);
+        // Of two, only the one an hour old is let go: a budget of two has room for one more.
+        let s = stub("1", Duration::ZERO);
+        let mut p = provider(&s.url, DEADLINE, 2);
+        {
+            let mut l = p.limits.lock().expect("lock");
+            l.sent.push_back(back(hour + Duration::from_secs(60)));
+            l.sent.push_back(back(Duration::from_secs(60)));
+        }
+        assert_eq!(p.answer(&req), ModelAnswer::Move(0));
+        assert_eq!(p.answer(&req), ModelAnswer::Unanswered);
+        assert_eq!(s.count.load(Ordering::SeqCst), 1);
+    }
+
+    /// One request in flight: a copy asking while another's request is out is unanswered at
+    /// once, sends nothing and spends none of the budget. A request that is sent spends it
+    /// whatever comes back: past the deadline or a reply naming no option.
+    #[test]
+    fn one_request_in_flight_and_a_sent_request_spends_the_budget_whatever_comes_back() {
+        let req = request();
+        let s = stub("1", Duration::from_millis(800));
+        let p = provider(&s.url, DEADLINE, 2);
+        let mut copy = p.clone();
+        let out = {
+            let (mut p, req) = (p.clone(), req.clone());
+            std::thread::spawn(move || p.answer(&req))
+        };
+        // Until the stub has the request, the one in flight is still being sent.
+        let t = Instant::now();
+        while s.count.load(Ordering::SeqCst) == 0 {
+            assert!(t.elapsed() < Duration::from_secs(5), "the request arrives");
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let t = Instant::now();
+        assert_eq!(copy.answer(&req), ModelAnswer::Unanswered);
+        assert!(t.elapsed() < Duration::from_millis(400), "it did not wait");
+        assert_eq!(out.join().expect("answered"), ModelAnswer::Move(0));
+        assert_eq!(s.count.load(Ordering::SeqCst), 1, "nothing more was sent");
+        // The one refused for the one in flight spent nothing: the second of two is still free.
+        assert_eq!(copy.answer(&req), ModelAnswer::Move(0));
+        assert_eq!(copy.answer(&req), ModelAnswer::Unanswered);
+        assert_eq!(s.count.load(Ordering::SeqCst), 2);
+        // Past the deadline, the request was sent and spent the budget of one.
+        let s = stub("1", Duration::from_millis(1500));
+        let mut p = provider(&s.url, Duration::from_millis(300), 1);
+        assert_eq!(p.answer(&req), ModelAnswer::Unanswered);
+        assert_eq!(p.answer(&req), ModelAnswer::Unanswered);
+        assert_eq!(s.count.load(Ordering::SeqCst), 1);
+        // A reply naming no option is refused, and spent it too.
+        let s = stub("two", Duration::ZERO);
+        let mut p = provider(&s.url, DEADLINE, 1);
+        assert_eq!(p.answer(&req), ModelAnswer::Refused);
+        assert_eq!(p.answer(&req), ModelAnswer::Unanswered);
+        assert_eq!(s.count.load(Ordering::SeqCst), 1);
+        // Nobody listening spends it as well.
+        let closed = {
+            let l = TcpListener::bind("127.0.0.1:0").expect("binds");
+            format!(
+                "http://{}/v1/chat/completions",
+                l.local_addr().expect("addr")
+            )
+        };
+        let mut p = provider(&closed, DEADLINE, 1);
+        assert_eq!(p.answer(&req), ModelAnswer::Unanswered);
+        assert_eq!(p.limits.lock().expect("lock").sent.len(), 1);
+    }
+
+    /// The reply's body is read while it is shorter than [`REPLY_LIMIT`]: a body one byte short of
+    /// it is read, and one of exactly that many is no answer (and spends the budget, as any sent
+    /// request does): the longest reply read is 64 KiB less one byte, as [`REPLY_LIMIT`] says.
+    #[test]
+    fn a_reply_longer_than_the_limit_is_no_answer() {
+        let req = request();
+        let body = |content: &str| {
+            serde_json::json!({
+                "choices": [{ "message": { "role": "assistant", "content": content } }]
+            })
+            .to_string()
+            .len()
+        };
+        let limit = usize::try_from(REPLY_LIMIT).expect("small");
+        let padded = |len: usize| -> &'static str {
+            let pad = len - body("1");
+            let content = format!("1{}", " ".repeat(pad));
+            assert_eq!(body(&content), len);
+            content.leak()
+        };
+        for (len, expected) in [
+            (limit - 1, ModelAnswer::Move(0)),
+            (limit, ModelAnswer::Unanswered),
+        ] {
+            let s = stub(padded(len), Duration::ZERO);
+            let mut p = provider(&s.url, DEADLINE, 1);
+            assert_eq!(p.answer(&req), expected, "a body of {len} bytes");
+            assert_eq!(s.count.load(Ordering::SeqCst), 1);
+            assert_eq!(p.limits.lock().expect("lock").sent.len(), 1);
+        }
     }
 
     struct LogWriter(Arc<Mutex<Vec<u8>>>);

@@ -486,6 +486,9 @@ struct FloodCell;
 struct MillInfo;
 struct MillInfoBuilder;
 
+struct TipInfo;
+struct TipInfoBuilder;
+
 struct Water;
 struct WaterBuilder;
 
@@ -19339,6 +19342,160 @@ inline ::flatbuffers::Offset<MillInfo> CreateMillInfoDirect(
       words__);
 }
 
+struct TipInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef TipInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_X = 6,
+    VT_Y = 8,
+    VT_W_M = 10,
+    VT_H_M = 12,
+    VT_COVERED = 14,
+    VT_TIPPED_KG = 16,
+    VT_OPEN_KG = 18,
+    VT_WORDS = 20
+  };
+  uint64_t id() const {
+    return GetField<uint64_t>(VT_ID, 0);
+  }
+  float x() const {
+    return GetField<float>(VT_X, 0.0f);
+  }
+  float y() const {
+    return GetField<float>(VT_Y, 0.0f);
+  }
+  float w_m() const {
+    return GetField<float>(VT_W_M, 0.0f);
+  }
+  float h_m() const {
+    return GetField<float>(VT_H_M, 0.0f);
+  }
+  bool covered() const {
+    return GetField<uint8_t>(VT_COVERED, 0) != 0;
+  }
+  float tipped_kg() const {
+    return GetField<float>(VT_TIPPED_KG, 0.0f);
+  }
+  float open_kg() const {
+    return GetField<float>(VT_OPEN_KG, 0.0f);
+  }
+  const ::flatbuffers::String *words() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_ID, 8) &&
+           VerifyField<float>(verifier, VT_X, 4) &&
+           VerifyField<float>(verifier, VT_Y, 4) &&
+           VerifyField<float>(verifier, VT_W_M, 4) &&
+           VerifyField<float>(verifier, VT_H_M, 4) &&
+           VerifyField<uint8_t>(verifier, VT_COVERED, 1) &&
+           VerifyField<float>(verifier, VT_TIPPED_KG, 4) &&
+           VerifyField<float>(verifier, VT_OPEN_KG, 4) &&
+           VerifyOffset(verifier, VT_WORDS) &&
+           verifier.VerifyString(words()) &&
+           verifier.EndTable();
+  }
+};
+
+struct TipInfoBuilder {
+  typedef TipInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint64_t id) {
+    fbb_.AddElement<uint64_t>(TipInfo::VT_ID, id, 0);
+  }
+  void add_x(float x) {
+    fbb_.AddElement<float>(TipInfo::VT_X, x, 0.0f);
+  }
+  void add_y(float y) {
+    fbb_.AddElement<float>(TipInfo::VT_Y, y, 0.0f);
+  }
+  void add_w_m(float w_m) {
+    fbb_.AddElement<float>(TipInfo::VT_W_M, w_m, 0.0f);
+  }
+  void add_h_m(float h_m) {
+    fbb_.AddElement<float>(TipInfo::VT_H_M, h_m, 0.0f);
+  }
+  void add_covered(bool covered) {
+    fbb_.AddElement<uint8_t>(TipInfo::VT_COVERED, static_cast<uint8_t>(covered), 0);
+  }
+  void add_tipped_kg(float tipped_kg) {
+    fbb_.AddElement<float>(TipInfo::VT_TIPPED_KG, tipped_kg, 0.0f);
+  }
+  void add_open_kg(float open_kg) {
+    fbb_.AddElement<float>(TipInfo::VT_OPEN_KG, open_kg, 0.0f);
+  }
+  void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
+    fbb_.AddOffset(TipInfo::VT_WORDS, words);
+  }
+  explicit TipInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<TipInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<TipInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<TipInfo> CreateTipInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    float x = 0.0f,
+    float y = 0.0f,
+    float w_m = 0.0f,
+    float h_m = 0.0f,
+    bool covered = false,
+    float tipped_kg = 0.0f,
+    float open_kg = 0.0f,
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0) {
+  TipInfoBuilder builder_(_fbb);
+  builder_.add_id(id);
+  builder_.add_words(words);
+  builder_.add_open_kg(open_kg);
+  builder_.add_tipped_kg(tipped_kg);
+  builder_.add_h_m(h_m);
+  builder_.add_w_m(w_m);
+  builder_.add_y(y);
+  builder_.add_x(x);
+  builder_.add_covered(covered);
+  return builder_.Finish();
+}
+
+struct TipInfo::Traits {
+  using type = TipInfo;
+  static auto constexpr Create = CreateTipInfo;
+};
+
+inline ::flatbuffers::Offset<TipInfo> CreateTipInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    float x = 0.0f,
+    float y = 0.0f,
+    float w_m = 0.0f,
+    float h_m = 0.0f,
+    bool covered = false,
+    float tipped_kg = 0.0f,
+    float open_kg = 0.0f,
+    const char *words = nullptr) {
+  auto words__ = words ? _fbb.CreateString(words) : 0;
+  return tce::wire::CreateTipInfo(
+      _fbb,
+      id,
+      x,
+      y,
+      w_m,
+      h_m,
+      covered,
+      tipped_kg,
+      open_kg,
+      words__);
+}
+
 struct Water FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef WaterBuilder Builder;
   struct Traits;
@@ -19349,7 +19506,8 @@ struct Water FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_FLOW = 10,
     VT_BANKS = 12,
     VT_FLOODED = 14,
-    VT_MILLS = 16
+    VT_MILLS = 16,
+    VT_TIPS = 18
   };
   uint64_t rev() const {
     return GetField<uint64_t>(VT_REV, 0);
@@ -19372,6 +19530,9 @@ struct Water FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MillInfo>> *mills() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MillInfo>> *>(VT_MILLS);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TipInfo>> *tips() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TipInfo>> *>(VT_TIPS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -19389,6 +19550,9 @@ struct Water FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_MILLS) &&
            verifier.VerifyVector(mills()) &&
            verifier.VerifyVectorOfTables(mills()) &&
+           VerifyOffset(verifier, VT_TIPS) &&
+           verifier.VerifyVector(tips()) &&
+           verifier.VerifyVectorOfTables(tips()) &&
            verifier.EndTable();
   }
 };
@@ -19418,6 +19582,9 @@ struct WaterBuilder {
   void add_mills(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MillInfo>>> mills) {
     fbb_.AddOffset(Water::VT_MILLS, mills);
   }
+  void add_tips(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TipInfo>>> tips) {
+    fbb_.AddOffset(Water::VT_TIPS, tips);
+  }
   explicit WaterBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -19437,9 +19604,11 @@ inline ::flatbuffers::Offset<Water> CreateWater(
     float flow = 0.0f,
     ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::BankDraw *>> banks = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::FloodCell *>> flooded = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MillInfo>>> mills = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MillInfo>>> mills = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TipInfo>>> tips = 0) {
   WaterBuilder builder_(_fbb);
   builder_.add_rev(rev);
+  builder_.add_tips(tips);
   builder_.add_mills(mills);
   builder_.add_flooded(flooded);
   builder_.add_banks(banks);
@@ -19462,12 +19631,14 @@ inline ::flatbuffers::Offset<Water> CreateWaterDirect(
     float flow = 0.0f,
     const std::vector<tce::wire::BankDraw> *banks = nullptr,
     const std::vector<tce::wire::FloodCell> *flooded = nullptr,
-    const std::vector<::flatbuffers::Offset<tce::wire::MillInfo>> *mills = nullptr) {
+    const std::vector<::flatbuffers::Offset<tce::wire::MillInfo>> *mills = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::TipInfo>> *tips = nullptr) {
   auto wells__ = wells ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::WellInfo>>(*wells) : 0;
   auto springs__ = springs ? _fbb.CreateVectorOfStructs<tce::wire::SpringInfo>(*springs) : 0;
   auto banks__ = banks ? _fbb.CreateVectorOfStructs<tce::wire::BankDraw>(*banks) : 0;
   auto flooded__ = flooded ? _fbb.CreateVectorOfStructs<tce::wire::FloodCell>(*flooded) : 0;
   auto mills__ = mills ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::MillInfo>>(*mills) : 0;
+  auto tips__ = tips ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::TipInfo>>(*tips) : 0;
   return tce::wire::CreateWater(
       _fbb,
       rev,
@@ -19476,7 +19647,8 @@ inline ::flatbuffers::Offset<Water> CreateWaterDirect(
       flow,
       banks__,
       flooded__,
-      mills__);
+      mills__,
+      tips__);
 }
 
 struct Earthworks FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

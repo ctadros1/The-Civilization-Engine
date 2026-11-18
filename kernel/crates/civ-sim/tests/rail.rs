@@ -831,6 +831,18 @@ fn laid_line(
     home: (f32, f32),
     seam: PermanentId,
 ) -> (PermanentId, u32, u32) {
+    part_laid_line(sim, household, home, seam, None)
+}
+
+/// As [`laid_line`], laid whole where `share` is `None`, else that share of its track's labour
+/// laid.
+fn part_laid_line(
+    sim: &mut Sim,
+    household: PermanentId,
+    home: (f32, f32),
+    seam: PermanentId,
+    share: Option<f64>,
+) -> (PermanentId, u32, u32) {
     for _ in 0..20 {
         let kg = sim.with_ctx_for_tests(|pop, ctx| {
             pop.dig_and_bring_for_tests(ctx, household, seam, 180.0)
@@ -864,9 +876,10 @@ fn laid_line(
         .and_then(|x| x.track.clone())
         .expect("its track");
     set_timber(sim, household, f64::from(need.good_kg) + 1.0);
-    sim.with_ctx_for_tests(|pop, ctx| {
-        pop.way_work_for_tests(ctx, household, id, f64::from(need.labour_h) + 1.0)
+    let hours = share.map_or(f64::from(need.labour_h) + 1.0, |s| {
+        s * f64::from(need.labour_h)
     });
+    sim.with_ctx_for_tests(|pop, ctx| pop.way_work_for_tests(ctx, household, id, hours));
     (id, pit_cell, home_cell)
 }
 
@@ -2332,4 +2345,247 @@ fn a_line_nobody_holds_taken_up_is_told_once_with_what_stood_on_it() {
     assert_eq!(line_taken_up_entries(&sim).len(), 1);
     saves_alike(&mut sim);
     assert_eq!(line_taken_up_entries(&sim).len(), 1);
+}
+
+/// A line taken up says whose it had been where the history keeps it (backlog D, twenty-third
+/// item): the household no more that kept it kept as someone's, the words name them.
+#[test]
+fn a_line_taken_up_says_whose_it_had_been() {
+    use civ_land::ways::Keeper;
+    let mut sim = village(3);
+    let household = first_household(&sim);
+    let home = sim.people().household(household).expect("household").home;
+    let seam = contour_seam(&mut sim, home);
+    let (line, pit_cell, _) = laid_line(&mut sim, household, home, seam);
+    let gone = sim.allocate_id_for_tests();
+    for w in &mut sim.land_mut_for_tests().ways.list {
+        for s in &mut w.segments {
+            s.keeper = Keeper::Household(gone);
+        }
+    }
+    let engine_v = engine_vehicle(&sim);
+    sim.with_ctx_for_tests(|_, ctx| {
+        civ_agents::population::Population::add_wagon_for_tests(ctx, gone, engine_v, pit_cell)
+    });
+    // Whose it had been: someone of another household.
+    let whose = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .find(|h| h.id != household && !h.members.is_empty())
+        .map(|h| h.members[0])
+        .expect("someone");
+    sim.with_ctx_for_tests(|pop, ctx| pop.note_gone_for_tests(ctx, gone, whose));
+    assert_eq!(sim.people().gone_households, vec![(gone, whose)]);
+    teach(&mut sim, household, "core:technique/wooden_railway");
+    set_timber(&mut sim, household, 1_000.0);
+    set_dig_days(&mut sim, household, seam, 52.0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_line_for_tests(ctx, household));
+    assert_eq!(keepers(&sim, line), vec![Keeper::Household(household)]);
+    let told = line_taken_up_entries(&sim);
+    assert_eq!(told.len(), 1);
+    let was = sim.people().name_of(whose);
+    assert!(
+        told[0].name.contains(&format!(
+            "took up a line of track that had been {was}'s household's, which nobody was left to \
+             keep, "
+        )),
+        "{}",
+        told[0].name
+    );
+    assert!(
+        told[0]
+            .name
+            .ends_with("with an engine, standing at its ends.")
+    );
+    // Nothing left in its name: a month forgets it.
+    sim.with_ctx_for_tests(|pop, ctx| pop.gone_households_month_for_tests(ctx));
+    assert!(sim.people().gone_households.is_empty());
+}
+
+/// A line still being laid that nobody is left to finish (backlog D; research 08-09 §1.2: what
+/// nobody holds is taken up by first use, and §1.3: an investment is weighed by what is still to
+/// be spent): a household that digs at its pit and lives by its end weighs taking it up as a line
+/// of its own is weighed, on what is left: the hours a wagon would spare over its life against
+/// the labour and timber of the track not yet laid (the made wagon nobody holds standing at its
+/// pit end costs nothing). Where that does not repay it, it is left; where it does, though a line
+/// laid afresh would not, it is taken up with the wagon, told as nobody left to finish it and
+/// how much was laid, the wagon reckoned at what it spares its new keeper; its laying is then the
+/// household's own way work, and once its track is whole its wagon brings the digging home.
+#[test]
+fn a_line_nobody_is_left_to_finish_is_taken_up_where_its_rest_repays_and_then_runs() {
+    use civ_land::ways::Keeper;
+    let mut sim = village(3);
+    let household = first_household(&sim);
+    let home = sim.people().household(household).expect("household").home;
+    let seam = contour_seam(&mut sim, home);
+    let (line, pit_cell, home_cell) = part_laid_line(&mut sim, household, home, seam, Some(0.6));
+    let gone = sim.allocate_id_for_tests();
+    for w in &mut sim.land_mut_for_tests().ways.list {
+        for s in &mut w.segments {
+            s.keeper = Keeper::Household(gone);
+        }
+    }
+    let way = |sim: &Sim| {
+        sim.land()
+            .ways
+            .list
+            .iter()
+            .find(|w| w.id == line)
+            .cloned()
+            .expect("the line")
+    };
+    let track = way(&sim).track.expect("its track");
+    let from = civ_agents::population::LAID_FROM_M;
+    let laid_share = |sim: &Sim| {
+        let w = way(sim);
+        let (done, whole) = w.segments.iter().fold((0.0, 0.0), |(d, a), s| {
+            let n = s.cells.len() as f64;
+            (
+                d + n * f64::from(s.built_m - from),
+                a + n * f64::from(s.corridor_m - from),
+            )
+        });
+        done / whole
+    };
+    let laid = laid_share(&sim);
+    assert!((laid - 0.6).abs() < 1e-3, "{laid}");
+    let wagon_v = wagon_vehicle(&sim);
+    let wagon = sim.with_ctx_for_tests(|_, ctx| {
+        civ_agents::population::Population::add_wagon_for_tests(ctx, gone, wagon_v, pit_cell)
+    });
+    teach(&mut sim, household, "core:technique/wooden_railway");
+    set_timber(&mut sim, household, 1_000.0);
+    // The household's reckoning of a line laid afresh, at a day a week: what a dig day spares,
+    // and its cost of timber.
+    let def = sim.rules().catalog.vehicles[wagon_v].clone();
+    let reckon = |sim: &mut Sim, days: f64| {
+        set_dig_days(sim, household, seam, days);
+        sim.with_ctx_for_tests(|pop, ctx| pop.line_reckoning_for_tests(ctx, household))
+            .expect("a line weighed")
+    };
+    let r = reckon(&mut sim, 52.0);
+    // The same cells; its bed graded for a pushed wagon, a little apart from the one laid.
+    assert_eq!(r.cells, way(&sim).segments[0].cells, "the same line");
+    let timber_h = (r.cost_h - f64::from(r.track.labour_h) - def.labour_h)
+        / (f64::from(r.track.good_kg) + def.material_kg);
+    assert!(timber_h > 0.0);
+    let left = 1.0 - laid;
+    let rest_h = left * (f64::from(track.labour_h) + f64::from(track.good_kg) * timber_h);
+    let afresh_h = r.cost_h;
+    let per_day = r.saves_h_year * def.life_years / 52.0;
+    assert!(rest_h < afresh_h);
+    // Too few dig days to repay the rest of its track: it is left.
+    let few = 0.5 * rest_h / per_day;
+    let r = reckon(&mut sim, few);
+    assert!(r.saves_h_year * def.life_years < rest_h, "{r:?}");
+    let rev = sim.land().ways.revision();
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_line_for_tests(ctx, household));
+    assert_eq!(keepers(&sim, line), vec![Keeper::Household(gone)]);
+    assert_eq!(rail_owner(&sim, wagon), gone);
+    assert_eq!(sim.land().ways.revision(), rev);
+    assert_eq!(
+        (sim.land().ways.list.len(), sim.land().wagons.list.len()),
+        (1, 1)
+    );
+    assert!(line_taken_up_entries(&sim).is_empty());
+    // Enough to repay the rest, though not a line laid afresh: it is taken up with its wagon.
+    let enough = 0.5 * (rest_h + afresh_h) / per_day;
+    let r = reckon(&mut sim, enough);
+    assert!(
+        r.saves_h_year * def.life_years > rest_h && r.saves_h_year * def.life_years < r.cost_h,
+        "{r:?}, rest {rest_h} h"
+    );
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_line_for_tests(ctx, household));
+    assert_eq!(keepers(&sim, line), vec![Keeper::Household(household)]);
+    assert_eq!(rail_owner(&sim, wagon), household);
+    assert_eq!(
+        (sim.land().ways.list.len(), sim.land().wagons.list.len()),
+        (1, 1),
+        "no other line or wagon"
+    );
+    assert!((timber_held(&sim, household) - 1_000.0).abs() < 1e-6);
+    assert!(
+        (laid_share(&sim) - laid).abs() < 1e-9,
+        "nothing laid by taking it"
+    );
+    let saves = sim
+        .land()
+        .wagons
+        .list
+        .iter()
+        .find(|w| w.id == wagon)
+        .map(|w| w.saves_h_year)
+        .expect("the wagon");
+    assert!(
+        (f64::from(saves) - r.saves_h_year).abs() < 1e-3 * r.saves_h_year,
+        "the wagon reckoned at what it spares its new keeper: {saves} against {}",
+        r.saves_h_year
+    );
+    let told = line_taken_up_entries(&sim);
+    assert_eq!(told.len(), 1);
+    assert!(
+        told[0].name.contains("nobody was left to finish")
+            && told[0]
+                .name
+                .contains("from a pit to its home, 60% laid, with a wagon"),
+        "{}",
+        told[0].name
+    );
+    // Its laying is now its own way work: what is left of the track, each hour sparing what its
+    // wagon is reckoned to spare over its life, spread over the track's labour.
+    let person = sim
+        .people()
+        .household(household)
+        .expect("household")
+        .members[0];
+    let facts = sim
+        .with_ctx_for_tests(|pop, ctx| pop.way_facts_for_tests(ctx, household, person))
+        .expect("way work");
+    assert_eq!(facts.way, line);
+    assert!(
+        (facts.left_h - left * f64::from(track.labour_h)).abs() < 1e-2,
+        "{facts:?}"
+    );
+    let per_hour = f64::from(saves) * def.life_years / f64::from(track.labour_h);
+    assert!(
+        (facts.saves_per_hour - per_hour).abs() < 1e-6 * per_hour,
+        "{facts:?}"
+    );
+    saves_alike(&mut sim);
+    // Before its track is whole, a session's digging comes home as one person carries it.
+    let carry = sim.rules().people.household.carry_kg;
+    let carried =
+        sim.with_ctx_for_tests(|pop, ctx| pop.dig_and_bring_for_tests(ctx, household, seam, 180.0));
+    assert!(
+        carried > 0.0 && carried <= carry + 1e-9,
+        "carried home: {carried}"
+    );
+    // It lays the rest with its own timber and hours, and then its wagon brings the digging home.
+    let rest_kg = left * f64::from(track.good_kg);
+    set_timber(&mut sim, household, rest_kg + 100.0);
+    sim.with_ctx_for_tests(|pop, ctx| {
+        pop.way_work_for_tests(ctx, household, line, facts.left_h + 1.0)
+    });
+    assert!(laid_share(&sim) > 1.0 - 1e-6, "{}", laid_share(&sim));
+    assert!(
+        (timber_held(&sim, household) - 100.0).abs() < 1.0,
+        "its timber for the rest: {} kg left",
+        timber_held(&sim, household)
+    );
+    let by_wagon =
+        sim.with_ctx_for_tests(|pop, ctx| pop.dig_and_bring_for_tests(ctx, household, seam, 180.0));
+    assert!(by_wagon > 2.0 * carry, "{by_wagon} against {carry} by hand");
+    let at = sim
+        .land()
+        .wagons
+        .list
+        .iter()
+        .find(|w| w.id == wagon)
+        .expect("the wagon")
+        .at;
+    assert_eq!(at, home_cell, "left at the home end");
+    assert!(within(&sim, home_cell, home, 40.0));
+    saves_alike(&mut sim);
 }

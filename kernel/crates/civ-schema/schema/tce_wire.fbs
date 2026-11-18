@@ -2149,6 +2149,22 @@ table MillInfo {
   words: string (id: 8);
 }
 
+// A tip's ground (wire 1.113, ADR-0038's amendment of 2026-11-18): the rectangle the land keeps
+// for it, metres from the map's north-west corner, whether all that was tipped there lies under
+// earth, the kilograms tipped and those lying open, and all of it in words.
+table TipInfo {
+  id: ulong (id: 0);
+  x: float (id: 1);
+  y: float (id: 2);
+  w_m: float (id: 3);
+  h_m: float (id: 4);
+  covered: bool (id: 5);
+  tipped_kg: float (id: 6);
+  open_kg: float (id: 7);
+  // "The tip north of the hearth holds 1.2 t, 300 kg of it ash, from 6 households; on 200 m²".
+  words: string (id: 8);
+}
+
 table Water {
   // The snapshot revision this is at.
   rev: ulong (id: 0);
@@ -2162,6 +2178,9 @@ table Water {
   flooded: [FloodCell] (id: 5);
   // Every water mill, its race dug or not (wire 1.97).
   mills: [MillInfo] (id: 6);
+  // Every tip's ground (wire 1.113); a tip opened before tips took ground has none and is not
+  // listed.
+  tips: [TipInfo] (id: 7);
 }
 
 // A tile of what earthworks have done to the ground, numbered row by row across the map. Its

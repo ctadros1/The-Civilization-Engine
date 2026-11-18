@@ -8940,7 +8940,8 @@ and M6a gives rivers a daily flow.
       show), a sewer rate paid by connected homes (it would need a channel), a polity choosing to
       abandon a sewer rather than mend it while its law stands, a chronicle entry for a collapse
       (done 2026-11-02, see backlog D, fifth item),
-      wear while a sewer is still being laid, new connections below a break while it is broken,
+      wear while a sewer is still being laid, new connections below a break while it is broken
+      (done 2026-11-18, see backlog D, twenty-first item),
       backlogs of mending a store cannot pay (12-08 §5.4), and the deferrals of the first three
       slices (rags, paper, glass and bones; picking others' heaps; the law's round sorting; a tip's
       access as a law's term; farm produce and workers' exposure; metals in farm soils; selling
@@ -9056,7 +9057,8 @@ and M6a gives rivers a daily flow.
       engines, its footbridges, the ways it keeps) (done 2026-11-02, see backlog D, fourth
       item). (Vehicles reaching an heir in another settlement, a cart pulled or a boat paddled
       there: done 2026-11-02, see backlog D, ninth item. A boat or cart nobody is left to take:
-      done 2026-11-03, see backlog D, eleventh item.)
+      done 2026-11-03, see backlog D, eleventh item. A household's line, wagons and trains
+      passing on: done 2026-11-04, see backlog D, eighteenth item.)
     - *Backlog D, fourth item (2026-11-02): the works a household that is no more kept on the
       land pass on* (the third item's "Not yet": its earthworks and engines, its footbridges, the
       ways it keeps). No new ADR. Where the household its people join lives in the same
@@ -9090,8 +9092,9 @@ and M6a gives rivers a daily flow.
       fmt and clippy clean. No existing assertion moved. **Not yet:** work begun and not
       finished passing with what the household weighed it by (its held wades and the hours its
       trips lost, which do not pass, as the places its people use do not), a household's line,
-      wagons and trains, its gas connection and current hookup (they stay in the gone
-      household's name, cut off once unpaid), and anything reaching an heir in another
+      wagons and trains (done 2026-11-04, see backlog D, eighteenth item), its gas connection
+      and current hookup (they stay in the gone household's name, cut off once unpaid; weighed
+      and left so in the eighteenth item), and anything reaching an heir in another
       settlement.
     - *Backlog D, fifth item (2026-11-02): a sewer's collapse and its mending told in the
       chronicle* (backlog C's "Not yet": a chronicle entry for a collapse; ADR-0044 §5). No new
@@ -9400,6 +9403,24 @@ and M6a gives rivers a daily flow.
       none failing); the ten smoke seeds pass; fmt and clippy clean. No existing assertion
       moved. **Not yet:** charred timber told as charred rather than rotted; the dashboard
       re-run.
+    - *Recurring red (2026-11-05): structural failures, the late calm rotted ones* (§9, "Help
+      with mending"). A household whose people may not mend its building (none of an age a build
+      activity admits, 12-65, or none who knows its technique) no longer plans its own repair:
+      it asks its people's close kin of its settlement, the nearest first, then the household of
+      its settlement whose elder its people regard best, that has someone who may do the work
+      and does not refuse it as it would refuse food; the helper weighs the asker's buildings
+      beside its own and mends them with its own materials, and the asker owes it the hours
+      (tie acts `helped_mend` 28 and `gave_mend` 29; content API 229; saves stay 220).
+      **Measured** on world 4's year-20 save lived to year 35 with a five-yearly census: without
+      the change three lone households past 65 left their huts unmended (hut 230 by year 31: thatch
+      0.47 lost, unmended 7.9 years, rafters 0.11; it fell in year 34, its rafters rotted to 0.29);
+      with it the same three huts were kept (230: thatch 0.01, mended 0.2 years before; 788: 0.10
+      against 0.25; 830: 0.03 against 0.18), and lived-in failures in years 21-35 were 0 against
+      1 (empty buildings' 10 against 12). **Tested:** mending (3 new; two fail without the
+      change), a content test, civ-agents unit tests, upkeep, roundtrip, determinism and twelve
+      other civ-sim targets, the civ-host lib tests, the ten smoke seeds. **Not yet:** the
+      dashboard re-run; help with building anew (an elder household's ruin) and with a building
+      under way.
     - *Backlog D, eleventh item (2026-11-03): a boat or cart nobody is left to take weathers,
       and is taken up by a household that would make one* (the third item's "Not yet": a boat or
       cart nobody is left to take, which stood until it wore out, and one being made, which stood
@@ -9844,6 +9865,596 @@ and M6a gives rivers a daily flow.
       assertion moved. **Not yet:** whether run 66's wrong years fell in such months or against
       a cheaper seller (its report cannot say; the next one shows what was carried while one
       offered none); a good carried once in fifty years is still judged.
+    - *Deliberation fix (2026-11-04): a law put in place of another of its kind is weighed
+      against it* (§9, "a law put in place of another of its kind is weighed against it"). The
+      review offers another forum, debts-heard rule, bearer rule, notes issue or mint in place of
+      the one in force, and each was forecast at nothing (`-held`, nothing outside founding), so
+      where its issue was open one was chosen by the review's draw and passed on regard alone.
+      **Fixed:** a replacement is forecast as what it would bring less what the law in force
+      brings, the same forecast for both; a forum case by case, each case a household was party
+      to within memory heard as the proposed forum would hear it, against what the forum in force
+      did with it (found, not found or left unheard); and what it does to what people hold dear,
+      over what that law does. **Tested:** forum (12, one new; it fails without the change), and
+      the review, polity, council, custom, faction, credit, metal, money, opinion, values,
+      roundtrip and determinism targets; the civ-agents unit tests (306); smoke; fmt and clippy
+      clean; the notables' gate passes locally (fixture 2's proposals +94 % against its 105 %,
+      nearer than before). **Not yet:** a petition for another holder of the same template still
+      counts the template's values in full; hearth talk weighs a template as if none of its kind
+      were in force; `seat_a_council`'s evenings forecast may be one-sided (§9, asked, not chased;
+      **chased**, the next line).
+    - *Deliberation fix (2026-11-04): a council is forecast to cost its sitters their evenings,
+      against the custom in force* (§9, of that name). An amendment of the custom to a council was
+      credited with the evenings of each of a household's people who came to a decision seen and
+      would not sit, never charged with those of the people who would sit, and credited for cases
+      a forum heard as though the council would spare those evenings too; so seating a council,
+      and seating another in place of one in force, looked to spare evenings whatever the council
+      would decide. **Fixed:** at each decision seen at a sitting of the custom's body, a household
+      is spared the evenings its people gave there less those the proposed council would ask of
+      them (each it expects would sit, every sitting; by lot the seats' share of the pool), in the
+      review's forecast and stakes and in a faction's program alike; a forum's cases spare no
+      evening of the custom's. **Tested:** council (5, one new; it fails without the change), and
+      the polity, custom, forum, review, faction, roundtrip and determinism targets; the
+      civ-agents unit tests (306); smoke; fmt and clippy clean; the notables' gate passes locally
+      (fixture 2's proposals +103.9 % against its 105 %, narrower than before; to be read on a
+      homelab long run). **Not yet:** a forum's own forecast still keeps the evenings its people
+      spent hearing cases without charging its hearers theirs; a council put back to a gathering
+      is forecast to ask nothing of those who did not sit (nobody knows who would come).
+    - *Backlog D, eighteenth item (2026-11-04): a household's line, wagons and trains pass on,
+      and a line nobody holds is taken up* (the third and fourth items' "Not yet": a household's
+      line, wagons and trains passing on; ADR-0034 §2, §3, §6; research 08-09 §1.2 and the
+      succession row of its table). No new ADR. **Passing** (`Population::lines_pass`, after the
+      boats and carts): where the household a gone household's people join lives in its
+      settlement, every line the gone household kept alone and laid whole (a way serving wagons,
+      with its track, every stretch as wide as it is to be) passes to it, as the ways it keeps
+      did in the fourth item, and so do its wagons and engines standing at an end of one, made
+      or being made (the work done kept), with any run they are on; the goods aboard already
+      passed as its loads in transit. A line still being laid stays the gone household's with
+      what stands on it, as a way being widened does (its work was weighed by the gone
+      household's pit and home). Its wagons and engines on a line the heir may run its own on (a
+      polity's line ending by its hearth) pass too. To an heir in another settlement nothing of
+      a line passes: a line is fixed, and a rail vehicle goes nowhere off its rails, so only a
+      made one standing at an end of a line the heir may run its own on would pass (the ninth
+      item's "a way would bring it", for rails). Each passing bumps the ways', wagons' and runs'
+      revisions. **A line home:** a household's review now counts as its own line only one it
+      keeps alone that ends beside its home (within the door leg), so an heir holding a line that
+      runs to the gone household's old home weighs a line home of its own as if it had none (a
+      household whose home moved away from its line now does too); the line it took stands, its
+      own, unused by it. **No heir:** a line nobody holds still stands, and a household that digs
+      most at the pit by one of its ends and lives beside the other takes it up at its line review
+      (`Population::nobodys_line`, after a line of its own and its polity's), with the wagons and
+      engines nobody holds at its ends and their runs, where a wagon there would spare it, over
+      the wagon's life, more than the wagon's labour and timber at its own cost, or anything at
+      all where a made wagon nobody holds stands on it; it begins a wagon where it then has none,
+      and lays no line of its own beside it. No content, schema, wire or web change; saves stay
+      220 and content API 228. **Tested:** rail (14, two new: in a world of two settlements, a
+      household's whole line from a pit to its home with a wagon and an engine at the pit, a
+      wagon being made (40 of 120 hours) at home, a second line marked out with a wagon at its
+      end, a load aboard and a train set off home; its people join a household of the
+      settlement whose home lies away from the line: the whole line, the wagon, engine, the
+      wagon being made with its work and place, the run and the load pass, the marked line and
+      its wagon stay, the three revisions change, and it saves and loads exactly; the heir,
+      digging often at a pit of its own, lays its own line home and begins its wagon there; its
+      people then join a household of the other settlement: only a wagon of its standing on that
+      household's own line passes, its lines and the rest stay, the ways' revision unchanged,
+      and it saves and loads exactly; and a line nobody holds, with a wagon and an engine at its
+      pit end: a household by its home end, not digging there, takes nothing; digging there a day
+      a week, which would not repay laying a line, it takes up the line, wagon and engine, begins
+      and lays nothing more and holds its timber, and its digging goes aboard for its train; it
+      saves and loads exactly; asked again nothing more is taken; both fail without the change,
+      and the first without the line-home rule), boats (8), carts (3), fetch (25), settlements (26),
+      roundtrip (110) and determinism (1), and the civ-agents unit tests (306); the whole suite
+      target by target was not run (left to the homelab chain); the ten smoke seeds pass; fmt
+      and clippy clean. No existing assertion moved (the
+      fourth item's test still sees its line, a way serving wagons with no track laid, stay).
+      **Not yet:** a gas connection and a current hookup (they light the home their household
+      lives in, one each, and the heir lives in its own: passing one would have the heir pay
+      for burners or current in a home nobody lives in, or hold two, so they stay in the gone
+      household's name and are cut off once unpaid, as before); a road line's motor cart passing
+      without its road line (the cart passes within the settlement, the posted runs stay the gone
+      operator's, and run from its door; done 2026-11-17, see backlog D, twentieth item); a line
+      still being laid, and the wagons on it, nobody is left to finish; a line taken up told in
+      the chronicle (done 2026-11-05, nineteenth item); and a lived world where a line
+      passes or is taken up.
+    - *Backlog C, ADR-0038 §6's covering (2026-11-05): a covered tip* (§9, "A covered tip";
+      research 12-10 §1.5, §2.4, §2.5, §5.4). No new ADR. A new policy kind `cover_tip` (content
+      API 230) with a `[cover]` table; the core's `zestfully_zone_a_covered_tip` answers
+      `source_suspected` and is proposed only where the polity keeps an open tip. **Passed,** what
+      lies open on the tip is asked covered at once and each heap or cart load tipped after as it
+      comes, at `cover_share` ÷ `loose_kg_m3` × `digging.h_per_m3` hours a kilogram (0.15 m³ of
+      earth to a cubic metre of loose refuse of 220 kg, at 8 hours a cubic metre: 5.5 hours a
+      tonne); the hours join the law's work at the tip (a `WaySite` whose work is the tip), an equal
+      share of each household, worked as a passing place's are (`cover_facts`, `cover_work`) and
+      paid where `pay_work` is in force. **Under earth:** a tip all of whose refuse is covered
+      (`Tip::covered`) washes nothing toward wells or banks in rain; it seeps as before (12-10
+      §1.5: leachate for decades). Without the law nothing changes but that a tip now records what
+      lies under earth (none). A household weighs the law by a tenth of its deaths of disease
+      within the year against its share of a year's covering at the rate refuse came; at passing
+      each household's reckoning of the hours an hour of covering spares it is kept as a passing
+      place's is. Saves 220 (unreleased) gain each tip's `covered_kg` (absent, none); the
+      services words add "all of it covered with earth" or "40 kg covered, 12 kg lying open".
+      Wire unchanged. **Tested:** tips (7, two new: an open tip beside a well above it washes into
+      it on a wet day, the same tip covered washes nothing and keeps all but its seepage, which
+      goes where the open one's goes, and one with a kilogram open washes as an open one; it fails
+      without the change; and without the law a heap tipped asks nothing, the law passed asks
+      what lies open at exactly 0.15 / 220 × 8 hours a kilogram, a later heap is asked as it
+      comes, a household's people may work it at the tip with what lies open left, half the hours
+      cover half of it and the rest all, given to the law, nothing left once covered, the next
+      heap opens it again, the forecast charges each household its share of a year's covering,
+      and it saves and loads exactly), content (82, two new), polity, rounds, salvage,
+      destructor, sewers, contagion, roundtrip and determinism, the civ-agents unit tests (306),
+      the civ-host lib tests; the ten smoke seeds pass; fmt, clippy and gen-schema --check clean.
+      No existing assertion moved (the content tests' lists of templates newer than theirs gain
+      the new id, as each new template's have). **Not yet:** compaction (it needs a roller or an
+      engine, no tool exists) and capacity (tips hold without limit); burning tips (smoke and fire
+      on a tip); covering asked by a household's or a firm's own tip (only polities keep tips);
+      a covered tip's lesser smell or flies (nothing models either); a lived world where a polity
+      covers its tip.
+    - *Backlog D, nineteenth item (2026-11-05): a line nobody held told in the chronicle when a
+      household takes it up* (the eighteenth item's "Not yet": a line taken up told in the
+      chronicle). No new ADR. **Told,** as the seventeenth item told a boat or cart taken up: the
+      chronicle tells every line a household finishes laying (`LineLaid`), and taking one up is
+      the other way a household comes to hold one. **The kind:** `ChronicleKind::LineTakenUp`
+      (appended, saved as code 73), the taking-up counterpart of `LineLaid`, rather than a
+      `TakenUp` subtype of `VehicleTakenUp` (a line is a way, not a vehicle); its `number` is how
+      many wagons and engines were taken up with it. **When:** at the taking up
+      (`Population::take_up_line`), once: the line is then the household's and no longer nobody's.
+      **Words:** the household's elder, the line's length (its cells at the cell's size, as
+      `LineLaid` measures), and what stood at its ends, wagons and engines with how many half made
+      ("Runa's household took up a line of track nobody was left to keep, 140 m from a pit to its
+      home, with a wagon and an engine, one half made, standing at its ends."; "…, with nothing
+      standing on it."); in the household's settlement, placed at the line's end beside its home.
+      No content, schema, wire or web change; saves stay 220 (unreleased: the code is appended).
+      **Tested:** rail (15, one new: a line nobody holds with a wagon half made (40 of 120 hours)
+      and an engine at its pit end; weighed while not digging there, nothing taken and nothing
+      told; digging there, it is taken up and told once, its elder, settlement, place at the
+      home end, number 2 and words exactly; weighed again nothing more is told; it saves and loads
+      with the entry; it fails without the change), boats (8), carts (3), roundtrip (110) and
+      determinism (1), the civ-agents and civ-sim unit tests (306 and 31), the civ-host lib tests
+      (82); the ten smoke seeds pass; fmt and clippy clean. No existing assertion moved. **Not
+      yet:** whose the line had been (the household that is no more) named in the words, as for
+      boats and carts; and a lived world where a line is taken up.
+    - *Backlog D, twentieth item (2026-11-17): a road line passes with its motor cart* (the
+      eighteenth item's "Not yet": a road line's motor cart passing without its road line; ADR-0036
+      §7; research 08-09 §1.2 and the succession row of its table). No new ADR. **Before:** a
+      household that is no more left its road line (its posted runs, M11b third part) in its
+      name: its motor cart passed to the household its people joined, but the runs stayed the
+      gone keeper's, from its door, reviewed by nobody (only living households weigh their runs)
+      and burning no fuel (the keeper's store was gone), so the line stood dead in the world's
+      record and the observer's words. **Now** (`Population::road_lines_pass`, after the rail
+      lines in the merge): where the motor cart passed to the heir (within the settlement, as
+      `vehicles_pass` passes one), the heir keeps no road line of its own, and the cart's way
+      runs from the heir's door to the line's far hearth, the line is the heir's: the same id,
+      its timetable, riders counted and the day they are counted from kept, its runs leaving from
+      the heir's door along that way timed afresh, the fare scaled to the run's new minutes (the
+      fuel a run burns is), set again by the heir's own cost at its next review. Otherwise it
+      runs no more. And each midnight, before the keepers' reviews, a road line whose keeper is
+      no more (passed to nobody: a household that ends with no heir, or one whose ending took no
+      merge) is taken off. Either bumps the runs' revision. No content, schema, wire or web
+      change; saves stay 220 (nothing new is saved). **Tested:** transit (2, one new: in a world
+      of two settlements, a keeper's road line with 2 runs a day and 17 riders counted; its people
+      join a neighbour of its settlement with no line: the cart is wheeled to the neighbour's door,
+      the line keeps its id, market, runs, riders and their day, leaves from the neighbour's
+      door, ends at the same hearth, is timed afresh with its fare scaled by the minutes exactly,
+      and the revision changes; that household's people join one of the other settlement, where a
+      motor cart does not go: the line runs no more; a keeper whose people all die: whatever line
+      stands goes with its cart to a living household; a line whose keeper is no more: it stands
+      until the midnight's weighing and is then taken off; each saves and loads exactly; it fails
+      without the change), carts (3), boats (8), rail (15), fetch (25), settlements (26),
+      roundtrip (110) and determinism (1), the civ-agents and civ-sim unit tests (306 and 31), the
+      civ-host lib tests (82); the ten smoke seeds pass; fmt and clippy clean. No existing
+      assertion moved. **Not yet:** a keeper that moves to another settlement whole (corrected
+      2026-11-18: a move makes a new household and takes the old, so its line is one whose keeper
+      is no more and ends at the next midnight, told since the twenty-second item as nobody left
+      to run it; its motor cart stays, nobody's, for whoever takes it up; neither goes with the
+      household that moved); a road line told in the chronicle when it
+      passes or ends (done 2026-11-18, twenty-second item); and a lived world where a keeper's household ends.
+    - *Backlog D, twenty-first item (2026-11-18): homes below a break connect while a sewer is
+      broken* (backlog C's fourth slice's "Not yet": new connections below a break while it is
+      broken; ADR-0044 §5). No new ADR. **Before:** a broken sewer took no new connection at all,
+      though the homes whose drains enter below the break still flow (the fourth slice: those
+      at or above it back up, those below are served). **Now** (`sewer_connect`): while it is
+      broken, a home beside it connects, by the same terms as before, only where its drain would
+      enter (the route cell nearest the outfall it lies beside) below the break, nearer the
+      outfall; those above wait for the mending, as before. No content, schema, wire or web
+      change; saves stay 220. **Tested:** sewers (18, one new: three homes on a whole sewer,
+      broken where the second's drain enters; the homes above and below the break not yet
+      connected: the one below connects and is served that day, the one above does not; it saves
+      and loads exactly; mended, the one above connects too; it fails with the old rule), tips,
+      contagion, roundtrip and determinism, the civ-agents and civ-sim unit tests, the civ-host lib
+      tests; the ten smoke seeds pass; fmt and clippy clean. No existing assertion moved.
+    - *Backlog D, twenty-second item (2026-11-18): a road line told in the chronicle when it is
+      posted, passes or ends* (the twentieth item's "Not yet": a road line told when it passes
+      or ends). No new ADR. **Told,** all three: nothing told a road line before, though a rail
+      line's opening is (`StationsOpened`), and a passing or an ending told without the posting
+      would tell of a line the chronicle never named. **The kind:** `ChronicleKind::RoadLine`
+      (appended, saved as code 74), its `number` the step (`RoadStep`: `Posted` 0, `Passed` 1,
+      `Ended` 2, append only), one kind as for a sewer's collapse and relining (`Sewer`).
+      **When:** at the posting (`review_road_line`), at a passing with its motor cart
+      (`road_lines_pass`), and at each ending: by its keeper at its review (nobody rode it in a
+      year, or its cart is gone), at a merge where nobody could run it, and at the midnight that
+      takes off a line whose keeper is no more. **Words:** the household's elder (the keeper, or
+      the heir that took it over), the market, its runs a day and, posted, its fare in food
+      ("Runa's household began running its motor cart from its door to Elmhollow and back, a run
+      a day, for 412 kcal of food a ride."; "…took over the motor cart's runs to Elmhollow with
+      the cart, a run a day from its door."; "…stopped running its motor cart to Elmhollow:
+      nobody rode it in a year." or "…: its cart was gone."; "The motor cart's runs to Elmhollow
+      stopped: nobody was left who could run them."), placed at the door its runs leave from, in
+      the household's settlement or, with none, the settlement whose hearth is nearest that door.
+      Its runs and fare changed at a yearly review are not told (a timetable's change, as a rail
+      line's is not). No content, schema, wire or web change; saves stay 220 (the code is
+      appended). **Tested:** transit (3, one new: posted, told once with its elder, settlement,
+      place and words exactly; passed to the heir, told at the heir's door; its people joining a
+      household of the other settlement, told as ended with nobody named; a line nobody rode in
+      a year ended by its keeper, saying so; posted again and ended once its cart is gone; a line
+      whose keeper is no more ended at midnight in the settlement nearest its door; five entries
+      in all, saved and loaded; it fails without the change), carts, roundtrip and determinism,
+      the civ-agents and civ-sim unit tests, the civ-host lib tests; the ten smoke seeds pass;
+      fmt and clippy clean. No existing assertion moved. **Not yet:** a lived world where a road
+      line is posted.
+    - *Backlog D, twenty-third item (2026-11-18): whose a boat, cart or line taken up had been*
+      (the seventeenth and nineteenth items' "Not yet": whose it had been, the household that is
+      no more, named in the words). No new ADR. **Kept:** `Population::gone_households`, saved
+      with the history (saves 220, unreleased: two fields appended to its table, `gone_households`
+      and `gone_whose`, absent in older saves): for each household that is no more and leaves a
+      boat, cart, wagon, engine or a stretch of way in its name, the person whose household it
+      was. **Who:** where it dissolves with nobody left, the last of it (the member whose death or
+      leaving emptied it, as `care_for_households` already knows); where its people join another
+      household, its elder when they went; where it moves to another settlement whole (a new
+      household), its elder, who goes with it. Only where something is left in its name; the
+      first record is kept, and each month a record with nothing left in its name is dropped.
+      **Said:** a boat or cart taken up ("…took up a handcart that had been Bo's household's,
+      which nobody was left to take, made and standing at its door.") and a line taken up ("…took
+      up a line of track that had been Bo's household's, which nobody was left to keep, …"), the
+      words as before where nothing is kept. No content, wire or web change; the save schema
+      gains the two fields (`tools/gen-schema.sh --check` clean). **Tested:** transit (4, one new:
+      in a world of two settlements, a household moving to the other with nothing in its name is
+      not kept; the keeper's household moving there leaves its handcart, standing at a
+      neighbour's door, in the old household's name, and the history keeps the elder who went
+      with it; saved and loaded exactly; the neighbour takes it up and is told whose it had been,
+      the words exactly; a month on, nothing left in its name, the record is dropped; it fails
+      without the change), rail (16, one new: a line kept as someone's is told as theirs, and
+      dropped once taken up), boats (8, its words without a record unchanged), carts, fetch,
+      settlements, people, regimes, knowledge, diffusion, weather, roundtrip and determinism, the
+      civ-agents and civ-sim unit tests, the civ-host lib tests; the ten smoke seeds pass; fmt,
+      clippy and gen-schema --check clean. No existing assertion moved. **Not yet:** a road line
+      ended for want of a keeper saying whose it had been (done 2026-11-18, twenty-fourth item); and a lived world where one is taken up.
+    - *Backlog D, twenty-fourth item (2026-11-18): a road line ended for want of a keeper says
+      whose it had been* (the twenty-third item's "Not yet"). No new ADR. Where a road line ends
+      because nobody is left who could run it (its keeper's people joined a household that could
+      not, or its keeper is no more at the midnight), and the history keeps whose its keeper's
+      household was, the words say so: "The motor cart's runs to Elmhollow, which had been Bo's
+      household's, stopped: nobody was left who could run them." Where nothing is kept they read
+      as before. **For the record to be there when the line ends:** in a merge, whose the
+      household was is now kept after its ways pass and before its road line passes or ends (its
+      ways passed first, so that the record is kept only where something is left); and a
+      household with nobody left that goes to an heir is kept as the last of it's before the
+      merge, then forgotten if nothing is left in its name. No content, schema, wire or web
+      change; saves stay 220. **Tested:** transit (5, one new: a keeper's household moving to the
+      other settlement leaves its line and cart in the old household's name; the history keeps its
+      elder; at the midnight the line is taken off and told whose it had been, the words exactly;
+      it fails without the change), the twenty-second item's test's merged-away ending now
+      expecting the heir's elder named (one existing assertion's expected words updated, as this
+      slice means) and a line with no record still told as before (an assertion added), boats,
+      carts, rail, fetch, settlements, people, regimes, roundtrip and determinism, the civ-agents
+      and civ-sim unit tests, the civ-host lib tests; the ten smoke seeds pass; fmt and clippy
+      clean.
+    - *Backlog D, twenty-fifth item (2026-11-18): a household that moves takes its boats and
+      carts* (the twentieth item's "Not yet", as corrected: a keeper that moves away leaves its
+      motor cart behind). No new ADR. **Before:** a household moving whole to another settlement
+      (giving up, fleeing, founding: a new household) left every boat and cart in the old
+      household's name where it stood, for anyone to take up. **Now** (`Population::vehicles_move`,
+      in `relocate_seeing` after its crops go with it): its made boats and carts that a way would
+      bring to its new home today go with it, as an heir's are brought home
+      ([`Population::way_home`], the ninth item): a boat paddled to the bank nearest its new home
+      where the water carries it, a cart pulled empty to its new door, and a motor cart driven
+      there along the quickest way for its wheels where the household holds the fuel the trip
+      burns, which it burns (M11b: a household without a trip's fuel cannot take it). One being
+      made, one no way would bring and a wagon on its rails stay, in the old household's name, as
+      before. No weighing changes: whether to move is weighed as before, and what goes is decided
+      by the ways alone. No content, schema, wire or web change; saves stay 220. **Tested:**
+      transit (6, one new: with a motor cart (in the test's content able to climb any grade), a
+      handcart and one being made at the old door, the motor cart stays while the household holds
+      too little coal for the trip and with coal is driven to its new door, burning coal; the
+      handcart goes whole or not at all; the one being made stays; nothing goes twice; it saves
+      and loads exactly; and moving itself takes a keeper's motor cart to its new door, nothing
+      left in the old name; it fails without the change), the twenty-fourth item's test now
+      holding no coal before its keeper moves so that the cart stays as that test means (a setup
+      line added, no assertion moved), boats, carts, rail, fetch, settlements, people, regimes,
+      roundtrip and determinism, the civ-agents and civ-sim unit tests, the civ-host lib tests;
+      the ten smoke seeds pass; fmt and clippy clean. **Not yet:** a moved household's road line
+      reposted from its new door (its keeper weighs posting at its review, as any keeper does);
+      the hours of bringing them, which moving does not count for its goods either.
+    - *Covered tip, end to end (2026-11-18; backlog C's covering, its "Not yet": a review
+      proposing it and a gathering passing it untested).* A test only; no code changed. In a
+      village whose polity keeps an open tip under the law carrying refuse there, cholera brought
+      in killed one of its people within 90 days; its people were given a suspicion of the water
+      at a source (none came of the one death in that time by itself). A review with every adult
+      deliberating then put **clearing middens** first, on the same suspicion; once that was taken
+      as in force, the next review put the **covered tip** before the gathering, on
+      `source_suspected`; and the gathering, sitting as people came to it over the next days,
+      **passed** it (5 eligible, 4 present, 3 for, 1 against). Passing named the open tip as the
+      covering's site and asked exactly the hours of all refuse tipped there (`cover_passed`);
+      the world saves and loads exactly. **Found:** the law can be proposed and passed as built;
+      no fault. Recorded, not changed: a covered tip comes after clearing middens wherever both
+      are open (the review's forecasts rank them so), and in this scene one death did not raise a
+      suspicion by itself. **Tested:** tips (8, one new); the ten smoke seeds pass; fmt and clippy
+      clean.
+    - *Backlog D, twenty-sixth item (2026-11-18): a keeper that moves reposts its runs from its
+      new door* (the twenty-fifth item's "Not yet"). A test only; no code changed: the posting
+      rule already covers it. Its motor cart goes with it (the twenty-fifth item); its old line,
+      whose keeper is no more, is taken off at the next midnight (the twentieth item); at its own
+      review the new household, keeping that cart and no line, posts nothing while its new
+      settlement's people run too few errands to another, and once they run a dozen a year to the
+      settlement it left posts its runs there from its new door, told as posted in its new
+      settlement (`review_road_line`, unchanged: no weight or threshold moved). **Tested:**
+      transit (7, one new; it fails without the twenty-fifth item, the cart not coming).
+    - *Backlog E, coverage (2026-11-18): three recent behaviours with no test pinned down.* Tests
+      only; no code changed and no fault found. Each "Tested:" list of the M11 transit, refuse and
+      sewer slices was read against the code; three paths no test exercised: (1) a refuse round's
+      load at a tip a law covers is asked covered as it comes, as a household's heap is (rounds,
+      `a_rounds_load_at_a_covered_tip_is_asked_covered`: the covering's work grows by exactly the
+      run's tipped kilograms at the law's hours a kilogram; it fails with the asking removed);
+      (2) a road line keeper's yearly review setting its runs a day and fare by the rides taken
+      (M11b third part's "A year on it sets its runs a day … and its fare by them", whose test
+      checked only that it saved): a run and a half's riders take two runs at a run's fuel over
+      the riders a run carries, more than four runs' riders take four, a few riders one run at
+      the whole run's fuel, and it counts afresh from that day (transit,
+      `a_keepers_review_sets_its_runs_and_fare_by_the_rides_taken`); (3) a sewer connection's
+      days unserved count each day once however often it is reckoned and afresh each calendar
+      year, lived across a real year's end while broken (sewers,
+      `a_connections_days_unserved_count_each_day_once_and_afresh_each_year`). Noted, not a
+      fault: the reset reads a connection's last day only when it is a day of the world (0 or
+      later), so a day set before the world began is taken as never, which no lived world makes.
+      **Tested:** rounds (5), sewers (19), transit (8); fmt and clippy clean; the code is that of
+      the smoke run of the twenty-fifth item.
+    - *Backlog E, coverage, second pass (2026-11-18): the destructor, the gasworks and the
+      viewers' roles.* Tests only; no code changed and no fault found. **The destructor**
+      (`refuse_draws`): a keeper draws an evening's refuse for each whole destructor it holds
+      (one and a half draw one evening's, two draw two), and nothing once the law that keeps its
+      tip open has ended though the tip still holds refuse (destructor,
+      `refuse_is_drawn_for_whole_destructors_only_and_not_once_the_tip_s_law_has_ended`). A first
+      draft found the two engines drawing only what was left of a 1,000 kg tip: the tip ran out,
+      not a fault. **The gasworks:** its connecting, metering, cutting off and restoring, mains
+      and their laying were all pinned by the M10b tests; the one branch none reaches is a home
+      weighing gas light against a lamp it holds whole. A probe found that in the test's world a
+      household puts no figure on tallow, so its lamp's hour has no cost and the lamp is not
+      weighed (it weighs gas against an hour of its work, as without one): pinning the branch
+      needs a household that prices its lamp's fuel, left for a later pass. **The viewers' roles**
+      (ADR-0039 §6): a viewer on the network handed the driving keeps it while viewers on this
+      machine come and go; when it leaves with none on this machine left, nobody drives and
+      another on the network does not take over, the viewers' payload naming the driver 0 and
+      everyone a spectator; the next from this machine to come drives (civ-host's server unit
+      tests, `a_network_driver_leaving_with_none_local_left_leaves_nobody_driving`). **Tested:**
+      destructor (6), gas (9), the civ-host lib tests (83), the civ-agents and civ-sim unit
+      tests; the ten smoke seeds pass; fmt and clippy clean.
+    - *Backlog E, coverage, third pass (2026-11-18): the gas lamp, the telegraph and wires, the
+      timetable.* Tests only; no code changed and no fault found. **Gas light against a lamp held
+      whole** (the branch the second pass left): the M10b connecting test now teaches its
+      consumer `lamps`, so that it prices tallow by rendering meat (10.9 of its hours a
+      kilogram), and gives it a fat lamp: an hour of the lamp's tallow costs it less than an hour
+      of a burner's gas at the meter, and it does not connect; without the lamp it connects as
+      before (gas, steps added before the existing ones, none moved). **The telegraph office's
+      slots:** one message every sixty over its messages an hour minutes (ten), after the last in
+      its queue, within 08:00 to 20:00: two handed in at nine go at ten and twenty past; one
+      handed in at a minute to eight in the evening goes at ten past eight the next morning; one
+      whose office has lost its instrument is not sent (telegraph,
+      `an_operator_sends_one_message_a_slot_within_the_office_hours`). **A broken line of
+      current** (nothing breaks one in a world yet; a line not yet whole was the only "down" the
+      dispatch tests had): a whole line marked broken takes down every hookup on it and beyond,
+      one on another branch is served, and mended all are (civ-land's wire unit tests,
+      `a_broken_line_takes_down_the_hookups_beyond_it_and_no_others`); a broken telegraph wire
+      losing its telegram was already pinned. **The timetable** trains and road lines share
+      (`departures`): first at six, a day's runs spread evenly over the twelve hours from then,
+      at least one and at most four; a road line's runs back leave the far hearth a run's
+      minutes, rounded up, and a fifteen-minute turn after each run out (transit,
+      `the_timetable_spreads_a_days_runs_over_twelve_hours_from_six`); a rail line's runs a day
+      set by its freight at one and four, and its fare, were already pinned. **Tested:** gas (9),
+      telegraph (16), transit (9), wires (8), rail (16), civ-land's unit tests, the civ-agents and
+      civ-sim unit tests, the civ-host lib tests; the ten smoke seeds pass; fmt and clippy clean.
+    - *Backlog E, coverage, fourth pass (2026-11-18): the water mill and the workshop.* Tests
+      only; no code changed and no fault found. **A mill weighed on a year read between counts**
+      (M10a slice DR, third part): a count fewer than 180 days back is only taken anew (its day
+      and kilograms made now) and sets no mill; one a year back with nothing ground since sets
+      none; one a year back with 600 kg ground sets one where a site serves; owning one, it sets
+      no second however much it grinds (mills,
+      `a_mill_is_weighed_on_a_year_read_between_counts_and_one_household_sets_one`). **A
+      neighbour's mill to grind at** (slice DR, fourth part): seen only while its owner holds a
+      wheel for it (none with the wheel gone, again once it is back), and only by a household
+      with grain to grind (mills, `a_neighbours_mill_is_seen_only_with_its_wheel_and_by_one_with_grain`).
+      **A workshop passing with its owners' household** (`pass_firms`, which no test reached): its
+      owners' people joining another household, it stays open with its stores and its kiln
+      station, the other household's from that day (firms,
+      `a_workshop_passes_to_the_household_its_owners_people_join`). The quern's ways (hand
+      grinding, the rotary quern) were already pinned: `make.rs`'s unit tests grind by a quern,
+      and the deposits, knowledge, diffusion and people tests want, learn and use one. **Tested:** mills
+      (4), firms (7), the civ-agents and civ-sim unit tests, the civ-host lib tests; the ten smoke
+      seeds pass; fmt and clippy clean.
+    - *Backlog E, coverage, fifth pass (2026-11-18): a workshop with no heir, the market's
+      prices, a household-resolved night.* Tests only; no code changed and no fault found. **A
+      workshop whose owners end with no heir** (`pass_firms` with nobody to take it, left noted by
+      the fourth pass): reached without a hook in a world where a founders' household has no
+      living kin elsewhere (their parents and children, a few steps out, all within it); its
+      people die, the youngest first so none is fostered, the household is no more and the
+      workshop is closed as its owner gone (firms,
+      `a_workshop_whose_owners_end_with_no_heir_closes_as_its_owner_gone`). **The market's
+      prices and money** (`Market`, ADR-0006 §4): a good's price is what a unit fetched in the
+      latest month it sold, in its sellers' hours, none before it sold; demand of nothing or at no
+      finite worth is not recorded; of two payments settling equal shares, the one first in the
+      catalogue is the money (civ-agents' market unit tests,
+      `a_price_is_the_latest_months_and_ties_go_to_the_first_good`). The terms a seller posts
+      (`post_terms`: what it takes in payment, in what order, how much a unit) are reached only
+      through a household's review, with no hook to call them alone; they stay pinned as the
+      firms and market scenes pin them, and their own order is left for a pass that can set one
+      up. **A household-resolved night** (M9a, ADR-0032 §2): from two hours after sunset to
+      sunrise, cut to the content's longest sleep in winter, raised to its shortest in summer,
+      kept whole between, and turning in at midnight when sunset is late enough that two hours
+      on would pass it (civ-agents' resolution unit tests,
+      `a_household_resolved_night_runs_from_two_hours_after_sunset_to_sunrise_in_range`). The
+      rest of the household-resolved day (parking, its shares, its learning, its focus and skip)
+      was already pinned by the resolution tests. **Tested:** firms (8), the civ-agents unit tests
+      (308), the civ-sim unit tests, the civ-host lib tests; the ten smoke seeds pass; fmt and
+      clippy clean.
+    - *Backlog E, coverage, sixth pass (2026-11-18): the common store's lending.* A test only;
+      no code changed and no fault found. The store's loans were already pinned asked, granted
+      and repaid into the store (slice CC's test), refused by a lender that believes the loan
+      lost, defaulted, heard under debts heard, given time and told both ways, its word the
+      keeper's and none where nobody keeps the store (the credit tests). Two of its terms no test
+      reached: the store lends no more than the law's share of its food however much the
+      borrower asks (of 10 kg of grain, a quarter, 2.5 kg, owed with the law's tenth, 7.5 left),
+      and a household none of whose people knows the law borrows not from the store, which keeps
+      all it holds (credit, `the_store_lends_its_laws_share_and_only_to_those_who_know_the_law`).
+      A first draft read 2.47 kg lent: the store, under no roof, had spoiled since it was last
+      brought up to date, and the share is of what it holds once settled, as built; the test now
+      brings it up to date first. **The posted terms' payment order** stays unpinned: a scene
+      would have to set a seller's wants, which its holding works out from its stores, needs and
+      tools each review, so that no setting of stores alone fixes the order of more than one
+      payment good without the review's own reckoning in the test; left for a pass that can
+      afford that scene. **Tested:** credit (24), the civ-agents and civ-sim unit tests, the
+      civ-host lib tests; the ten smoke seeds pass; fmt and clippy clean.
+    - *Backlog C, ADR-0038 §6's deferrals, a first half (2026-11-18): a tip takes ground*
+      (ADR-0038's amendment of 2026-11-18). **Before:** a tip was a polity's record with a place;
+      nothing kept its ground, so a home, field, plot or pit could be laid where refuse lay.
+      **Now:** opening a tip gives it a footprint the land keeps (`Land::tips`, `TipGround`: its
+      id and rectangle), a square about its place of `TIP_M2_PER_PERSON` (2 m²) for each person
+      of the settlement opening it (research 12-10 §2.5: a hectare for a town of 5,000; a village
+      of 100 takes 200 m², about 14 m a side); the tip is sited only where that footprint is
+      clear ground (`tip_site`, which checked one cell before); and `plot_clear` (homes and
+      other buildings, plans, wells, banks), new fields (`farm::find_site`), pits and their
+      heaps, and ditches all keep off it, as off a well. A tip opened in a world saved before keeps
+      no ground: nothing standing where it lies is moved or refused afterwards (saves are
+      unreleased, and refusal not repair). No capacity, filling or `tip_full` issue; no law,
+      forecast, content, wire or web change. Saves stay 220: the land section's table gains its
+      tips' ground (absent while none, so a world with no tip saves byte for byte as before);
+      `tools/gen-schema.sh --check` clean. **Tested:** tips (10, two new: passing the law opens a
+      tip whose ground is the land's, a square about its place of two square metres a person,
+      on which a plot is refused though the same ground without the tip is clear, saved and loaded
+      exactly; and a household's home, where a tip's ground is laid over the site it would have
+      chosen, is sited off it; both fail without the change), the first tips test now asking
+      where the tip would open before it opens (its own ground is taken once open; the same
+      assertion, asked at the right time), rounds, destructor, salvage, homes, deposits, wells,
+      roundtrip and determinism, civ-land's unit tests (one new), the civ-agents and civ-sim unit
+      tests, the civ-host lib tests; the ten smoke seeds pass; fmt, clippy and gen-schema --check
+      clean. **The smoke worlds' layouts did not move:** a probe (not kept) found no law passed
+      and no tip opened in any of the ten in their 30 days, so nothing in them keeps off a tip's
+      ground; in longer lives, homes, fields and pits that would have stood where a tip opens
+      now stand off it, and a tip opens where its whole footprint is clear, an expected change.
+      **Not yet:** capacity (a tip's ground filling, and what a full tip does); burning tips; the
+      observer drawing a tip's ground (done 2026-11-18, the next entry).
+    - *The observer draws a tip's ground (2026-11-18; wire 1.113).* **Kernel:** the water frame
+      (`GetWater`) lists each tip that took ground (`TipInfo`, appended to `Water` as field 7):
+      its rectangle's centre and size in metres, whether all that was tipped there lies under
+      earth, the kilograms tipped and lying open, and its words, the services' tip line with its
+      ground ("The tip north of the hearth holds 1.2 t, 300 kg of it ash, from 6 households; on
+      200 m²", `tip_line`, now one function both share); its revision moves when a tip opens, is
+      tipped on or covered. A tip opened before tips took ground has none and is not listed.
+      **Web:** the water layer draws each tip's ground under its wells, springs and mills as a
+      faint square with a pixel's edge, earth-brown, stronger while refuse lies open on it than
+      once it is covered (`tipLook`); the pointer on it shows its words in the readout, as a
+      mill's are (`tipAt`, the smallest of two that overlap). Wire 1.113: `WIRE_SCHEMA_MINOR`,
+      its test string and the web's envelope minor; the Unreal client's BuildingAssembler names
+      1.112 as the least wire for building parts, which stays true, so it is not changed. No save,
+      content or law change. **Tested:** tips (11, one new: the water frame lists the opened tip's
+      ground, its centre and size, nothing tipped and not covered, its words ending "; on N m²";
+      a heap tipped there moves the revision and shows what lies open; all of it under earth,
+      shown covered, "all of it covered with earth"), mills, wells, roundtrip and determinism,
+      civ-schema's tests, the civ-agents, civ-land and civ-sim unit tests, the civ-host lib tests;
+      the ten smoke seeds pass; fmt, clippy and gen-schema --check clean. Web: `npm run build`,
+      `npm test` (223, two new: a tip found anywhere on its rectangle and the smaller of two, and
+      drawn stronger open than covered; the water decode test now with a tip). `npm run test:e2e`
+      not run: no Playwright browsers in this container.
+    - *Backlog E, coverage, seventh pass (2026-11-18): the model deliberator's budget, and the
+      offices' and forums' terms.* Tests only; no code changed, by the coordinator's order, even
+      where a fault was found (two are reported, below, for the owner's decision). **The model
+      deliberator** (M12a) had the deadline, a spent hourly budget, copies sharing it and nobody
+      listening pinned; now also (civ-host's deliberator tests, three new): the hourly budget is
+      a window an hour wide, a request sent an hour or more ago no longer counting, one a second
+      short of an hour still counting, only the oldest let go, and a budget of none sending
+      nothing; a copy asking while another's request is in flight is unanswered at once, sends
+      nothing and spends none of the budget; a request that is sent spends it whatever comes
+      back (past the deadline, a reply naming no option, nobody listening); and the reply limit:
+      a body of 65,535 bytes is read and one of 65,536 is no answer. **Found:** `REPLY_LIMIT` is
+      documented as the longest reply read (64 KiB), but `ureq`'s limit refuses a body of exactly
+      that many bytes, so the longest read is 64 KiB less one; harmless (a reply is one number),
+      pinned as built, and the comment now says so (a comment only; no behaviour changed). The
+      provider reads the clock itself, so the window's cases set requests an hour back from now;
+      on a clock that cannot go back that far (Windows counts an `Instant` from boot) they are
+      skipped with a message, the budget of none still checked. **Offices and forums held for a term** (M7a slice BN, backlog D's eighth
+      and thirteenth items) had the lot's draw from those who stood, the watch excluded, the
+      last holder barred, nobody to draw, a term's end told, a waiting case and a petition
+      pinned; now also (polity, two new; forum, one new): an office the gathering names for a
+      year keeps the one named whoever stood for it, draws and tells no lot, counts nobody in,
+      runs 360 days from the day it passed, is in force on the day before its end and lapses at
+      the midnight its end day begins, told as their term ending; a template with no tenure holds
+      no term; a lot counts in and draws only those who stood who are still anyone (of three who
+      stood, one no longer in the world, the pool is two in eight draws of eight); where the office
+      asks a technique (the register, given a tenure by lot in the test), only one who knows it
+      is counted in, and with none the law lapses; and a hearer by lot passed with nobody who
+      stood for it lapses, holding nobody and no term, told "Nobody put their name in for the
+      office of hearer by lot at …: the lot drew no one.", a case brought then waiting for the
+      gathering. **Found:** the bar on the last holder of a template that does not renew holds
+      only once their term has ended (`term_barred` reads `until <= day`); while it runs, a second
+      lot under the same template, as a petition for another holder would be, may draw the one
+      holding it again: with them and one other standing, 3 draws of 8 fell to the sitting
+      holder, and 0 of 8 once their term had ended. Its reach is small (a petition's lot draws
+      from those who stood for it, and the one it would replace seldom does), and it is pinned as
+      built for the owner to decide. **Tested:** the civ-host lib tests (with the deliberator's
+      seven), polity, forum, council and faction, the civ-agents unit tests; the ten smoke seeds
+      pass; fmt and clippy clean. No existing assertion moved.
+    - *Backlog E, coverage, eighth pass (2026-11-18): how an office held for a term ends
+      otherwise.* Tests only; no code changed, and no fault found. The seventh pass's three
+      untested paths, now pinned (polity, three new): a holder who goes before their term ends
+      is told how they went, never that their term ended, even when they go the day before its
+      end so that both fall at the same midnight: "they died", "they left the valley" (exiled
+      beyond the map) and "they no longer live there" (their household gone from the
+      settlement), one lapse told each time, and a holder who dies with 360 days to run is told
+      the same; a plan's keeper whose term ends lets go of it as one who died or left does, the
+      plan staying in force with nobody to give its parcels, nothing told then or the day after,
+      its term still recorded (the content gives no plan a tenure, since `tenure` is for an
+      office keeping the store or the watch or hearing cases, so a term reaches a plan only as a
+      test sets one: the path is unreachable from content as built); and a store whose keeper's
+      term ends is brought up to date at that midnight, its food having spoiled at the keeper's
+      roof's rate until then (of grain set at the term's eve, what the roofed half-life gives to
+      within 1e-9 kg, above what the open one would), and at the open rate after. The last fails
+      with the settling taken out (checked by hand and put back: the store is then left last
+      brought up to date two days before). **Tested:** polity (13), the civ-agents unit tests,
+      the civ-host lib tests; the ten smoke seeds pass; fmt and clippy clean. No existing
+      assertion moved.
+    - *Backlog D, twenty-seventh item (2026-11-18): a line still being laid that nobody is left
+      to finish is taken up* (the eighteenth item's "Not yet"; research 08-09 §1.2: a claim is
+      made by occupation and investment, and what nobody holds is taken up by first use; §1.3:
+      an investment is weighed by what is still to be spent). No new ADR; a household's own
+      weighing, not a polity's. **The rule** (`Population::nobodys_line`): a line nobody holds
+      any more (every stretch kept by a household that is no more) is weighed by a household
+      that digs most at the pit by one end and lives by the other whether it is laid whole or
+      still being laid, as a line of its own is weighed, on what is left: the hours a year a
+      wagon on it would spare over the wagon's life against the labour and timber of the track
+      not yet laid (its share of the whole, as its laying and the observer measure it: none on a
+      line laid whole) and of the wagon (nothing where a made wagon nobody holds stands at an
+      end), at the household's own cost of timber. The track already laid costs it nothing.
+      Taken up, the line and what stands at its ends are its own as before; the rest of its
+      track is then its own way work, laid by its hours and timber as a line it marked out
+      itself, each hour weighed by what its wagon spares. **The wagons taken up with a line**
+      are reckoned to spare their new keeper what its review found (`saves_h_year`), not what
+      they spared the household that made them, since a line still being laid is weighed for its
+      laying by its wagon's reckoning (and a half-made wagon's finishing by its own). **Told:** "…took up a line of track nobody was left to
+      finish, N m from a pit to its home, 60% laid, with a wagon standing at its ends." (a
+      line laid whole is told as before). No content, schema, wire or web change; saves stay
+      220 and content API 230. **Tested:** rail (17, one new: a line 60% laid by a household no
+      more with its made wagon at the pit end; at too few dig days to repay the rest of its
+      track it is left, nothing changed; at enough to repay the rest though not a line laid
+      afresh, it is taken up with the wagon, nothing laid by taking it and no other line or
+      wagon begun, told as nobody left to finish it, 60% laid, the wagon reckoned at its new
+      keeper's figure; the household's way work is then that line, its hours left the track's
+      share not laid and each hour sparing the wagon's reckoning over its life spread over the
+      track's labour; it saves and loads exactly; a session's digging comes home as one person
+      carries it until the household lays the rest with its own timber, and then by the wagon,
+      left at the home end; it fails without the change, the line left to nobody), boats,
+      carts, fetch, transit, roundtrip and determinism, the civ-agents unit tests, the civ-host
+      lib tests; the ten smoke seeds pass; fmt and clippy clean. No existing assertion moved.
+      **Not yet:** a line still being laid passing to an heir within the settlement (it stays
+      the gone household's, the eighteenth item's rule, and the heir may now take it up only
+      as anyone may, by digging at its pit and living by its end), and a lived world where one
+      is taken up.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads
@@ -11702,3 +12313,26 @@ One line each. Don't re-litigate without a reason written next to the entry.
   behaviour, so it can come first.
 - **A household gives up a harvest weeks off only when nothing it has would carry it there: plausible, not a fault (2026-11-04, the die-off entry's "Recorded, not chased"; research 05-06 §1.4, §5.1, §5.3, 05-02 §1.5):** Decided by Claude under standing owner authority (2026-11-04). **The question:** the die-off diagnostic saw four households of world 3's Alderstead, each with 8-12 fields sown and a full year's harvest 38-43 days off, give up at 0.073 a day, so that most went before it ripened and left the year's food standing; `leave_w_stake` is 3 against `leave_w_gap` 6, and the gap is a share of the wait. Does the weighing miscount the crop, its size or how soon it comes? **How it weighs:** a household is weighed only while it holds less than a day's food, its members have drawn on average 30 % of their reserve, and no crop of its ripens within 30 days (`leave_unless_ripe_within_days`); then `gap` is the share of the wait to its first grain in that its food, its share of what its neighbours could spare and its share of a common store it knows of would not cover, and `stake` its fields' ordinary harvest less seed against a year's need, held to 1. With nothing to cover any of the wait, `gap` is 1 however long the wait, and a stake of a year or more gives 6 − 3 − 2 = 1 point: 0.1 × logistic(1) = 0.0731 a day. **The scene** (settlements, world 10, two settlements that know each other; every household of the first, 11 households of 50 people, out of food and a third into their bodies' reserve, each with a field sown whose crop is about 1.2 years of its food and ripens N days on; the second keeps its food, and its adults are children of the first's household heads; begun 1 March): at N = 10 nobody weighs leaving (the 30-day hold), nobody gave up or died in 18 days, mean depletion went 0.35 → 0.62, and the grain came in. At N = 40, 90 and 180 every weighing was 0.0718-0.0731 a day (gap 1.000, stake 1.20-1.70), the same for all three, and only while the crop was more than 30 days off (the first 10 days at N = 40). **Whether it could have bridged the wait by any means it has** (05-02 §1.5's coping choices): its own food, none; what neighbours could spare, none (all 11 households short); the common store, none (no law keeps one); asking reaches only households of one's own settlement, so the fed kin a walk away help only those who go to them; nothing to sell or borrow against (no market, no loan law in force); its bodies' reserve, 24-26 days of the household's need against 46 days to the first grain; the wild food, about half the need (those who stayed drew about 1 % of their reserve a day, against 2.5 % with nothing eaten). **What followed, in 48 days at N = 40:** as the content stands, 4 households of 20 people went to their kin in the first 10 days, none of them died, and they were fed within 5 days (depletion 0.001); of the 30 who stayed, 7 died of hunger (six children of 1-10 and an adult of 40). With leaving switched off (`leave_per_day` 0, the counterfactual), all 50 stayed and 16 died, 11 of them children under 16. At N = 90 and 180, 48 of the 50 had gone by day 40 and all by the harvest, none dying; kept home, 42 of the 50 died by day 98 (N = 90) and 44 by day 188 (N = 180). A first version of the scene begun 1 June gave the same chances and, at N = 40, 6 deaths with leaving against 18 without. **Decided: plausible, not a fault; nothing tuned, nothing changed.** The weighing counts the crop it would give up (its size, to a year's food) and how soon it comes through how much of the wait the household could cover: where food, neighbours or a store cover part of it, a near harvest is a larger share covered and holds a household more (20 days covered of a 46-day wait gives 0.017 a day, of a 186-day wait 0.059). With nothing to cover any of it, how soon matters only within what bodies can bear, and the 30-day hold already spans that (about 25 days of reserve at the 30 % gate). Beyond it, staying cost about a third of the people, most of them children, while those who went to fed relatives lived: research 05-06 §1.4 ("Famine migration should respond to expected access to food"; households "seek relatives") supports going, and a standing crop a household cannot live to reap is not food it can expect. `leave_w_stake`, `leave_w_gap` and `leave_stay` are tuning values with no research figure (05-06 §1.4: the literature "remains too fragmented to support a universal 'harvest loss of X causes Y% to leave' function"; §5.1: the coefficients are "calibration parameters"), and the scene gives no reason to move them, so moving them would steer toward an outcome. **Numbers before and after:** the same (no kernel, content, save or wire change). **Tested:** settlements (25, one new, `a_household_that_cannot_reach_its_harvest_goes_to_fed_kin_and_one_whose_harvest_is_near_stays`, pinning the scene: nobody gives up a harvest 10 days off in 10 days; with it 40 days off households go to their kin, none of those who go dies in 20 days, and their mean depletion there is below 0.1; it passes as the code stands, so it guards the evidence rather than a fix), people, roundtrip and determinism; fmt and clippy clean; the ten smoke seeds pass. The whole suite target by target was not run here and is left to the homelab chain. No existing assertion moved. **Recorded, not chased:** (1) a household that goes leaves its standing crop with the household that is no more: nobody reaped those fields in the scene's 48 days, and nothing brings its people back a walk to reap it, though they are fed (05-06 §1.4 allows "return"; §5.3 has return depend on "surviving property rights" and "the cost of another move"; §5.1 lists "send one worker"); this, not the weighing, is how giving up costs a settlement its year's food, and it is vocabulary the engine lacks (**built**, the next entry, "A household that moves keeps the crop it sowed and comes back to reap it": its fields go with it for that crop, and its people walk back to reap it). (2) The weighing counts neither the bodies' reserve as a bridge nor the food at the place it would go (the refuge chooses where, and a household drawn nowhere leaves the map at the same rate); in this scene neither would change the answer. (3) Asking for food reaches only one's own settlement. (4) The diagnostic's nine who starved that summer were not met among those who went: in the scene nobody who went to fed kin died, and those who stayed did.
 - **A household that moves keeps the crop it sowed and comes back to reap it (2026-11-04, the entry above's "Recorded, not chased" (1); research 05-06 §1.4, §5.1, §5.3, 08-09 §1.1):** Decided by Claude under standing owner authority (2026-11-04). **The gap:** a household that moved to another settlement (`relocate`) left every field it worked with the household record that was no more, so a crop standing there was nobody's to reap: in the scene of the entry above, the four households that went to their fed kin with a full year's crop 40 days off brought none of it in, and it was lost standing. Research 05-06 §1.4 allows "return", §5.3 has return depend on "surviving property rights" and "the cost of another move", and §5.1 lists "send one worker"; 08-09 §1.1 holds the right to take a crop ("A household harvests crops") apart from holding the ground. **Decided, whose the crop is:** still the household's that sowed it, under every regime. A household that moves (giving up, by review, fleeing or founding) takes with it, for that crop alone, each field it works with a crop standing or sheaves waiting (`Population::crops_go_with`): the field's worker becomes the household its people form at the other settlement, and the field's new `left_by` names the household it was. This is the rule the land review already keeps (only fields between crops change hands, "so a crop and the work put into it stay with the household that did it"); who holds the ground does not change, so under village tenure the village still holds it and under household tenure the household that left does. Rejected: passing the field to the new household for good (it would keep farming another settlement's ground from afar, and a village review could never give it out again); a claim the moved household must make (vocabulary with no research figure). **How it is reaped:** by the existing field work, weighed as any is (`FarmView`, `decide`): reaping is limited by the home's walking field and the light the day leaves after the walk there and back, not by an activity walk, and the walk is a `Walking` cost, so a household far away may judge it not worth going, and one beyond its walking field cannot go; threshing is at home, as for every field. **Once the crop is in, or lost standing,** the field is left as the household's that was (`crop_brought_in`: at the threshing that finishes it, and at the day's turn), exactly as it would have stood had the household left it bare, and the regime decides who works it next at the settlement's review. **If nobody comes:** the crop is lost standing, as before; gleaning by those left behind is a "Not yet". **The scene** (settlements, `hungry_before_a_harvest(40)`, world 10, 1 March): 4 households of 20 people went to their kin in the first 7 days, their fields about 3.1 km (an hour's walk) from their new homes. **Before** (the call taken out): nobody reaped them; their 4 crops, 6,119 kg reaped ripe, were lost standing by day 89, and the households that went held no grain at day 90. **After:** from the day the crop was ripe (day 39) its people walked back, a session of six hours' reaping between the walks, threshed it at home from day 55, finished by day 67, and at day 70 held 4,868 kg of grain and seed (80 % of the crop reaped ripe); the fields were then left as before. None of those who went died in either run. Of the 30 who stayed, 8 died by day 90 before and 12 after; the two runs part from the first day (those who went choose differently once they hold a crop), nothing of the change reaches those who stayed that I found (asking reaches only one's own settlement), and one world cannot tell chance from cause: recorded, not chased. **Found on the way:** the scene's crop, ripe 40 days after 1 March, was sown on a back-dated day in the winter before, 265 days after the content's sowing window opens, so its lateness loss (`late_sowing_loss_per_day` 0.005) took all of it: its households expected it from their fields' record (the stake the entry above measured), but reaped it would have given no grain, and the entry above's "the grain came in" at N = 10 cannot have been grain. The scene now lets lateness cost nothing (`crop_sown_in_time`, test-only); the existing test's assertions fall before its crop is ripe and pass unchanged. *Reason:* vocabulary the engine lacked, which research 05-06 names; nothing tuned and no outcome named (whether a household goes back, and how much it brings in, is its own weighing). Saves stay 220 (unreleased: `Field.left_by` appended, id 33; a load checks it names an allocated household); no content, wire or web change; content API stays 228. **Tested:** settlements (26, one new, `a_household_gone_to_fed_kin_walks_back_to_reap_the_crop_it_sowed`: at day 20 every field of a household that went is worked by the household its people formed, left by the one that sowed it, its holder unchanged; at day 45 it is being reaped; it saves and loads exactly, a field half reaped among them, and the two go on alike for two days; by day 70 each is reaped once, threshed and left as before, the grain and seed with them more than half the crop reaped ripe, and nobody who went died; it fails without the change), people (23), holdings (5), regimes (7), soil (1), roundtrip (110), modes (7), determinism (1), bottlenecks (13) and sewers (17), whose fields gained the new member, and the civ-land, civ-agents and civ-sim unit tests (142, 306 and 31); the ten smoke seeds pass; fmt and clippy clean; `gen-schema --check` up to date. The whole suite target by target was not run here (left to the homelab chain). No existing assertion moved. **Recorded, not chased:** carrying the sheaves home is not counted for a field a walk away (threshing is at home for every field, as before, and a field an hour away makes that carrying a real part of the work); a household gone beyond the map keeps no crop; and a merged household (taken in) already takes its fields to another settlement for good, as before.
+- **A law put in place of another of its kind is weighed against it (2026-11-04; ADR-0025 §1, ADR-0013 §5; recorded, not chased, under "the notables' gate, red on homelab long run 64"):** Decided by Claude under standing owner authority (2026-11-04). **Found:** the polity's review offers laws that take the place of a law of the same kind in force: another forum (another of the six templates), another debts-heard or bearer rule, another issue of notes, another mint (each with `ends` naming the law in force). Each was forecast at nothing. `gain_for` weighs a move with `ends` and no body as `-held`, what ending that law brings, and `held` is read from the laws the old custom made while founding, so outside founding it is 0 for everyone; each household's stake when the move was proposed was the same 0. So each such option scored about −`propose_cost` (and plus the template's own values in full, as though none of its kind were in force); wherever its issue was rightly open (a forum that did not find a case, cases waiting), the review's softmax (temperature 0.5, "none" at 0) took one of several near-equal options by its draw, not by what it would do better; and those who came, their stake 0, weighed only regard for its sponsor or nominee against their regard for the holder it replaced. **The fix:** a replacement is weighed as what it would bring less what the law in force brings (`Forecasts::replacing`), the law in force forecast as the move it would be were it proposed now, by the same forecast (research 09-05 §1.5: a proposal is weighed against the policy inaction leaves; 09-02 §3.7: institutional change for an expected benefit; the kernel already weighs a petition for another holder this way, M4c slice AH). For a forum, what the kernel knows is each case a household was party to within memory: heard as the proposed forum would hear it (a holder as they stood when it was heard, at even odds if they did not sit or a lot is yet to draw them; a panel or the elders as those who sat stood) against what the forum in force did with it, if it heard it (found it, did not, or left it unheard, as recorded), or as it would have; the evenings either spares are the same. So the household that brought a case the forum in force did not find gains by a replacement, the household it accused loses, one the forum found against gains, and a household party to none weighs nothing but what it holds dear and its regard (research 09-07 §1: forum shopping, and withdrawal from an ineffective forum). A panel or the elders are no longer forecast from one hearer's stance alone: a case one hearer heard alone is at even odds before them (this touches any forum forecast, not only a replacement). Debts heard against another rule weighs the share each expects a finding to move; a mint against another, the weighing saved and the pieces got back for metal, and the striking its keeper's household takes on or is spared. The sponsor and those who come to the gathering weigh what the replacement does to what they hold dear over what the law in force does (its values and creed less that law's). Only a law of another template of the same kind is weighed so: a repeal, a store's levy ended and a petition for another holder of the same template are as before. *Reason:* a contradiction: a move the review exists to weigh on what it would bring was weighed on nothing, so the engine's own choice degenerated to its noise; not tuning: no weight, threshold, temperature, tolerance or pass mark changed, and it names no outcome (whether anyone proposes another forum, and whether it passes, is people's). No save, wire or content change; content API stays 228. **Tested:** forum (12, one new, `a_forum_in_place_of_one_in_force_is_weighed_against_what_that_one_did`: a named hearer in force did not find household 0's case against household 1 and found household 1's against household 2; with every adult deliberating, the review puts another forum in place of it, and household 0's and household 2's stakes are above 0, household 1's below, and the hearer's household's 0; without the change every stake is 0 and it fails); review (4), polity (8), council (4), custom (2), faction (9), credit (23), metal (30), money (2), opinion (2), values (2), roundtrip (110) and determinism (1); the civ-agents unit tests (306); the ten smoke seeds pass; fmt and clippy clean. No existing assertion moved. **The notables' gate** on the change, locally (40 runs, 22.6 minutes, none failing its checks): passed. Fixture 1 (with the tier against every adult): proposals 2.8 ± 3.0 against 4.5 ± 6.1 (+61 %), enacted 2.6 ± 2.8 against 3.0 ± 2.8 (+15 %), offices 0.3 against 0.5 (+20 %), moved +40 %. Fixture 2: proposals 11.2 ± 7.4 against 21.7 ± 11.4 (+94 %, tolerance 105 %), enacted 6.7 against 8.5 (+27 %), offices 1.2 against 1.4 (+17 %), moved +13 %. Against the run on the last fix, fixture 1 moved little (proposals +80 % then) and fixture 2's proposals rose from +68 % to +94 %, enacted from +15 % to +27 % and offices from −7 % to +17 %: a replacement now carries a real stake for those party to cases, so where the issue is open more of the deliberators every adult adds find one worth proposing, and the margin on fixture 2's proposals is narrower than it was; the runs' laws were not read one by one. **Recorded, not chased:** a petition for another holder of the same template still counts that template's values in full at the gathering (its gain was already the difference); hearth talk weighs each template's question as if none of its kind were in force; a forum's term and its lot weigh only through who would sit (a lot at even odds); and the faction's petition forecasts the hearer in force from their stance rather than from the record, which differs only where they abstained. *Asked of the gate's fixture 0, every adult, stream 5 (`seat_a_council` passing 5 of 7 proposals on the issue overruled):* not this flaw. An amendment of the custom never takes the replacement branch: it carries a body and no `ends`, is forecast by `amend_gain` from the decisions its sponsor saw, re-decided under the proposed body, and is dropped unless its sponsor expects a gain. Read from the code alone (that run was not replayed here), a different one-sidedness may drive it: `amend_gain` credits a council with the evenings of each of a household's people who came to a decision seen and would not sit, and never charges the evenings of those who would sit and did not come, and it measures those evenings against how each decision seen was attended (under the gathering, before a council was seated) rather than against the custom in force; so every seating, and every re-seating once a council is in force, is forecast to spare evenings to most households who came, whatever it would decide. Left for when that run's laws can be read. (**Chased:** the next entry, "A council is forecast to cost its sitters their evenings, against the custom in force": confirmed in part and fixed.)
+- **A council is forecast to cost its sitters their evenings, against the custom in force (2026-11-04; ADR-0024 §6; the entry above's question of `seat_a_council` in the notables' gate, fixture 0, every adult, stream 5, homelab run 64):** Decided by Claude under standing owner authority (2026-11-04). **The question:** is `amend_gain`'s forecast of a council one-sided: does it credit a household with the evenings of its people who came and would not sit, never charge it those of its people who would sit, and measure them against how each decision was attended rather than against the custom in force? **How it weighed:** at each decision the sponsor (or, for the stakes, the household) saw under the present custom, a council was credited `w_evening` / `w_gain` for each of the household's people who came and whom the sponsor does not expect to sit; nothing else. The faction's program (`body_gain`) did the same. **The scene** (council, `a_council_is_forecast_to_cost_its_sitters_their_evenings_against_the_custom_in_force`; world 3 after 40 days, 8 households; all else decided within memory cleared; each decision set down was turned down with every stance an abstention, so no body would have decided it otherwise and only the evenings weigh; `w_evening` 0.25 points). (a) and (b): under the gathering, three decisions, to which the sponsor, one of the five the sponsor expects would sit in a council of five, and every other adult in an even place who would not sit came; the other four who would sit, all of one household, stayed away. Seating the five was forecast at +0.75 or +1.5 points to each of the seven households that came (an evening a non-sitter, three times) and 0 to the household of the four who would sit and had not come: 7.5 points spared in all, none asked. A case a forum heard, by one who came, was credited as an evening the council would spare (+0.25 to that household's own stake), though a forum's sittings are not the custom's and no council spares them. (c): a council of five in force (the sponsor and four the sponsor would not expect to sit in one of nine), two of its decisions, to which the sponsor and two other sitters came and one stayed away; seating nine in its place was forecast at +1.0 to the household of the two who came and would sit no longer and 0 to every other, though nine would sit where five did: the household of four who would sit in the nine, and that of three, were charged nothing. The gathering's decisions before the council did not weigh (`decisions_seen` keeps only the custom in force's, since its version), so the evenings were measured against the custom in force's own sittings, not gatherings that no longer happen: that part of the question is not so. **Confirmed:** the one-sidedness of (a) and (b), the forum's cases, and in (c) the new council's sitters uncharged; a seating, and a seating in place of a council, was forecast to spare evenings whatever it would decide, and the more so the more people came. **The fix** (`Evenings::spared`, used by the review's forecast and stakes and by `body_gain`): at each decision seen at a sitting of the custom's body (every law, and each case it heard itself; a forum's cases weigh no evenings), a household is spared the evenings its people gave there (those who came) less those the proposed body would ask of them: a council each of its people the sponsor expects would sit, at every sitting, whether or not they came (by lot, whose forecast pool is the whole electorate, the seats' share of the pool for each of it); a body of all its members, those of its people who came and it admits. Only where a council is in force or proposed: a gathering put in place of another asks nothing new of anyone, as before. Research: ADR-0024 §6 (a household weighs the evenings a council would save it, "a gathering's hours, priced as attending is") and §3 (standing weighs "the evenings in council"); 05-lawmaking §5.2 (a council member "must find time to attend"); 02-constitutional-primitives §3.1 ("Participation should consume time"); 08-parties-elections's turnout terms ("time and income costs"). **After,** in the scene: (a) and (b) as before for the seven households that came, the household of the four who would sit −3.0 (4.5 points spared in all, not 7.5), the forum's case nothing; (c) +1.0 to the household of the two who would sit no longer, −2.0 and −1.5 to the households of four and of three who would sit in the nine, −0.5 to one whose sitter stayed away and whose other adult would sit in the nine (−3.0 in all, not +1.0). *Reason:* a contradiction (an evening at a sitting priced for those it spares and not for those it asks), not tuning: no weight, threshold, temperature, tolerance or pass mark changed, and nothing names an outcome (whether anyone proposes a council, and whether it passes, is people's). No save, wire or content change; saves stay 220, content API 228. **Moved, by design and asserted nowhere:** a council by lot was credited nothing for any of its electorate (its forecast sitters are the whole electorate) and is now charged the seats' share of an evening each for each sitting; a seated member who stayed away is charged, under a council proposed that would keep them, the evenings they did not give. **Tested:** council (5, one new; it fails without the change: the forum's case credits household 2 0.25 more than the formula, and the would-be sitters' household is forecast at 0 against −3.0), polity (8), custom (2, whose assertion that the sponsor proposes the elders or a council still holds), forum (12), review (4), faction (9), roundtrip (110) and determinism (1); the civ-agents unit tests (306); the ten smoke seeds pass; fmt and clippy clean. The whole suite target by target was not run here (left to the homelab chain). No existing assertion moved. **The notables' gate** on the change, locally: (40 runs, 22.7 minutes, none failing its checks): passed. Fixture 1 (with the tier against every adult): proposals 2.8 ± 3.0 against 5.2 ± 6.6 (+86 %, tolerance 105 %), enacted 2.6 ± 2.8 against 3.7 ± 3.7 (+42 %, tolerance 55 %), offices 0.3 against 0.6 (+30 %), moved +38 %. Fixture 2: proposals 10.3 ± 5.4 against 21.0 ± 10.7 (+103.9 %, tolerance 105 %), enacted 6.5 against 8.1 (+25 %), offices 1.2 against 1.5 (+25 %), moved +17 %. Against the run on the last fix (fixture 1 proposals +61 %, enacted +15 %; fixture 2 proposals +94 %, enacted +27 %), the margins narrowed: fixture 2's proposals to 1.1 points of their tolerance, fixture 1's enacted to 13 points of theirs. Fixture 2's moved more on the tier's side (proposals 11.2 to 10.3) than on every adult's (21.7 to 21.0). The runs' laws were not read one by one, so which amendments the change turned, and how much of the shift is the change rather than the runs' spread, is not shown; a homelab long run should be read before the margin is relied on. **Not replayed:** run 64's fixture 0, stream 5, so whether these evenings were what passed its five seatings is not shown; the scene shows they could have been. **Recorded, not chased:** a forum's own forecast (`HearCases`) keeps the evenings its people spent hearing cases at the gathering without charging its hearer or panel theirs; a council put back to a gathering is forecast to ask nothing of those who did not sit, since nobody knows who would come; a sitter living in another settlement of the polity is not counted to their household.
+- **A household's line, wagons and trains pass on, and a line nobody holds is taken up (2026-11-04, backlog D's eighteenth item; the third and fourth items' "Not yet"; ADR-0034 §2, §3, §6; research 08-09 §1.2 and its succession row):** Decided by Claude under standing owner authority (2026-11-04). **Within the settlement:** a line laid whole passes with the household's other works (the fourth item's rule for ways it keeps), and its wagons and engines go with it, made or being made, with any run under way, since a wagon is of its line (ADR-0034 §3) and nobody else could run it; one still being laid stays the gone household's, as a way being widened does, its work weighed by that household's pit and home. Its wagons on its polity's line pass as its carts do, the heir sharing the hearth the line ends by. **Elsewhere:** a line is fixed and a rail vehicle cannot leave its rails, so the ninth item's "a way would bring it" holds for rails only where the vehicle stands on a line the heir may run its own on; nothing of a household's own line passes to another settlement, as no other work does. **An heir's line home:** a line the heir holds but which ends by another home is no line home to it (the review's own line is now one it keeps alone ending beside its home), so holding one does not stop it laying its own, as holding a boat it could not bring would have stopped it making one (the ninth item's reason for not passing those); this also frees a household whose home moved away from its line. **No heir:** of the options (it stands and is taken up as a vehicle nobody was left to take is, the eleventh item; or it falls to the polity or settlement), the first is built. A household line runs from a pit to one household's home, and a polity's line is used only from the hearth (ADR-0034 §6, slice DX), so one falling to the polity would serve nobody unless that home stood by the hearth; and nothing in either content regime gives a settlement what a household made (the eleventh item kept no regime gate for the same reason). It is taken up by first use (08-09 §1.2, as ground is at a regime's review): by a household whose line review finds a whole line nobody holds from the pit it digs most to beside its home, of its wagon's gauge, weighed as a wagon on its polity's line is (the hours a wagon there spares over its life against the wagon's labour and timber, nothing where a made wagon nobody holds stands on it); with it go the wagons and engines nobody holds at its ends. No waiting time, as for boats and carts: any heir took it at the passing. **Gas and current:** not passed. A connection or hookup lights the home its household lives in, one a household, and the heir already lives in its own; passing it would charge the heir for an empty home's burners or current, or give it two, so the account stays in the gone household's name and is cut off once unpaid, as before. *Reason:* a line and its stock follow the household's other works and vehicles by rules already decided, with no new review, nothing scripted and no outcome named.
+- **48cd61b promoted to `claude/claude-development` on a failed dashboard (2026-11-04; homelab long run 67):** Decided by Claude under standing owner authority (2026-11-04). The long run's dashboard failed on one row, structural failures (31 in 7695 building-years, 4.03 per 1,000 against a pass of 2; run 66 had 2.71), red in both samples; everything else was green or amber, and Population, the recurring red the promoted fixes were for, rose from 3 of 5 worlds to 4 of 5 keeping 10. The notables' gate passed with margin (fixture 2's proposals +61.9 % against 105 %). The chain was green on 48cd61b (chain 103). *Reason:* the red was not this change's (it was red before it, at a rate within the chance of 20 to 30 events), so holding the promotion would not have made it greener; it is investigated as a recurring red before new backlog items. The amber rows: moves (world 2, 10.4 a year against 10), wealth Gini (0.24 to 0.31, amber as hoe farmers may be), price convergence (world 4, one good wider than its band) and neighbours (contact, nothing crossed, in a few pairs). World 4 alone took 39,556 s of the run's 12-hour limit, so a later long run may time out before reporting; left for an improvement pass if it does.
+- **Structural failures, a recurring red, again: the row's building-years missed one month in twelve, and two thirds of the failures it counts fell on a storm's day (2026-11-04; research 11-06 §1.2, §2.4, §4; 11-05 §2.4; ADR-0009 §5, ADR-0012 §5; the red: 31 lived-in failures in 7,695 building-years, 4.03 per 1,000, after run 66's 2.71):** Decided by Claude under standing owner authority (2026-11-04). **A measurement fault, fixed:** `LongRun::live_to` counted the buildings lived in as each month began only when the month did not also end the call, and every year of the dashboard is one call ending on a month's first day, so each year counted 11 months, not 12: the denominator was short by one twelfth and every rate the row has shown was 9 % high (4.03 is 3.69; 2.71 is 2.48). Every month that begins is now counted once, the last of a call too (`smoke::lived_buildings`; a dashboard unit test that fails without it: 0 counted against 8 standing). No save, wire, content or simulation change; no threshold or pass mark touched, not a nudge. **What fails, with evidence:** a diagnostic dashboard (five worlds, a patch printing each failure's groups, quality, loss, storm, snow, flood, fire, repair and household; and a census of every lived building at the years 10 and 20 saves: covering and timber loss, rafter quality, the household's repairs and buildings under way) on 7d6f09b, stopped at about year 22 for time. Every one of 144 lived buildings at years 10 and 20 was kept up: no covering past 0.3 lost, no rafters showing rot, no household with a repair stalled, nothing lived in that its household could not build; so upkeep does not lag in the first twenty years, and floods (152,747 inundations in the red) touch no structure (water standing in a building spoils its floor stores, and nothing changes a group's loss for it). All 10 failures seen were huts' rafters: 9 of buildings nobody lived in, rotted to 0.29-0.70 lost after their household left (expected), and the one lived in broke in a storm of 1,139 Pa, rafters drawn at quality 0.50 and sound (no rot), 8 years old. Run 66's 18 lived-in failures (its JSON kept) say the same: 12 "in a storm" (6 of them of rafters neither poorly made nor rotted), 6 rotted on a calm day in years 17-41; run 56's 33: 18 in a storm. **Why storms dominate:** the month's storm is one log-normal draw (median 0.25 kPa, spread 0.6) that every roof in the world meets on its day; a hut's 10 cm rafters, sound, carry about 2-2.5 kPa of it, and builders draw rafters at 1 − σ|z| (σ 0.3 a novice to 0.1 a master): the census found 5 of 144 lived huts (3.5 %) with rafters below 0.6 and 30 (a fifth) below 0.75. A storm above 1.14 kPa comes about once in 175 months, above 1.6 kPa once in a thousand: over five worlds and fifty years (3,000 world-months) several such storms come, and each brings down every weak roof under it at once. The expected rate from that arithmetic alone is several per 1,000 lived building-years, the order the row shows. A pressure coefficient was considered and rejected: the rafters take the storm as a load on the plan, normal to the slope by cos² of the pitch (0.41 at 50°), below the 0.6-0.7 windward coefficient a steep pitched roof meets, so applying 11-05 §2.4's "multiply by appropriate pressure coefficients" would raise the storm load, not lower it. **Left for the owner, not decided here:** 11-06 §2.4's scenario rates are for ordinary, non-disaster failures, and §4 has failure cluster about shared events, but no report sets the storm beyond which a failure is a disaster's; counting storm-day failures apart from the graded row (as the observer's shakings are, ADR-0031 §4), or a stormier-than-plausible content climate (`storm_median_kpa`, `storm_spread` are tuning values), or rafters too often poorly made, are each a tuning or scoping choice the standing authority does not settle. **Not settled:** the calm, rotted lived-in failures of years 30-50 (a third of run 66's), since the diagnostic did not reach year 30; and whether one cause of them is a hut taken over from a household that dissolved (`hand_over_land` passes its buildings, worn, to the household its people join). The dashboard is re-run to see what the corrected denominator does.
+- **Structural failures: failures in rare storms are not set apart (2026-11-04; research 11-06 §2.4, §4):** Decided by Claude under standing owner authority (2026-11-04). Considered: grading only failures of lived-in buildings outside storms of a ten-year return period or rarer (the load from the content's own storm parameters, 250 Pa × e^(0.6 × 2.394) ≈ 1,051 Pa), the rest reported ungraded, since 11-06 §2.4 grades ordinary failures and §4 has failures cluster on shared events. Checked first against the saved per-failure years of runs 66 and 56 and each world's listed storms of 500 Pa or more: of run 66's 12 lived-in failures in a storm, 2 were certainly in ten-year storms (1,744 and 1,085 Pa), 3 could have been and 7 certainly were not (610 to 1,027 Pa); of run 56's 18, none certainly and at most 7. The graded rate would have been 1.80 to 2.21 per 1,000 for run 66 and 3.69 to 4.69 for run 56. *Reason:* most failures of lived-in huts on a storm's day are weak or rotted rafters meeting ordinary storms, which 11-06 counts as ordinary failures, so setting the rare storms apart would not explain the red and would only move a mark. Not built. The red is chased instead in what makes rafters weak: how many are made poorly, and the rot of some lived-in huts in years 30 to 50, which a census of years 10 and 20 did not show.
+- **Help with mending: a household whose people may not mend asks kin or a tied neighbour, who mend it and are owed the work (2026-11-05; research 11-04 §1.6, 11-01's labour-organization row, 11-06 §1.3; ADR-0009 §4, ADR-0014 §2):** Decided by Claude under standing owner authority (2026-11-05). **The cause:** the calm, rotted failures of lived-in huts in years 30-50 (a third of run 66's) were huts of households whose people are all past 65, the upper age of `build_hut`, the one build activity, through which all building and mending is done. `upkeep_plan` planned their repair, nobody could do it, and nothing let anyone else mend for them; the thatch wore at 0.06 a year, leaked past 0.15, and the rafters rotted through about 11.6 years after the last mend (0.0035·(t−2.5)² reaching 0.29). Evidence: a census every five years of every lived building in world 4 from its year-20 save to year 35, world 2 to year 37 and world 1 to year 23 (280 entries): all 5 entries of elder-only households, and none other, were the neglected roofs (thatch past 0.2 lost or rafters showing rot); hut 230 (one person, 67 at year 26, 72 at year 31) went unmended from about 64 and fell in year 34 ("the rafters broke; they had rotted", 0.29, under 457 Pa and 101 Pa of snow). Ruled out with the same census: a hut taken over in a merger (`hand_over_land`; household 7 into 913 in year 25, all three huts mended within 0.3 years), a repair stalled, and a building counted lived in but not lived in (none not a dwelling; the three let huts kept). The 65 limit is a tuning value and stays; what was missing is behaviour. **Decided:** such a household (none of its people of an age a build activity admits, or none who knows the building's technique) no longer plans its own repair; once a day it asks the first of its people's close kin households of its settlement, the nearest first, then the households of its settlement whose elder its people hold a tie with, the best regarded first, that has someone who may do the work and does not refuse it by the rule a household refuses food (`Population::refuses`: no new weight). The helper weighs the asker's buildings beside its own in its upkeep and its people mend them through the same build work, with their own household's materials (`mend_work` reads the mender's stores). Once mended, the asker's elder writes `helped_mend` (code 28) toward the helper's, owing it the mend's labour hours, and the helper's writes `gave_mend` (code 29), as a gift's two sides are written (two acts, not one, so each side's reason reads true); the core weighs them as `gift_received` and `gift_given`. Who asks whom is derived each day, not saved. Content API 229; saves stay 220 (unreleased; codes appended); no wire or schema change. *Reason:* 11-04 §1.6, households "recruit relatives or neighbors", and reciprocal help creates obligations, not free labour; nothing is scripted and no outcome named. **Measured** (world 4, years 21-35, the same save lived with and without): the three elder huts kept (230: thatch 0.01 lost at year 31 against 0.47; 788: 0.10 against 0.25; 830: 0.03 against 0.18); lived-in failures 0 against 1, empty buildings' 10 against 12: one world and one failure, so the dashboard re-run is what will tell the rate. **Not yet:** help with building anew or with a building under way; help across settlements.
+- **A covered tip (2026-11-05, backlog C: ADR-0038 §6's "covering, compaction and burning tips"; research 12-10 §1.5, §2.4, §2.5, §5.4):** Decided by Claude under standing owner authority (2026-11-05). **Chosen:** backlog B's open items (ADR-0037 §7: glass, curtain walls, welding, prestressing, piles and settlement) were checked first: research 11-14 §5.8 itself defers welding, prestressing, piles and settlement, and glass without windows has no use while windows are a grammar change of days, so none is a bounded slice; of backlog C, salvage, the sewage farm and sewer mending (relining and clearing, ADR-0044 §5) are built, toxicity waits for a harm model and hog feeding for beasts, which left covering. **Decided, covering is a law of its own** (`cover_tip`, appended), not a term of `refuse_to_tip`: a term would cover every existing tip without anyone choosing it. *Reason:* a controlled tip was a practice a keeper chose and paid for (12-10 §1.5, §3). **Who covers:** the polity's households, as common work at the tip, an equal share each, as a passing place is cleared. *Reason:* only polities keep tips, and the common-work path already walks, times, pays and weighs the duty. **How much:** 0.15 m³ of earth to a cubic metre of loose refuse of 220 kg, dug at the people's 8 hours a cubic metre. *Reason:* 12-10 §2.4's daily-cover prior and §5.4's 157–290 kg and 8 h/m³; no new rate is authored. **What cover does:** while all that was tipped lies under earth, nothing washes off the tip in rain, and it seeps as before. *Reason:* 12-10 §5.4, "a covered stream stops being reachable by runoff", and §1.5's leachate over decades; one state for the whole tip (§1.5's open, covered or burning), so a kilogram lying open leaves it open. **Weighed by** a tenth of a household's deaths of disease within the year (a design prior, half of the tip law's fifth, since covering answers only what washes) against its share of a year's covering at the rate refuse came. *Reason:* the tip law's own weighing, so no new weight. **Asked as refuse comes,** each tipping adding its hours to the law's work. *Reason:* daily cover is a continuing practice, not a one-off work. **Not built:** compaction (needs a roller or engine tool, none exists, and tips have no capacity for it to stretch); burning tips. No NUDGE: nothing was tuned.
+- **A line taken up in the chronicle: its kind, when, and its words (2026-11-05, backlog D's nineteenth item; the eighteenth item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-05). **Chosen** as the coordinator's named candidate, still open, self-contained and touching no deliberation (the notables' gate is being re-read on homelab long run 70). **Told:** yes, as the seventeenth item told boats and carts taken up. *Reason:* the chronicle tells every line a household lays (`LineLaid`), and taking one up is the other way a household comes to hold one; nothing else tells what became of a gone household's line. **The kind:** a new `ChronicleKind::LineTakenUp` (code 73, appended), not a `TakenUp` subtype of `VehicleTakenUp`. *Reason:* a line is a way, not a vehicle, and `LineLaid` already keeps lines apart from `BoatMade` and `CartMade`. **Its number:** the wagons and engines taken up with it. *Reason:* the one figure the words give that a reader of the entries might count; no subtype is needed. **When:** at the taking up, once. *Reason:* a line taken up is the household's and never nobody's again. **Words:** the elder, the length (cells at the cell's size, as `LineLaid` measures), and the wagons and engines standing at its ends with how many half made; placed at the end beside its home. The household that left it is not named, as for boats and carts. No content, schema, wire or web change; saves stay 220 (unreleased).
+- **Verification is promoted only on a measured long run; the changes since 48cd61b are measured in two halves (2026-11-17; homelab long run 71):** The owner, 2026-11-17: "Don't accept the unmeasured long run risk." Long run 71 on e20bbac (everything since 48cd61b) hit its 720-minute limit with world 3 of the sanity dashboard still running, so the dashboard graded nothing, structural failures included. What it did show: the notables' gate passed at +103.9 % against 105 % on fixture 2's proposals (run 67, without the two deliberation changes, +61.9 %), and of the four worlds that finished, world 2 fell to 0 in year 42 and world 5 to 2 in year 43 (run 67: world 2 to 7 in year 50, world 5 kept 104). So e20bbac is not promoted, and claude/claude-development stays at 48cd61b. Decided by Claude under standing owner authority (2026-11-17): the changes are measured in two halves, each with `max_minutes` 1440 so the dashboard can finish. (A) 7d6f09b: the two deliberation changes (d5fb651, e0fe643) and a household's line passing on. (B) The scratch branch `claude/split-no-deliberation` (11be209): 48cd61b with the line passing on, the failures row's twelve months, help with mending and the chronicle's line taken up, but neither deliberation change nor covering a tip. Its code differs from e20bbac only in the files those three touch, and fmt, clippy, mending (3) and rail (15) pass on it. *Reason:* one run of everything cannot say which change, if any, moved the margin or the two worlds' end; two halves can, and whichever half is acceptable is promoted on its own measurement.
+- **A road line passes with its motor cart (2026-11-17, backlog D's twentieth item; the eighteenth item's "Not yet"; ADR-0036 §7; research 08-09 §1.2):** Decided by Claude under standing owner authority (2026-11-17). **Chosen** of the two candidates the coordinator named (a line still being laid nobody is left to finish; a road line's motor cart passing without its road line) as the more self-contained: the other needs a weighing of a half-laid line's remaining work and timber, close to the line review's reckoning, and the deliberation changes' long run is being measured. **The line passes with the cart.** *Reason:* a road line is a motor cart's runs (ADR-0036 §7: its keeper's cart, posted), so the household that holds the cart is the only one that could run it, as a rail line's wagons go with its line (the eighteenth item); its riders' habit and timetable are a going concern (08-09's succession row: what is held passes to heirs). **Only where the heir keeps no line of its own and the cart's way reaches the same hearth from its door.** *Reason:* one road line a keeper (`review_road_line` weighs the first), and runs leave from the keeper's door, where its cart stands. **The fare scaled to the new run's minutes, not recomputed.** *Reason:* the fuel a run burns is in proportion to its minutes; the heir's own cost of fuel is weighed at its review, as every keeper's is. **Otherwise it runs no more, and a line whose keeper is no more is taken off at the next midnight.** *Reason:* nobody posts its runs, and before this a dead line stood in the record for ever. No content, schema, wire or web change; saves stay 220.
+- **Homes below a break connect while a sewer is broken (2026-11-18, backlog D's twenty-first item; backlog C's fourth slice's "Not yet"; ADR-0044 §5):** Decided by Claude under standing owner authority (2026-11-18). A broken sewer takes a new connection only from a home whose drain would enter below the break. *Reason:* a sewer broken at a cell still carries everything that enters below it to the outfall (ADR-0044 §5, as built), so refusing those homes was a simplification, not a property of a break; homes above it would only back up, so they still wait for the mending. No household's weighing of a connection, and no polity's review, changes. Chosen as a self-contained item that touches no deliberation while its long run is measured. No content, schema, wire or web change; saves stay 220.
+- **A road line in the chronicle: posted, passed and ended (2026-11-18, backlog D's twenty-second item; the twentieth item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-18). **All three told,** not only the passing and ending. *Reason:* the chronicle tells a rail line's opening (`StationsOpened`) and a household's line laid, so a motor cart's runs between settlements are of the same size, and a passing or ending of a line it never named would read as news from nowhere. **One kind with a step,** `RoadLine` (code 74) with `RoadStep` (`Posted`, `Passed`, `Ended`). *Reason:* one moment in a line's life each, as `Sewer` tells a collapse and its relining under one kind. **An ending names its keeper's elder where its keeper stopped it, and nobody where nobody was left to run it,** placed in the settlement whose hearth is nearest its door. *Reason:* the household that is no more cannot be named without keeping who it was (the seventeenth item's reason). **A change of runs or fare at a review is not told.** *Reason:* it is a timetable's adjustment, which the chronicle leaves out for rail lines too. Chosen of the coordinator's candidates as the most self-contained: naming whose a boat, cart or line had been needs new saved state beside each vehicle, and a sewer's inspection needs a polity's review to weigh it. No content, schema, wire or web change; saves stay 220.
+- **Landmarks over the same ground are taken up again, and their steps worked out once (2026-11-17, backlog E: speed against budgets; homelab long runs 67 and 71; ADR-0028 §1, §4):** Decided by Claude under standing owner authority (2026-11-17). **Measured first:** the slow dashboard worlds (run 67's world 4, 39,556 s against 7,675–18,547; run 71's world 3, past 11 h) are not slow for their people (run 67's world 4 had the fewest, 83–111) but for their landmarks. Sampled with gdb (no `perf` here) on world 4's year-20 save and on seed 3 lived from its founding at this head, the landmark searches (`NavGrid::landmarks`, sixteen Dijkstra fills) took 34 % and 80 % of the samples. They are rebuilt whenever walking costs change anywhere in their reach, and their one region, the walked area, spans both settlements and the trail between that the visits keep worn (world 4: 896 × 672 cells, 60 % of the map; its two hearths 3.1 km apart), so their reach is the whole map. Flood depths change the wading ground of river cells day by day in wet months, so the travel revision changes and the landmarks are built again: on world 4's save 1 a month in dry months and 5–13 in wet ones, each 2.5–3 s on four threads; on seed 3, 55, 58, 35, 17, 12, 26, 20, 43 and 127 builds in its first nine years, the landmarks 50–70 % of each year's wall time (year 9: 252 s of 518 s). Flood states repeat: in world 4's two wettest months the dry ground came back for 5 of the 15 rebuilds, so the same table was built again (on seed 3's log, a cache of three would have saved 25 of 179). **Changed (exact):** (1) the landmarks let go when the ground they read changes are kept, newest first, up to three (`SPARE_LANDMARKS`), with the digests of the tiles they read, and taken up again where those digests come back as they were (the test that already keeps landmarks across a change that does not touch them); (2) the seconds of every step out of each cell of their reach are worked out once, on the searches' threads, for the sixteen searches, instead of by each (`StepCosts`; a step outside it is worked out as before). **Exact:** the sixteen tables were compared bit for bit with the old searches on seven builds of world 4's save; that save lived 60 months (8 of them wet) by the old and the new code wrote saves whose every section is byte-identical (only the header's snapshot id, time written and checksums differ); determinism, roundtrip (110), civ-agents (306), civ-world (60) and civ-host (82) unit tests pass, the ten smoke seeds pass with the same figures, fmt and clippy are clean. **Faster:** on those 60 months, on a shared 4-core machine with both runs side by side, the landmarks took 296.6 s in 120 builds against 361.5 s in 128 (2.47 s a build against 2.82, −18 %), and the run 1,072 s against 1,099 (−2.5 %); single-threaded, a build's sixteen searches took 9–24 % less. A modest cut: what makes such a world slow remains. **For the owner, not changed (a behaviour change):** every change in flood depth anywhere re-lays the walking ground and rebuilds landmarks over the whole walked area and the home fields it touches. Cutting that at the source would change routes (an A* search's ties and its budget depend on its landmarks): landmarks per settlement's ground (ADR-0028 §4, measured slower for walks between settlements in M10a slice DO), wading ground that changes in coarser steps, or landmarks built on dry ground (then not a safe bound where a flood slows a step). Each is a model decision for the owner, logged and passed over (AGENTS.md, autonomous mode 3).
+- **Home walking fields over the same ground are not kept as spares (2026-11-18; the speed pass above):** Decided by Claude under standing owner authority (2026-11-18). Built and proved exact (0e77a4e, not landed): up to eight dropped home walking fields kept with the digests of the tiles they read and taken up again when those come back. 18 of 18 taken up matched a fresh field bit for bit, a 60-month run from world 4's year-20 save wrote byte-identical sections, and determinism, roundtrip, the civ-agents, civ-world and civ-host lib tests and the smoke passed. But over those 60 months only 25 of 287 fields came from the spares, and the run took 1,106.5 s against 1,110.7 s (−0.4 %, inside the noise of a shared machine), while the spares can hold up to about 128 MB a world in a wet spell (about 320 MB with the landmark spares, 1.6 GB over the dashboard's five worlds). *Reason:* code and memory for no measurable gain; what still costs time is rebuilding landmarks and fields on every change of flood depth, which only a change of routes would cut (the options are recorded in the entry above, unbuilt).
+- **Whose a boat, cart or line taken up had been (2026-11-18, backlog D's twenty-third item; the seventeenth and nineteenth items' "Not yet"):** Decided by Claude under standing owner authority (2026-11-18). **New saved state, in the history:** a household no more, with the person whose household it was, kept only while something stands in its name. *Reason:* the seventeenth item left whose it had been out because naming it "would mean keeping who it was beside each vehicle"; one record a gone household, not one a vehicle, says it for every boat, cart, wagon and line it left, and the history is where the record of people who are no more is kept. **The person named:** the last of it where nobody was left, else its elder when its people went. *Reason:* the household is named in the chronicle as its elder's ("Bo's household"), and the last of it is the one `care_for_households` already passes its things on from. **Dropped monthly once nothing is left in its name.** *Reason:* it is kept to tell what it left, not as a register of every household that ended. Chosen of the coordinator's candidates as the most self-contained: a line still being laid nobody is left to finish needs its remaining work weighed beside the line review's reckoning, and gas and current hookups passing need the heir's own hookups and payments weighed. No content, wire or web change; saves stay 220 (fields appended).
+- **A road line ended for want of a keeper says whose it had been (2026-11-18, backlog D's twenty-fourth item; the twenty-third item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-18). **Said in the ending's words, still naming nobody as stopping it.** *Reason:* the history now keeps whose a household no more was, and the ending is the one moment the line's record tells of the household that ran it. **The record is kept before the road line is weighed at a merge, and before a household with nobody left goes to its heir, then forgotten if nothing is left in its name.** *Reason:* otherwise the ending is told before anything is kept; keeping it first changes nothing else, since the record is read only by the chronicle's words. In a merge its ways now pass before its road line is weighed (they passed after it before), which changes nothing the road line reads. Chosen as the coordinator's first and most self-contained candidate. No content, schema, wire or web change; saves stay 220.
+- **A household that moves takes its boats and carts (2026-11-18, backlog D's twenty-fifth item; the twentieth item's corrected "Not yet"):** Decided by Claude under standing owner authority (2026-11-18). **What goes:** a made boat or cart a way would bring to the new home today, by the rule an heir's are brought home by (`way_home`), and a motor cart where the household holds its trip's fuel, which it burns. *Reason:* a household that moves takes its store with it, so leaving behind what it could take along a way was the odd case, not a rule; the ninth item's "a way would bring it" and M11b's "a household without a trip's fuel cannot take it" already say which can go. **No hours counted for bringing them.** *Reason:* moving counts none for carrying its goods either; the move is one step. **Wagons stay.** *Reason:* a rail vehicle goes nowhere off its rails (the eighteenth item). No weighing changes. No content, schema, wire or web change; saves stay 220.
+- **A keeper that moves reposts its runs through its own review, as any keeper does (2026-11-18, backlog D's twenty-sixth item):** Decided by Claude under standing owner authority (2026-11-18). Recorded with a test rather than built: the yearly review already posts runs for any household keeping a motor cart and no line where its settlement's people run a dozen errands a year to another, so a moved keeper whose cart came with it posts from its new door once its new settlement's people run there. *Reason:* the coordinator's instruction, and the plan's rule that a household's weighing is unchanged. No code, content, schema, wire or web change.
+- **A tip takes ground (2026-11-18, backlog C: ADR-0038 §6's deferrals, the first half of a tip's capacity; ADR-0038's amendment of 2026-11-18):** Decided by Claude under standing owner authority (2026-11-18), the coordinator having chosen this half of the option. **The ground is the land's,** a record beside the wells' (`Land::tips`), not the polity's tip record. *Reason:* everything that places buildings, fields, plots, pits and ditches reads the land, as it reads wells' ground; a polity's record would need every placement to read the polities too. **Its footprint is 2 m² for each person of the settlement opening it.** *Reason:* 12-10 §2.5's worked example is the research's one figure, a hectare raised two metres for a town of 5,000 for about five years loose, and scaling it by the people served keeps that ground-to-people ratio; the smallest footprint the research gives is that one. **The tip is sited only where its footprint is clear.** *Reason:* a tip opening over a home or field would contradict the ground it keeps. **A tip opened before keeps no ground, and nothing already where it lies moves.** *Reason:* saves are refused, never repaired; giving an old tip ground on load would either cover what stands there or move the tip, and saves 220 are unreleased, so no released world carries such a tip. **No capacity, filling or `tip_full` issue,** and no law or forecast change. *Reason:* the coordinator's scope; a full tip's answer is a polity trigger. No content, wire or web change; saves stay 220 (a field appended to the land table).
+- **Wire 1.113: a tip's ground in the water frame (2026-11-18):** Decided by Claude under standing owner authority (2026-11-18). A `TipInfo` table appended to `Water` (field 7), the minor bumped to 113. *Reason:* the water frame is where the observer reads what lies on the land and fouls the water (wells, springs, mills), and a tip washes and seeps toward those wells; appending a field with a new id is ADR-0001's rule, and a new field the older web cannot read is a minor bump. The Unreal BuildingAssembler's "needs kernel wire 1.112 or later for building parts" is a least version for a feature, not the current one, so it stays. Drawn under the other water features, faint, as the plans and fields are, so it neither hides the wells beside it nor reads as water.
+- **The roof-mending half promoted to `claude/claude-development` on its own long run (2026-11-18; homelab long run 77):** Decided by Claude under standing owner authority (2026-11-18). Long run 77 measured `claude/split-no-deliberation` (11be209: 48cd61b with a household's line passing on, the failures row's twelve months, help with mending and the chronicle's line taken up, but neither deliberation change nor covering a tip) with `max_minutes` 1440; its chain (115) was green. The dashboard **passed** (9 green, 2 amber, none red) in 16,614 s for its slowest world: **structural failures green, 3 in 6,934 building-years, 0.43 per 1,000** (run 67: 4.03, red; the recurring red is closed), population green (4 of 5 keep 10; world 2 fell to 4 in year 41 from 155, as run 67's world 2 did), moves green in every world (2.2 to 9.0), wealth Gini and neighbours amber as before. The notables' gate passed at run 67's margins (fixture 2 proposals +61.9 % against 105 %), as expected with no deliberation change. *Reason:* the owner (2026-11-17): "Don't accept the unmeasured long run risk"; this half is measured and acceptable, so development was fast-forwarded from 48cd61b to 11be209. Still unpromoted: the two deliberation changes (d5fb651, e0fe643; long run 76 measures them), covering a tip, and everything since e20bbac, which a long run of verification's head must measure before it goes. The verification commits of the same four changes reach development by a merge when it is promoted, their code identical to 11be209's.
+- **A line still being laid that nobody is left to finish is taken up where its rest repays (2026-11-18, backlog D's twenty-seventh item; the eighteenth item's "Not yet"; research 08-09 §1.2, §1.3):** Decided by Claude under standing owner authority (2026-11-18). **Taken up by first use, as a line laid whole is:** by a household whose line review finds it from the pit it digs most to beside its home (08-09 §1.2: what nobody holds is taken up by first use, and investment strengthens a claim). *Reason:* the eighteenth item left it standing to nobody for ever, half a line no one could finish or use; the rule for a whole line already says who may take one up and nothing about how much of it is laid decides that. **Weighed on what is left to spend:** the hours a wagon on it would spare over its life against the labour and timber of the track not yet laid, its share of the whole as its laying measures it, and of the wagon unless a made one nobody holds stands at an end; the track already laid costs the taker nothing. *Reason:* the coordinator's terms ("the same as a line laid whole is weighed"); 08-09 §1.3's investment rule weighs the cost still to be paid against what the work brings, and a line laid whole is the case where what is left is nothing, so one weighing serves both. **The rest is laid as the household's own line:** no new work; its laying is its way work, weighed by its wagon's reckoning as a line it marked out is. **A wagon taken up with a line is reckoned at what it spares its new keeper:** its `saves_h_year` set to the taker's review's figure. *Reason:* a line still being laid is weighed for its laying by its wagon's reckoning, and the one the wagon carried was what it spared a household that is no more (a wagon made for a test holds none). On a line laid whole it changes one choice: a half-made wagon taken up with it is finished, or not, by what it would spare the taker (`cart_facts` weighs a wagon being made by its figure), as a wagon the taker began itself would be; a made wagon's figure is read only for laying. **Told** as nobody left to finish it, with how much was laid. Household weighing only; no polity law, forecast, review or gathering changes (the freeze covers polities' deliberation). No content, schema, wire or web change; saves stay 220.

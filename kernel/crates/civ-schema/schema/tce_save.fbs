@@ -154,6 +154,18 @@ table Land {
   // Absent in older saves, whose heads are settled where the landscape's mean recharge holds
   // them, the store holding what that mean keeps in it.
   water: Groundwater (id: 16);
+  // ADR-0038's amendment of 2026-11-18 (appended within the unreleased saves 220): the ground
+  // each tip lies on, in the order opened. Absent, none: a tip opened before keeps no ground.
+  tips: [TipGroundSave] (id: 17);
+}
+
+// A tip's ground (ADR-0038's amendment of 2026-11-18): its tip's id and its rectangle, cm.
+table TipGroundSave {
+  id: ulong (id: 0);
+  x_cm: int (id: 1);
+  y_cm: int (id: 2);
+  w_cm: int (id: 3);
+  h_cm: int (id: 4);
 }
 
 // Schema 72: the water table's head in each patch, metres, in the patches' order, and the water
@@ -656,6 +668,11 @@ table History {
   chronicle: [ChronicleEntry] (id: 1);
   // Schema 6: every couple there has been, oldest first.
   unions: [Union] (id: 2);
+  // Backlog D, twenty-third item (appended within the unreleased saves 220): households no more
+  // with something left in their name, sorted, and the person whose household each was, in step;
+  // absent, none.
+  gone_households: [ulong] (id: 3);
+  gone_whose: [ulong] (id: 4);
 }
 
 // Section "receipts": why people chose what they did, a bounded ring per person.
@@ -1837,6 +1854,9 @@ table TipSave {
   // good, the goods indexing Polities.goods; absent, nothing.
   discard_goods: [uint] (id: 8);
   discard_kg: [double] (id: 9);
+  // ADR-0038 §6's covering (appended within the unreleased saves 220): kilograms of what was
+  // tipped that lie under earth; absent, none.
+  covered_kg: double (id: 10);
 }
 
 // A year's measured losses beside `MeasuredSave` (schema 166, M8d slice DC): the year, and the

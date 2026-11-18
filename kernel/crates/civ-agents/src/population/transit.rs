@@ -15,6 +15,7 @@ use civ_land::trains::RoadLine;
 
 use super::trains::{MOST_RUNS_A_DAY, Ride, TIMETABLE_SPAN_MIN, departures};
 use super::*;
+use crate::history::RoadStep;
 use crate::ledger::Channel;
 
 /// The fewest errands a year from the keeper's settlement to a market for which it posts runs
@@ -68,6 +69,19 @@ impl Population {
     /// Each midnight, households keeping a motor cart whose day of the year it is weigh their
     /// runs (M11b, third part). Nothing where nobody keeps one.
     pub(super) fn transit_reviews(&mut self, ctx: &mut Ctx, day: i64) {
+        // A road line whose keeper is no more, and passed to nobody, runs no more (backlog D,
+        // twentieth item): nobody posts its runs.
+        let (kept, ended): (Vec<RoadLine>, Vec<RoadLine>) =
+            std::mem::take(&mut ctx.land.runs.roads)
+                .into_iter()
+                .partition(|l| self.household(l.operator).is_some());
+        ctx.land.runs.roads = kept;
+        if !ended.is_empty() {
+            ctx.land.runs.changed();
+        }
+        for l in &ended {
+            self.tell_road_line(ctx, l, RoadStep::Ended, None, "");
+        }
         if ctx.land.carts.list.is_empty() {
             return;
         }
@@ -132,8 +146,14 @@ impl Population {
             let days = (day - l.since).max(1);
             let gone = cart.is_none_or(|(c, _)| c != l.cart);
             if gone || (l.riders == 0 && days >= DAYS_PER_YEAR) {
-                ctx.land.runs.roads.remove(i);
+                let l = ctx.land.runs.roads.remove(i);
                 ctx.land.runs.changed();
+                let why = if gone {
+                    "its cart was gone"
+                } else {
+                    "nobody rode it in a year"
+                };
+                self.tell_road_line(ctx, &l, RoadStep::Ended, Some(operator), why);
                 return;
             }
             let Some((_, vehicle)) = cart else {
@@ -219,6 +239,152 @@ impl Population {
             last_run: -1,
         });
         ctx.land.runs.changed();
+        if let Some(l) = ctx.land.runs.roads.last().cloned() {
+            self.tell_road_line(ctx, &l, RoadStep::Posted, Some(operator), "");
+        }
+    }
+
+    /// The chronicle's word of road line `l` (backlog D, twenty-second item): its runs posted by
+    /// household `who`, taken over by it with its motor cart, or stopped by it for `why` (with no
+    /// household, nobody being left who could run them). Placed at the door its runs leave from;
+    /// in `who`'s settlement, or, with none, the settlement whose hearth lies nearest that door.
+    fn tell_road_line(
+        &mut self,
+        ctx: &Ctx,
+        l: &RoadLine,
+        step: RoadStep,
+        who: Option<PermanentId>,
+        why: &str,
+    ) {
+        let Some(&door) = l.cells.first() else {
+            return;
+        };
+        let at = cell_centre(ctx.map, door as usize);
+        let elder = who.and_then(|h| self.elder_of(h, ctx.now, ctx.params));
+        let settlement = who
+            .and_then(|h| self.household(h))
+            .and_then(|x| x.settlement)
+            .or_else(|| {
+                ctx.land
+                    .settlements
+                    .iter()
+                    .min_by(|a, b| {
+                        let d = |s: &civ_land::Settlement| {
+                            (s.hearth_m.0 - at.0).hypot(s.hearth_m.1 - at.1)
+                        };
+                        d(a).total_cmp(&d(b))
+                    })
+                    .map(|s| s.id)
+            });
+        let market = self.settlement_name(ctx, l.market);
+        let household = elder.map_or_else(
+            || "A household".to_owned(),
+            |e| format!("{}'s household", self.name_of(e)),
+        );
+        let runs = match l.runs_a_day {
+            1 => "a run a day".to_owned(),
+            n => format!("{n} runs a day"),
+        };
+        let sentence = match (step, who) {
+            (RoadStep::Posted, _) => format!(
+                "{household} began running its motor cart from its door to {market} and back, \
+                 {runs}, for {:.0} kcal of food a ride.",
+                l.fare_kcal
+            ),
+            (RoadStep::Passed, _) => format!(
+                "{household} took over the motor cart's runs to {market} with the cart, {runs} \
+                 from its door."
+            ),
+            (RoadStep::Ended, Some(_)) => {
+                format!("{household} stopped running its motor cart to {market}: {why}.")
+            }
+            (RoadStep::Ended, None) => match self.whose_household(l.operator) {
+                // Whose they had been, where the history keeps it (backlog D, twenty-fourth item).
+                Some(p) => format!(
+                    "The motor cart's runs to {market}, which had been {}'s household's, stopped: \
+                     nobody was left who could run them.",
+                    self.name_of(p)
+                ),
+                None => format!(
+                    "The motor cart's runs to {market} stopped: nobody was left who could run \
+                     them."
+                ),
+            },
+        };
+        self.chronicle_push(
+            ctx.now,
+            ChronicleKind::RoadLine,
+            elder.into_iter().collect(),
+            settlement,
+            Some(at),
+            f64::from(step as u8),
+            sentence,
+        );
+    }
+
+    /// Household `from` is no more and its people joined household `to` (backlog D, twentieth
+    /// item; the eighteenth item's "Not yet"): a road line `from` kept passes to `to` with its
+    /// motor cart, where the cart passed to `to` ([`Population::vehicles_pass`]: within the
+    /// settlement), `to` keeps no road line of its own, and its cart's way runs from `to`'s door
+    /// to the line's far hearth. Its runs then leave from `to`'s door along that way, its
+    /// timetable, riders and fare kept, the fare scaled to the run's new minutes, as the fuel a
+    /// run burns is (its keeper sets it again by its own cost at its review). Otherwise the line
+    /// runs no more: nobody posts its runs.
+    pub(super) fn road_lines_pass(
+        &mut self,
+        ctx: &mut Ctx,
+        (from, to): (PermanentId, PermanentId),
+    ) {
+        let Some(i) = ctx.land.runs.roads.iter().position(|l| l.operator == from) else {
+            return;
+        };
+        let l = &ctx.land.runs.roads[i];
+        let route = (|| {
+            let x = self.household(to)?;
+            if ctx.land.runs.roads.iter().any(|r| r.operator == to) {
+                return None;
+            }
+            let (_, vehicle) = Self::motor_cart(ctx, to).filter(|c| c.0 == l.cart)?;
+            let v = ctx.catalog.vehicles.get(vehicle)?;
+            let hearth = ctx
+                .land
+                .settlements
+                .iter()
+                .find(|s| s.id == l.market)?
+                .hearth_m;
+            let walk = ctx.params.nav.tobler_ms(0.0);
+            let (route, _) =
+                ctx.land
+                    .cart_way(ctx.map, &v.wheels(RIDER_KG, walk), x.home, hearth)?;
+            (route.cells.len() >= 2).then_some(route)
+        })();
+        match route {
+            Some(route) => {
+                let minutes: Vec<f32> = route.at_s.iter().map(|s| (s / 60.0) as f32).collect();
+                let l = &mut ctx.land.runs.roads[i];
+                let (was, now) = (l.run_min(), minutes.last().copied().unwrap_or(0.0));
+                if was > 0.0 {
+                    l.fare_kcal *= now / was;
+                }
+                l.operator = to;
+                l.cells = route.cells;
+                l.minutes = minutes;
+                ctx.land.runs.changed();
+                let l = ctx.land.runs.roads[i].clone();
+                self.tell_road_line(ctx, &l, RoadStep::Passed, Some(to), "");
+            }
+            None => {
+                let l = ctx.land.runs.roads.remove(i);
+                ctx.land.runs.changed();
+                self.tell_road_line(ctx, &l, RoadStep::Ended, None, "");
+            }
+        }
+    }
+
+    /// The midnight's weighing of runs for day `day`: for tests.
+    #[doc(hidden)]
+    pub fn transit_reviews_for_tests(&mut self, ctx: &mut Ctx, day: i64) {
+        self.transit_reviews(ctx, day);
     }
 
     /// Household `operator` weighs its runs now, whatever its day of the year: for tests.

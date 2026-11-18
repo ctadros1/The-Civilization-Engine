@@ -2,7 +2,7 @@
 // water's edge drawn at today are drawn, which one the pointer is on, and their words. The kernel
 // decides everything; this only shows it.
 
-import type { BankDrawInfo, MillInfo, SpringInfo, WellInfo } from "./net/messages.js";
+import type { BankDrawInfo, MillInfo, SpringInfo, TipInfo, WellInfo } from "./net/messages.js";
 
 /** Fresh earth round a shaft being dug. */
 export const DIGGING_COLOUR = 0x9a7b4f;
@@ -47,6 +47,28 @@ export const MILL_COLOUR = 0x8b5e34;
 /** The water mill the pointer is on: the nearest whose wheel is within `slackM` of the point. */
 export function millAt(list: MillInfo[], xM: number, yM: number, slackM: number): MillInfo | null {
   return nearest(list, xM, yM, () => slackM);
+}
+
+/** A tip's ground (wire 1.113): refuse lying open, and the earth over it once covered. */
+export const TIP_OPEN_COLOUR = 0x7a6a52;
+export const TIP_COVERED_COLOUR = 0x8a7a5a;
+
+/** How a tip's ground is drawn: a faint fill, a little stronger while refuse lies open on it,
+ * and its edge. */
+export function tipLook(t: TipInfo): { colour: number; fill: number; edge: number } {
+  return t.covered || t.tippedKg <= 0
+    ? { colour: TIP_COVERED_COLOUR, fill: 0.25, edge: 0.6 }
+    : { colour: TIP_OPEN_COLOUR, fill: 0.4, edge: 0.8 };
+}
+
+/** The tip whose ground the point lies on, the smallest if several. */
+export function tipAt(list: TipInfo[], xM: number, yM: number): TipInfo | null {
+  let best: TipInfo | null = null;
+  for (const t of list) {
+    const inside = Math.abs(xM - t.x) <= t.wM / 2 && Math.abs(yM - t.y) <= t.hM / 2;
+    if (inside && (!best || t.wM * t.hM < best.wM * best.hM)) best = t;
+  }
+  return best;
 }
 
 /** The spring the pointer is on: the nearest within `slackM` of the point. */

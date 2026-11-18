@@ -1454,7 +1454,7 @@ describe("decoders", () => {
     expect(query.bodyType()).toBe(W.QueryBody.GetWays);
   });
 
-  it("decodes the wells, springs, places drawn at today and water mills, and builds their query", () => {
+  it("decodes the wells, springs, places drawn at today, water mills and tips' ground, and builds their query", () => {
     const b = new flatbuffers.Builder(256);
     const system = b.createString("Timber-lined well");
     const words = b.createString("Ada's household's timber-lined well, being dug: 2.0 of 4.5 m");
@@ -1473,7 +1473,10 @@ describe("decoders", () => {
     const millWords = b.createString("Ada's household's water mill, a fall of 0.7 m: 0.2 kW today of its 3 kW");
     const mill = W.MillInfo.createMillInfo(b, 40n, 310, 420, 0.7, 0.25, 3, true, 7n, millWords);
     const mills = W.Water.createMillsVector(b, [mill]);
-    const water = W.Water.createWater(b, 33n, wells, springs, 0.5, banks, flooded, mills);
+    const tipWords = b.createString("The tip north of the hearth holds 1.2 t, 300 kg of it ash, from 6 households; on 200 m²");
+    const tip = W.TipInfo.createTipInfo(b, 41n, 250, 180, 14, 14, false, 1200, 400, tipWords);
+    const tips = W.Water.createTipsVector(b, [tip]);
+    const water = W.Water.createWater(b, 33n, wells, springs, 0.5, banks, flooded, mills, tips);
     const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Water, water)));
     expect(body.kind).toBe("water");
     if (body.kind !== "water") return;
@@ -1513,6 +1516,19 @@ describe("decoders", () => {
           dug: true,
           household: 7,
           words: "Ada's household's water mill, a fall of 0.7 m: 0.2 kW today of its 3 kW",
+        },
+      ],
+      tips: [
+        {
+          id: 41,
+          x: 250,
+          y: 180,
+          wM: 14,
+          hM: 14,
+          covered: false,
+          tippedKg: 1200,
+          openKg: 400,
+          words: "The tip north of the hearth holds 1.2 t, 300 kg of it ash, from 6 households; on 200 m²",
         },
       ],
     });

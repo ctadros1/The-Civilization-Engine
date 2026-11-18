@@ -220,8 +220,8 @@ fn keeps_ground(f: &civ_land::Field) -> bool {
     !(f.reserved.is_some() && f.lies_idle())
 }
 
-/// Whether `rect` is clear of water, works, wells, plots and (with `fields`) fields; a field a
-/// plan reserved that lies idle keeps no ground (M8c slice CU, fifth part).
+/// Whether `rect` is clear of water, works, wells, tips' ground, plots and (with `fields`) fields;
+/// a field a plan reserved that lies idle keeps no ground (M8c slice CU, fifth part).
 fn ground_clear(land: &Land, map: &WorldMap, nav: &NavGrid, rect: &RectCm, fields: bool) -> bool {
     ground_clear_near(land, map, nav, rect, fields, None)
 }
@@ -263,6 +263,7 @@ fn ground_clear_near(
     if taken
         || civ_land::earth::dug_near(&land.earthworks, rect, PLOT_GAP_CM)
         || land.wells.near(rect, PLOT_GAP_CM)
+        || land.tips.near(rect, PLOT_GAP_CM)
     {
         return false;
     }

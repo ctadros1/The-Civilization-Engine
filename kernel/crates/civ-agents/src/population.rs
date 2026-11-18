@@ -104,6 +104,7 @@ pub use resolution::{DayBlock, NOT_TAKEN, SwitchInvariants};
 pub use rounds::{MAX_ROUND_HOMES, ROUND_EVERY_DAYS};
 pub use sickhouse::sickhouse_bed_m2;
 pub use telegraph::{TELEGRAM_FEE_FOOD_DAYS, TelegraphReckoning};
+pub use tips::TIP_M2_PER_PERSON;
 pub use transit::{RoadRide, road_departures};
 mod credit;
 mod custody;
@@ -201,6 +202,35 @@ struct RegionLandmarks {
     wear_rev: u32,
     regions: Vec<CellBox>,
     built: Vec<Option<(std::sync::Arc<civ_world::nav::Landmarks>, CellBox)>>,
+    /// Landmarks let go since the regions were drawn because ground they read changed, newest
+    /// first, at most [`SPARE_LANDMARKS`]: taken up again where that ground comes back as it was
+    /// (a ford a flood closed opens again), as landmarks over the same ground are the same.
+    spare: Vec<SpareLandmarks>,
+}
+
+/// Landmarks let go ([`RegionLandmarks::spare`]): of the region at `region`, with the digests of
+/// the tiles they read ([`NavGrid::tile_digests`]) as they were built on.
+#[derive(Debug)]
+struct SpareLandmarks {
+    region: usize,
+    digests: Vec<u64>,
+    landmarks: std::sync::Arc<civ_world::nav::Landmarks>,
+}
+
+/// Most landmarks kept to be taken up again ([`RegionLandmarks::spare`]). Each is the same as
+/// the landmarks it saves building, so how many changes how fast the world lives, never what
+/// happens; each holds 64 bytes a cell of its region.
+const SPARE_LANDMARKS: usize = 3;
+
+/// The digests in `digests` (one a tile of `tile` cells, `tiles_x` to a row) of the tiles that
+/// cells of `reads` lie in, row by row.
+fn digests_read(digests: &[u64], (tile, tiles_x): (usize, usize), reads: CellBox) -> Vec<u64> {
+    let ((x0, y0), (x1, y1)) = reads;
+    let tile = tile.max(1);
+    (y0 / tile..=y1 / tile)
+        .flat_map(|ty| (x0 / tile..=x1 / tile).map(move |tx| ty * tiles_x + tx))
+        .map(|k| digests.get(k).copied().unwrap_or(0))
+        .collect()
 }
 /// Fewest routes the route cache keeps in each of its two generations: when the newer is full it
 /// becomes the older, and the older is let go. A route found again is the route let go (the same
@@ -638,6 +668,11 @@ pub struct Population {
     pub chronicle: Vec<ChronicleEvent>,
     /// Every couple there has been, oldest first (research 04-08 §5.1).
     pub unions: Vec<Union>,
+    /// Households that are no more and left a boat, cart, wagon or line in their name (backlog
+    /// D, twenty-third item), each with the person whose household it was: its elder when it went,
+    /// or the last of it. Sorted by household, kept while something stands in its name. Saved
+    /// with the history.
+    pub gone_households: Vec<(PermanentId, PermanentId)>,
     /// The last trip id handed out.
     pub next_trip: u64,
     index: FastMap<PermanentId, Handle<Person>>,
@@ -2443,9 +2478,23 @@ impl Population {
         }
         match self.landmarks.as_mut() {
             Some(by_region) if by_region.wear_rev == wear.rev() => {
-                for built in &mut by_region.built {
+                for (region, built) in by_region.built.iter_mut().enumerate() {
                     if built.as_ref().is_some_and(|(_, reach)| !untouched(*reach)) {
-                        *built = None;
+                        // Kept with the ground it was built on: the digests before this change.
+                        if let Some((landmarks, reads)) = built.take()
+                            && self.route_tiles.len() == digests.len()
+                        {
+                            let digests = digests_read(&self.route_tiles, (tile, tiles_x), reads);
+                            by_region.spare.insert(
+                                0,
+                                SpareLandmarks {
+                                    region,
+                                    digests,
+                                    landmarks,
+                                },
+                            );
+                            by_region.spare.truncate(SPARE_LANDMARKS);
+                        }
                     }
                 }
             }
@@ -6203,6 +6252,7 @@ impl Population {
                             wear_rev: wear.rev(),
                             built: vec![None; regions.len()],
                             regions,
+                            spare: Vec::new(),
                         }
                     });
                     let width = ctx.map.width as usize;
@@ -6210,13 +6260,32 @@ impl Population {
                     let region = by_region.regions.iter().position(|&((x0, y0), (x1, y1))| {
                         (x0..=x1).contains(&tx) && (y0..=y1).contains(&ty)
                     });
+                    let route_tiles = &self.route_tiles;
                     let landmarks = region.map(|k| {
                         let area = by_region.regions[k];
                         &*by_region.built[k]
                             .get_or_insert_with(|| {
-                                let trail = |c| wear.factor(c);
-                                let built = ctx.nav.landmarks(&ctx.map.elevation, &trail, area);
-                                (std::sync::Arc::new(built), ctx.nav.landmark_reach(area))
+                                let reads = ctx.nav.landmark_reach(area);
+                                // Those let go over the same ground, if any, else built anew.
+                                let tile = civ_land::paths::TILE as usize;
+                                let tiles = (tile, width.div_ceil(tile));
+                                let digests = digests_read(route_tiles, tiles, reads);
+                                let spare = by_region
+                                    .spare
+                                    .iter()
+                                    .position(|s| s.region == k && s.digests == digests);
+                                let built = match spare {
+                                    Some(i) => by_region.spare.remove(i).landmarks,
+                                    None => {
+                                        let trail = |c| wear.factor(c);
+                                        std::sync::Arc::new(ctx.nav.landmarks(
+                                            &ctx.map.elevation,
+                                            &trail,
+                                            area,
+                                        ))
+                                    }
+                                };
+                                (built, reads)
                             })
                             .0
                     });
@@ -8594,6 +8663,7 @@ impl Population {
         // were (ADR-0044 §5).
         if now.date().day == 1 {
             self.sewers_month(ctx);
+            self.gone_households_month(ctx);
         }
         // And the ditches (M6b slice BG): the households whose day it is weigh one, and every
         // ditch's intake is opened or shut for the day.

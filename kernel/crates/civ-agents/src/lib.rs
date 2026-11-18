@@ -98,8 +98,8 @@ pub use found::{
 };
 pub use history::{
     AgreementStep, Cause, ChronicleEvent, ChronicleKind, CoalitionStep, Conveyance, CrossingStep,
-    FloodStep, Moved, Origin, OutbreakStep, PersonRecord, Reason, Receipt, ResidenceWhy, Scored,
-    SewerStep, Span, Stay, StormStep, TakenUp, Term, Union, WayStep, WellStep,
+    FloodStep, Moved, Origin, OutbreakStep, PersonRecord, Reason, Receipt, ResidenceWhy, RoadStep,
+    Scored, SewerStep, Span, Stay, StormStep, TakenUp, Term, Union, WayStep, WellStep,
 };
 pub use ledger::Channel;
 pub use needs::Sex;

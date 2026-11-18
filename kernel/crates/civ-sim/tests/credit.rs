@@ -2057,3 +2057,94 @@ fn a_loan_of_a_store_nobody_keeps_has_nobody_to_tell_it() {
     assert_eq!(loan_of(&sc.sim, sc.borrower).1.standing, Standing::Repaid);
     assert!(claims_of(&sc.sim, ClaimKind::Repaid).is_empty());
 }
+
+/// The village's first polity's index and its store's id, for the borrower's settlement, with
+/// the store holding `grain_kg` of grain alone.
+fn store_holding(sc: &mut Scene, grain_kg: f64) -> (usize, PermanentId) {
+    let at = sc
+        .sim
+        .people()
+        .household(sc.borrower)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let pi = sc
+        .sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.settlement == at)
+        .expect("a polity");
+    let (goods, now) = (sc.sim.rules().catalog.goods.len(), sc.sim.now());
+    let pop = sc.sim.people_mut_for_tests();
+    // Brought up to now, so that nothing spoils before the borrowing.
+    pop.polities[pi].stores_at = now;
+    let store = &mut pop.polities[pi].stores;
+    store.clear();
+    store.resize(goods, 0.0);
+    store[sc.grain] = grain_kg;
+    (pi, pop.polities[pi].id)
+}
+
+/// Coverage (backlog E; M7d slice CC, ADR-0027 §4): the store lends no more than the law's
+/// share of its food, the borrower asking more: of 10 kg of grain, a quarter, 2.5 kg, owed with
+/// the law's tenth; and a household none of whose people knows the law borrows not from the
+/// store, whatever it holds.
+#[test]
+fn the_store_lends_its_laws_share_and_only_to_those_who_know_the_law() {
+    let mut sc = village();
+    let (pi, store) = store_holding(&mut sc, 10.0);
+    law_in_force(
+        &mut sc.sim,
+        sc.borrower,
+        "core:policy/lend_from_store",
+        civ_agents::polity::IssueKind::FoodShort,
+    );
+    let def = sc
+        .sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .find(|d| d.id == "core:policy/lend_from_store")
+        .and_then(|d| d.lending)
+        .expect("terms");
+    weigh(&mut sc.sim);
+    let (_, c) = loan_of(&sc.sim, sc.borrower);
+    assert_eq!(c.creditor, store);
+    let share = 10.0 * f64::from(def.share);
+    assert!((f64::from(c.lent) - share).abs() < 1e-3, "{c:?}");
+    assert!(
+        (f64::from(c.owed) - share * (1.0 + f64::from(def.increment))).abs() < 1e-3,
+        "{c:?}"
+    );
+    let left = sc.sim.people().polities[pi].stores[sc.grain];
+    assert!((left - (10.0 - share)).abs() < 1e-3, "{left}");
+    // Another village, the law in force but known to nobody of the borrower's household.
+    let mut sc = village();
+    let (pi, store) = store_holding(&mut sc, 2000.0);
+    let law = law_in_force(
+        &mut sc.sim,
+        sc.borrower,
+        "core:policy/lend_from_store",
+        civ_agents::polity::IssueKind::FoodShort,
+    );
+    let members = sc
+        .sim
+        .people()
+        .household(sc.borrower)
+        .expect("borrower")
+        .members
+        .clone();
+    for l in &mut sc.sim.people_mut_for_tests().polities[pi].laws {
+        if l.id == law {
+            l.known.retain(|k| !members.contains(&k.0));
+        }
+    }
+    weigh(&mut sc.sim);
+    assert!(
+        loans(&sc.sim).iter().all(|c| c.creditor != store),
+        "nobody of it knows the law: {:?}",
+        loans(&sc.sim)
+    );
+    assert_eq!(sc.sim.people().polities[pi].stores[sc.grain], 2000.0);
+}

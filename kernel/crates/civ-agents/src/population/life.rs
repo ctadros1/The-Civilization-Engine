@@ -640,7 +640,7 @@ impl Population {
             }
             let heir = self.kin_household(ctx, last, household, false);
             let heirs = self.heir_households(last, household, heir);
-            self.dissolve(ctx, household, heir, &heirs);
+            self.dissolve(ctx, household, heir, &heirs, last);
         }
         let grown = ctx.params.family.independent_age;
         let mut ids: Vec<PermanentId> = self.households.iter().map(|(_, x)| x.id).collect();
@@ -1070,6 +1070,7 @@ impl Population {
         if from == to || self.household(to).is_none() {
             return;
         }
+        let elder = self.elder_of(from, ctx.now, ctx.params);
         self.settle_household(ctx, from);
         self.settle_household(ctx, to);
         // Its records pass with its buildings (M10c slice EC, second part).
@@ -1167,6 +1168,10 @@ impl Population {
         if near {
             self.works_pass(ctx, (from, to));
         }
+        // Whose what did not pass had been: its elder when its people went. Kept before its road
+        // line passes or ends, so that an ending can say whose it was.
+        self.note_gone(ctx, from, elder);
+        self.road_lines_pass(ctx, (from, to));
     }
 
     /// The land of household `from` passes to `to`, or, with no one to take it, stays as it is
@@ -1317,11 +1322,18 @@ impl Population {
         household: PermanentId,
         heir: Option<PermanentId>,
         heirs: &[PermanentId],
+        last: PermanentId,
     ) {
         let settlement = self.household(household).and_then(|x| x.settlement);
         self.succeed(ctx, household, heirs);
         match heir {
-            Some(to) => self.merge_household(ctx, household, to, false, ResidenceWhy::TakenIn),
+            Some(to) => {
+                // Whose what does not pass had been: the last of it, kept before the merge so that
+                // its road line's ending can say so, and forgotten if nothing is left in its name.
+                self.keep_whose(household, last);
+                self.merge_household(ctx, household, to, false, ResidenceWhy::TakenIn);
+                self.forget_unheld(ctx, household);
+            }
             None => {
                 self.settle_household(ctx, household);
                 if let Some(mut gone) = self.take_household(household) {
@@ -1336,6 +1348,8 @@ impl Population {
                 }
                 self.records_left(household);
                 self.hand_over_land(ctx, household, None, false);
+                // Whose what it leaves in its name had been: the last of it.
+                self.note_gone(ctx, household, Some(last));
             }
         }
         if let Some(s) = settlement {

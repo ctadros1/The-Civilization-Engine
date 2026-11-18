@@ -14,11 +14,18 @@
 use super::*;
 use crate::contagion::{How, Move, Node};
 use crate::decide::WatchFacts;
-use crate::polity::{LawStatus, PolicyKind, Tip, TipDef};
+use crate::decide::WayFacts;
+use crate::polity::{CoverDef, LawStatus, PolicyKind, Tip, TipDef, WaySite};
 use crate::sickness::Outcome;
 
 /// How far from a tip's place, metres beyond a cell, a carrier may stand and tip there.
 const AT_TIP_CELLS: f64 = 2.0;
+
+/// The ground a tip takes for each person of the settlement that opens it, square metres
+/// (ADR-0038's amendment of 2026-11-18): research 12-10 §2.5's worked example, a town of 5,000
+/// whose refuse a tip of a hectare raised two metres holds for about five years loose, scaled to
+/// the people it serves: 10,000 m² over 5,000 people.
+pub const TIP_M2_PER_PERSON: f64 = 2.0;
 
 impl Population {
     /// The terms of the first template that carries refuse to a tip, if the content has one.
@@ -62,8 +69,9 @@ impl Population {
     /// of the cells about the settlement's homes on clear dry ground more than `from_m` from every
     /// open well, spring and stream and from every home, and from every open well as far as a
     /// rule keeping middens from wells in force there asks, the one nearest its homes (least
-    /// summed distance), as a cell's centre; none where the settlement has no homes or no cell
-    /// qualifies.
+    /// summed distance), as a cell's centre, where the tip's footprint about it
+    /// ([`Population::tip_side_m`]) is clear ground; none where the settlement has no homes or no
+    /// cell qualifies.
     pub(super) fn tip_site(
         &self,
         ctx: &Ctx,
@@ -120,7 +128,7 @@ impl Population {
         let (cx0, cx1) = (cell(x0 - pad, map.width), cell(x1 + pad, map.width));
         let (cy0, cy1) = (cell(y0 - pad, map.height), cell(y1 + pad, map.height));
         let cm = |m: f64| (m * 100.0).round() as i32;
-        let half = cm(size / 2.0).max(1);
+        let half = cm(Self::tip_side_m(self.tip_people(settlement)) / 2.0).max(1);
         let mut best: Option<((f32, f32), f64)> = None;
         for y in cy0..=cy1 {
             for x in cx0..=cx1 {
@@ -163,8 +171,42 @@ impl Population {
         best.map(|b| b.0)
     }
 
+    /// The people of settlement `settlement`'s households, whom a tip it opens serves.
+    fn tip_people(&self, settlement: PermanentId) -> usize {
+        self.households
+            .iter()
+            .map(|(_, x)| x)
+            .filter(|x| x.settlement == Some(settlement))
+            .map(|x| x.members.len())
+            .sum()
+    }
+
+    /// The side of the square a tip serving `people` takes, metres: [`TIP_M2_PER_PERSON`] for
+    /// each (ADR-0038's amendment of 2026-11-18), a person at least.
+    pub fn tip_side_m(people: usize) -> f64 {
+        (TIP_M2_PER_PERSON * people.max(1) as f64).sqrt()
+    }
+
+    /// The ground a tip at `place` serving `people` takes: the square of [`Population::tip_side_m`]
+    /// about it.
+    fn tip_ground(place: (f32, f32), people: usize) -> civ_land::RectCm {
+        let half = ((Self::tip_side_m(people) / 2.0) * 100.0).round().max(1.0) as i32;
+        let (cx, cy) = (
+            (f64::from(place.0) * 100.0).round() as i32,
+            (f64::from(place.1) * 100.0).round() as i32,
+        );
+        civ_land::RectCm {
+            x: cx - half,
+            y: cy - half,
+            w: 2 * half,
+            h: 2 * half,
+        }
+    }
+
     /// Opens the tip of law `law` of polity `pi`, just passed (ADR-0038 §3), where
-    /// [`Population::tip_site`] finds one; none where no place qualifies.
+    /// [`Population::tip_site`] finds one; none where no place qualifies. Its ground is the
+    /// land's from then on (ADR-0038's amendment of 2026-11-18): nothing is built, laid out,
+    /// dug or broken on it.
     pub(super) fn open_tip(&mut self, ctx: &mut Ctx, pi: usize, law: PermanentId) {
         let Some(def) = self.polities[pi]
             .laws
@@ -180,6 +222,11 @@ impl Population {
             return;
         };
         let id = ctx.ids.allocate();
+        let rect = Self::tip_ground(place, self.tip_people(settlement));
+        ctx.land
+            .tips
+            .list
+            .push(civ_land::tips::TipGround { id, rect });
         self.polities[pi].tips.push(Tip {
             id,
             law,
@@ -189,6 +236,7 @@ impl Population {
             ash_kg: 0.0,
             households: Vec::new(),
             discards: Vec::new(),
+            covered_kg: 0.0,
         });
     }
 
@@ -329,7 +377,10 @@ impl Population {
         if let Err(i) = tip.households.binary_search(&household) {
             tip.households.insert(i, household);
         }
-        let to = Node::Tip(tip.id);
+        let tip_id = tip.id;
+        // Under a law covering it, what came is asked covered (ADR-0038 §6's covering).
+        self.ask_cover(ctx, pi, ti, kg + ash_kg + discard_kg);
+        let to = Node::Tip(tip_id);
         let from = Node::Midden(household);
         let diseases: Vec<u16> = self
             .contagion
@@ -513,5 +564,310 @@ impl Population {
     #[doc(hidden)]
     pub fn heaps_near_for_tests(&self, ctx: &Ctx, households: &[PermanentId]) -> Vec<PermanentId> {
         self.heaps_near(ctx, households)
+    }
+
+    /// The law covering polity `pi`'s tip in force, if any (ADR-0038 §6's covering): its index
+    /// among the polity's laws and its terms.
+    pub(super) fn cover_law(&self, ctx: &Ctx, pi: usize) -> Option<(usize, CoverDef)> {
+        self.polities[pi]
+            .laws
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| l.status == LawStatus::InForce && l.kind == PolicyKind::CoverTip)
+            .find_map(|(li, l)| Some((li, ctx.catalog.policies.get(usize::from(l.policy))?.cover?)))
+    }
+
+    /// Hours covering a kilogram of refuse takes under terms `def`, at the people's digging hours
+    /// a cubic metre of earth.
+    fn cover_h_per_kg(ctx: &Ctx, def: &CoverDef) -> f64 {
+        def.h_per_kg(ctx.params.digging.h_per_m3)
+    }
+
+    /// Under a law covering polity `pi`'s tip in force, `kg` more of refuse come to its tip `ti`
+    /// are asked covered: their hours join the law's work, whose site is that tip (ADR-0038 §6's
+    /// covering). Nothing without such a law.
+    fn ask_cover(&mut self, ctx: &Ctx, pi: usize, ti: usize, kg: f64) {
+        let Some((li, def)) = self.cover_law(ctx, pi) else {
+            return;
+        };
+        let hours = kg.max(0.0) * Self::cover_h_per_kg(ctx, &def);
+        let law = self.polities[pi].laws[li].id;
+        let tip = &self.polities[pi].tips[ti];
+        let (id, cell) = (tip.id, cell_of(ctx.map, tip.place) as u32);
+        let p = &mut self.polities[pi];
+        match p.ways.iter_mut().find(|w| w.0 == law) {
+            Some(w) => {
+                w.1.labour_h += hours;
+                (w.1.cell, w.1.work) = (cell, Some(id));
+            }
+            None => p.ways.push((
+                law,
+                WaySite {
+                    cell,
+                    labour_h: hours,
+                    work: Some(id),
+                },
+            )),
+        }
+    }
+
+    /// Kilograms a year come to polity `pi`'s tip `ti`, at the rate they have come since it opened
+    /// (at least 30 days counted).
+    fn tip_kg_year(&self, ctx: &Ctx, pi: usize, ti: usize) -> f64 {
+        let t = &self.polities[pi].tips[ti];
+        let days = (ctx.now.day_index() - t.opened).max(30) as f64;
+        t.tipped_kg() / days * DAYS_PER_YEAR as f64
+    }
+
+    /// What covering polity `pi`'s open tip would bring each of `households` a year and cost it,
+    /// kcal (ADR-0038 §6's covering), as carrying refuse there is weighed: its people's deaths of
+    /// disease within the year, at the template's share it believes covering would have spared,
+    /// each weighed as a licence's death avoided; and its equal share of a year's covering, the
+    /// refuse coming at the rate it has come, at what an hour of its work brings in food. None
+    /// without an open tip or a template covering one.
+    pub(super) fn cover_forecasts(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        households: &[PermanentId],
+    ) -> Vec<(PermanentId, f64, f64)> {
+        let (Some(def), Some(ti)) = (
+            ctx.catalog.policies.iter().find_map(|d| d.cover),
+            self.round_tip(pi),
+        ) else {
+            return Vec::new();
+        };
+        let params = ctx.params;
+        let year_h = self.tip_kg_year(ctx, pi, ti) * Self::cover_h_per_kg(ctx, &def);
+        let share_h = year_h / households.len().max(1) as f64;
+        let deaths = self.deaths_of_disease(ctx, households);
+        households
+            .iter()
+            .filter_map(|&h| {
+                let x = self.household(h)?;
+                let died = deaths.iter().find(|d| d.0 == h).map_or(0, |d| d.1);
+                let kcal = self.hour_kcal(ctx, x);
+                let gain = died as f64
+                    * f64::from(def.avoided_share)
+                    * params.suspicion.w_death
+                    * params.farm.work_hours_per_day
+                    * kcal;
+                Some((h, gain, share_h * kcal))
+            })
+            .collect()
+    }
+
+    /// A law covering polity `pi`'s tip, `law`, has passed (ADR-0038 §6's covering): the refuse
+    /// lying open on its open tip is asked covered at once, and each household's reckoning of the
+    /// hours of its own a year an hour of covering spares it is kept, as a passing place keeps
+    /// what it would spare. Nothing where no tip is open.
+    pub(super) fn cover_passed(&mut self, ctx: &Ctx, pi: usize, law: PermanentId) {
+        let Some(ti) = self.round_tip(pi) else {
+            return;
+        };
+        let Some(def) = self.polities[pi]
+            .laws
+            .iter()
+            .find(|l| l.id == law)
+            .and_then(|l| ctx.catalog.policies.get(usize::from(l.policy)))
+            .and_then(|d| d.cover)
+        else {
+            return;
+        };
+        let mut households: Vec<PermanentId> = self
+            .households
+            .iter()
+            .filter(|(_, x)| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
+            .map(|(_, x)| x.id)
+            .collect();
+        households.sort_unstable();
+        let year_h = self.tip_kg_year(ctx, pi, ti) * Self::cover_h_per_kg(ctx, &def);
+        let saves: Vec<(PermanentId, f32)> = self
+            .cover_forecasts(ctx, pi, &households)
+            .into_iter()
+            .filter_map(|(h, gain, _)| {
+                let kcal = self.hour_kcal(ctx, self.household(h)?).max(1e-9);
+                Some((h, (gain / kcal / year_h.max(1e-6)) as f32))
+            })
+            .collect();
+        let open = self.polities[pi].tips[ti].open_kg();
+        let p = &mut self.polities[pi];
+        if !p.ways.iter().any(|w| w.0 == law) {
+            let tip = &p.tips[ti];
+            p.ways.push((
+                law,
+                WaySite {
+                    cell: cell_of(ctx.map, tip.place) as u32,
+                    labour_h: 0.0,
+                    work: Some(tip.id),
+                },
+            ));
+        }
+        p.way_saves.retain(|s| s.0 != law);
+        for (h, spared) in saves {
+            p.way_saves.push((law, h, spared));
+        }
+        p.way_saves.sort_unstable_by_key(|s| (s.0, s.1));
+        if open > 0.0 {
+            // Asked as though it had just come.
+            let li = p.laws.iter().position(|l| l.id == law);
+            if li.is_some() {
+                self.ask_cover(ctx, pi, ti, open);
+            }
+        }
+    }
+
+    /// The covering household `x`'s people may work at its polity's tip under a law in force
+    /// `person` knows of (ADR-0038 §6's covering), as common work at a passing place is weighed:
+    /// the walk there from home, the hours of covering what lies open, the hours of its own a year
+    /// each hour spares the household as it reckoned when the law passed, and, while the household
+    /// has not given its equal share of what was asked, what keeping to the gathering's word is
+    /// worth to `person`. `None` where nothing lies open or no such law applies.
+    pub(super) fn cover_facts(
+        &self,
+        ctx: &Ctx,
+        x: &Household,
+        person: PermanentId,
+    ) -> Option<WayFacts> {
+        let pi = self.polity_of(x.settlement?)?;
+        let (li, def) = self.cover_law(ctx, pi)?;
+        let polity = &self.polities[pi];
+        let law = &polity.laws[li];
+        if !law.knows(person) {
+            return None;
+        }
+        let site = polity.way_site_of(law.id)?;
+        let tip = polity.tips.iter().find(|t| Some(t.id) == site.work)?;
+        let left_h = tip.open_kg() * Self::cover_h_per_kg(ctx, &def);
+        if left_h <= 1e-9 {
+            return None;
+        }
+        let households = self
+            .households
+            .iter()
+            .filter(|(_, y)| polity.holds(y.settlement) && !y.members.is_empty())
+            .count()
+            .max(1);
+        let share = site.labour_h / households as f64;
+        let mut duty = 0.0;
+        if f64::from(polity.way_given_by(law.id, x.id)) + 1e-6 < share {
+            let stance = law
+                .stances
+                .iter()
+                .find(|r| r.person == person)
+                .map_or(0.0, |r| r.stance.sign());
+            let regard =
+                self.ties
+                    .regard(person, law.sponsor, ctx.now.day_index(), &ctx.params.ties);
+            let norm = self.norm_points(ctx, person);
+            duty = crate::polity::comply_points(norm, stance, regard, 0.0, &ctx.params.polity)
+                .max(0.0);
+        }
+        let pace = ctx.params.nav.tobler_ms(0.0).max(1e-6);
+        let at = tip.place;
+        Some(WayFacts {
+            way: tip.id,
+            at,
+            walk_min: f64::from((at.0 - x.home.0).hypot(at.1 - x.home.1)) / pace / 60.0,
+            left_h,
+            saves_per_hour: f64::from(polity.way_saves_of(law.id, x.id)),
+            duty,
+            full: false,
+        })
+    }
+
+    /// Whether `id` is a tip some polity keeps.
+    pub(super) fn is_tip(&self, id: PermanentId) -> bool {
+        self.tip_place(id).is_some()
+    }
+
+    /// `hours` of work by someone of `household` covering tip `tip` (ADR-0038 §6's covering),
+    /// while a law of its polity covering it is in force and the household lives under it: a
+    /// kilogram of what lies open is covered each `h_per_kg` hours, no more than lies open. The
+    /// hours it took are the household's given to the law, and to the polity's works, paid where
+    /// a law of pay for common work is in force.
+    pub(super) fn cover_work(
+        &mut self,
+        ctx: &Ctx,
+        household: PermanentId,
+        tip: PermanentId,
+        hours: f64,
+    ) {
+        let Some(pi) = self
+            .polities
+            .iter()
+            .position(|p| p.tips.iter().any(|t| t.id == tip))
+        else {
+            return;
+        };
+        if !self
+            .household(household)
+            .is_some_and(|x| self.polities[pi].holds(x.settlement))
+        {
+            return;
+        }
+        let Some((li, def)) = self.cover_law(ctx, pi) else {
+            return;
+        };
+        let (law, polity) = (self.polities[pi].laws[li].id, self.polities[pi].id);
+        if self.polities[pi]
+            .way_site_of(law)
+            .is_none_or(|s| s.work != Some(tip))
+        {
+            return;
+        }
+        let per_kg = Self::cover_h_per_kg(ctx, &def);
+        let Some(t) = self.polities[pi].tips.iter_mut().find(|t| t.id == tip) else {
+            return;
+        };
+        let kg = (hours.max(0.0) / per_kg.max(1e-12)).min(t.open_kg());
+        if kg <= 0.0 {
+            return;
+        }
+        t.covered_kg += kg;
+        if t.open_kg() <= crate::polity::COVERED_KG {
+            t.covered_kg = t.tipped_kg();
+        }
+        let took = kg * per_kg;
+        self.polities[pi].give_to_way(law, household, took as f32);
+        self.work_given.push((polity, household, took));
+    }
+
+    /// Whether tip `tip` lies all under earth, so that no rain washes any of it off.
+    pub(super) fn tip_covered(&self, tip: PermanentId) -> bool {
+        self.polities
+            .iter()
+            .flat_map(|p| p.tips.iter())
+            .find(|t| t.id == tip)
+            .is_some_and(Tip::covered)
+    }
+
+    /// A law covering tips, `law`, of polity `pi` passed, as passing it does: for tests.
+    #[doc(hidden)]
+    pub fn cover_passed_for_tests(&mut self, ctx: &mut Ctx, pi: usize, law: PermanentId) {
+        self.cover_passed(ctx, pi, law);
+    }
+
+    /// What covering polity `pi`'s tip would bring and cost each of `households`: for tests.
+    #[doc(hidden)]
+    pub fn cover_forecasts_for_tests(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        households: &[PermanentId],
+    ) -> Vec<(PermanentId, f64, f64)> {
+        self.cover_forecasts(ctx, pi, households)
+    }
+
+    /// The covering household `household`'s person `person` may work now: for tests.
+    #[doc(hidden)]
+    pub fn cover_facts_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+        person: PermanentId,
+    ) -> Option<WayFacts> {
+        self.household(household)
+            .and_then(|x| self.cover_facts(ctx, x, person))
     }
 }

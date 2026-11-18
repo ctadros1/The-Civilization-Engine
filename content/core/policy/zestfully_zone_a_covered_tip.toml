@@ -1,0 +1,34 @@
+# A covered tip (ADR-0038 §6's covering; research 12-10 §1.5, §2.4, §2.5, §5.4: a controlled tip
+# spreads and covers its refuse; covering is digging and carrying earth, and a covered stream
+# stops being reachable by runoff, though it still seeps). Where the polity keeps an open tip and
+# someone suspects that the water at a source sickens (the issue `source_suspected`), anyone may
+# propose that the refuse lying open on it be spread and covered with earth as it comes. Once
+# passed, the hours of covering what lies open, and then of each heap or cart load as it is
+# tipped, are asked of the settlement's households, an equal share each, worked at the tip as
+# common work is and paid where a law pays for common work. Earth is dug, carried and spread at
+# the people's digging hours a cubic metre (`digging.h_per_m3`); a cubic metre of loose refuse
+# weighs 220 kg (12-10 §5.4's 157-290) and takes 0.15 m³ of earth (§2.4's daily cover, a prior).
+# While all that was tipped lies under earth, no rain washes any of it toward a well or a bank;
+# what soaks into the ground soaks as before. A household weighs the law by a tenth of its deaths
+# of disease within the year, which it believes covering would have spared (a design prior),
+# against its share of a year's covering at the rate refuse has come to the tip. Its id sorts
+# after every older template's: hearth talk about a question and a saved law are keyed by a
+# template's place in id order.
+kind = "policy"
+id = "core:policy/zestfully_zone_a_covered_tip"
+name = "A covered tip"
+description = "The refuse at the polity's tip is spread and covered with earth as it comes, each household asked an equal share of the work."
+does = "cover_tip"
+answers = ["source_suspected"]
+question = "whether the refuse at the tip is covered with earth"
+
+[cover]
+loose_kg_m3 = 220.0
+cover_share = 0.15
+avoided_share = 0.1
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement: the water kept cleaner, by everyone's work.
+[bears]
+"core:value/security" = 0.5
+"core:value/reciprocity" = 0.25

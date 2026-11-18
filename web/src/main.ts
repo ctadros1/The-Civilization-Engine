@@ -1382,6 +1382,8 @@ map.onPointer = (info: PointerInfo | null) => {
   const home = info.home ? ` · ${info.home.name}: ${info.home.words.join("; ")}` : "";
   const place = info.place ? ` · ${info.place.name}: ${info.place.words.join("; ")}` : "";
   const mill = info.mill ? ` · ${info.mill.words}` : "";
+  // Wire 1.113: the tip whose ground is under the pointer.
+  const tip = info.tip ? ` · ${info.tip.words}` : "";
   const source = info.well
     ? ` · ${info.well.words}${info.well.fouled ? ` · ${info.well.fouled}` : ""}`
     : info.spring
@@ -1391,7 +1393,7 @@ map.onPointer = (info: PointerInfo | null) => {
         : "";
   readout.textContent =
     `${formatDistance(info.xM)} E, ${formatDistance(info.yM)} S · cell ${info.cellX}, ${info.cellY}` +
-    `${height} · ${info.water ?? ""}${flowing}${home}${place}${vehicle}${crossing}${way}${gas}${current}${plan}${land}${mill}${source}${path}${field}${building}${earthwork}${deposit}`;
+    `${height} · ${info.water ?? ""}${flowing}${home}${place}${vehicle}${crossing}${way}${gas}${current}${plan}${land}${tip}${mill}${source}${path}${field}${building}${earthwork}${deposit}`;
 };
 
 const scaleBar = byId("scalebar-bar");

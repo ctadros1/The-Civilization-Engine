@@ -964,10 +964,11 @@ pub(super) fn decode<R: Read + Seek>(
     // each gets a founder's, by a draw keyed to them (ADR-0015 §2).
     people.give_crime_state(&rules.people.crime, seed);
     let bytes = single_chunk(reader, SECTION_HISTORY)?;
-    let (records, chronicle, unions) = decode_history(&bytes)?;
+    let (records, chronicle, unions, gone) = decode_history(&bytes)?;
     people.records = records;
     people.chronicle = chronicle;
     people.unions = unions;
+    people.gone_households = gone;
     // Before schema 50 nobody's residence was kept: it is inferred from where they live, the
     // chronicle and how they came (ADR-0018 §2).
     if schema < Schema::V50 {
@@ -2240,6 +2241,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             households: Some(households),
                             discard_goods,
                             discard_kg,
+                            covered_kg: t.covered_kg,
                         },
                     )
                 })
@@ -3571,6 +3573,14 @@ fn decode_polities(
                     civ_agents::person::add_discard(&mut discards, usize::from(g), kg);
                 }
             }
+            // What lies under earth (ADR-0038 §6's covering, appended within saves 220): none, in
+            // older saves.
+            let covered_kg = t.covered_kg();
+            if !(covered_kg.is_finite() && covered_kg >= 0.0) {
+                return Err(bad(format!(
+                    "polity {id}'s tip {tip} has a malformed cover"
+                )));
+            }
             tips.push(civ_agents::polity::Tip {
                 id: tip,
                 law: required(t.law(), "a tip's law")?,
@@ -3580,6 +3590,7 @@ fn decode_polities(
                 ash_kg,
                 households,
                 discards,
+                covered_kg,
             });
         }
         // Its refuse rounds (ADR-0038 §4, appended within saves 220): none, in older saves.
@@ -4894,6 +4905,25 @@ fn encode_land(land: &Land, rules: &Rules) -> Vec<u8> {
             runoff_mm: land.water.runoff_mm,
         },
     );
+    // The ground tips lie on (ADR-0038's amendment of 2026-11-18), absent while none.
+    let tips: Vec<_> = land
+        .tips
+        .list
+        .iter()
+        .map(|t| {
+            save::TipGroundSave::create(
+                &mut fbb,
+                &save::TipGroundSaveArgs {
+                    id: t.id.get(),
+                    x_cm: t.rect.x,
+                    y_cm: t.rect.y,
+                    w_cm: t.rect.w,
+                    h_cm: t.rect.h,
+                },
+            )
+        })
+        .collect();
+    let tips = (!tips.is_empty()).then(|| fbb.create_vector(&tips));
     let root = save::Land::create(
         &mut fbb,
         &save::LandArgs {
@@ -4911,6 +4941,7 @@ fn encode_land(land: &Land, rules: &Rules) -> Vec<u8> {
             resource_unit_kg: Some(resource_unit_kg),
             weather: Some(weather),
             water: Some(water),
+            tips,
             ..Default::default()
         },
     );
@@ -5180,6 +5211,7 @@ fn decode_land(
         water: Default::default(),
         // Read from its own section (schema 74 on).
         wells: Default::default(),
+        tips: Default::default(),
         floodplain,
         rivers: civ_land::boating::RiverGraph::new(map),
         reach_discharges: map.reaches.iter().map(|r| r.discharge_m3s).collect(),
@@ -5224,6 +5256,23 @@ fn decode_land(
             }
         }
         land.derive_floodplain(map, &rules.land);
+    }
+    // The ground tips lie on (ADR-0038's amendment of 2026-11-18, appended within saves 220):
+    // none in older saves, whose tips keep no ground.
+    for t in l.tips().iter().flatten() {
+        land.tips.list.push(civ_land::tips::TipGround {
+            id: required(t.id(), "a tip's ground")?,
+            rect: civ_land::RectCm {
+                x: t.x_cm(),
+                y: t.y_cm(),
+                w: t.w_cm(),
+                h: t.h_cm(),
+            },
+        });
+    }
+    let problems = land.tips.problems();
+    if !problems.is_empty() {
+        return Err(LoadError::Invalid(problems));
     }
     Ok(land)
 }
@@ -7718,6 +7767,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::ConveyanceLaid => 71,
         ChronicleKind::VehicleTakenUp => 72,
         ChronicleKind::LineTakenUp => 73,
+        ChronicleKind::RoadLine => 74,
     }
 }
 
@@ -7796,6 +7846,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         71 => Some(ChronicleKind::ConveyanceLaid),
         72 => Some(ChronicleKind::VehicleTakenUp),
         73 => Some(ChronicleKind::LineTakenUp),
+        74 => Some(ChronicleKind::RoadLine),
         _ => None,
     }
 }
@@ -7906,12 +7957,22 @@ fn encode_history(pop: &Population) -> Vec<u8> {
         })
         .collect();
     let unions = fbb.create_vector(&unions);
+    // Households no more, and whose each was (backlog D, twenty-third item), absent while none.
+    let (gone_households, gone_whose) = if pop.gone_households.is_empty() {
+        (None, None)
+    } else {
+        let h: Vec<u64> = pop.gone_households.iter().map(|g| g.0.get()).collect();
+        let w: Vec<u64> = pop.gone_households.iter().map(|g| g.1.get()).collect();
+        (Some(fbb.create_vector(&h)), Some(fbb.create_vector(&w)))
+    };
     let root = save::History::create(
         &mut fbb,
         &save::HistoryArgs {
             records: Some(records),
             chronicle: Some(chronicle),
             unions: Some(unions),
+            gone_households,
+            gone_whose,
         },
     );
     finish(fbb, root)
@@ -7921,6 +7982,7 @@ type DecodedHistory = (
     BTreeMap<PermanentId, PersonRecord>,
     Vec<ChronicleEvent>,
     Vec<Union>,
+    Vec<(PermanentId, PermanentId)>,
 );
 
 fn decode_history(bytes: &[u8]) -> Result<DecodedHistory, LoadError> {
@@ -8018,7 +8080,28 @@ fn decode_history(bytes: &[u8]) -> Result<DecodedHistory, LoadError> {
             ended: u.ended().then(|| time(u.ended_at())),
         });
     }
-    Ok((records, chronicle, unions))
+    // Households no more, and whose each was (backlog D, twenty-third item, appended within
+    // saves 220): none, in older saves.
+    let hs: Vec<u64> = root.gone_households().iter().flatten().collect();
+    let ws: Vec<u64> = root.gone_whose().iter().flatten().collect();
+    if hs.len() != ws.len() {
+        return Err(LoadError::Malformed(
+            "the history's households no more and whose they were differ in length".to_owned(),
+        ));
+    }
+    let mut gone = Vec::with_capacity(hs.len());
+    for (h, w) in hs.into_iter().zip(ws) {
+        gone.push((
+            required(h, "a household no more")?,
+            required(w, "whose a household no more was")?,
+        ));
+    }
+    if !gone.windows(2).all(|g| g[0].0 < g[1].0) {
+        return Err(LoadError::Malformed(
+            "the history's households no more are out of order".to_owned(),
+        ));
+    }
+    Ok((records, chronicle, unions, gone))
 }
 
 // ---- receipts ----------------------------------------------------------------------------------

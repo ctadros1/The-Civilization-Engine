@@ -209,6 +209,7 @@ export { TechniqueInfo } from './wire/technique-info.js';
 export { TellOfIdeology } from './wire/tell-of-ideology.js';
 export { Term } from './wire/term.js';
 export { TieLine } from './wire/tie-line.js';
+export { TipInfo } from './wire/tip-info.js';
 export { TradeInfo } from './wire/trade-info.js';
 export { TrailInfo } from './wire/trail-info.js';
 export { TripInfo } from './wire/trip-info.js';

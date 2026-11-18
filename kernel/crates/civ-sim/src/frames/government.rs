@@ -1745,40 +1745,7 @@ pub fn services_words(sim: &Sim, polity: &civ_agents::polity::Polity) -> Vec<Str
     }
     // Its tips and what lies in them (M11f, second part; ADR-0038 §3).
     for t in &polity.tips {
-        let n = t.households.len();
-        let tonnes = |kg: f64| {
-            if kg < 1000.0 {
-                format!("{kg:.0} kg")
-            } else {
-                format!("{:.1} t", kg / 1000.0)
-            }
-        };
-        // What was thrown away whole, by good (ADR-0044 §1): "and 3 kg of scrap iron".
-        let goods = &sim.rules().catalog.goods;
-        let whole: Vec<String> = t
-            .discards
-            .iter()
-            .map(|&(g, kg)| {
-                let name = goods
-                    .get(usize::from(g))
-                    .map_or_else(|| "something".to_owned(), |d| d.name.to_lowercase());
-                format!("{} of {name}", tonnes(kg))
-            })
-            .collect();
-        let whole = if whole.is_empty() {
-            String::new()
-        } else {
-            format!(" and {}", whole.join(", "))
-        };
-        let discarded: f64 = t.discards.iter().map(|&(_, kg)| kg).sum();
-        out.push(format!(
-            "{} holds {}, {} of it ash{whole}, from {} household{}",
-            super::markets::capitalized(&tip_words(sim, polity, t)),
-            tonnes(t.kg + t.ash_kg + discarded),
-            tonnes(t.ash_kg),
-            n,
-            if n == 1 { "" } else { "s" }
-        ));
+        out.push(tip_line(sim, polity, t));
     }
     // Its refuse rounds (M11f, third part; ADR-0038 §4).
     for r in &polity.rounds {
@@ -2044,6 +2011,63 @@ pub fn round_words(
         if n == 1 { "" } else { "s" },
         round.every_days,
         tonnes(round.carried_since(year + 1)),
+    )
+}
+
+/// A tip in the services' words (M11f, second part; ADR-0038 §3): "The tip north of the hearth
+/// holds 1.2 t, 300 kg of it ash, from 6 households", with what was thrown away whole and what
+/// lies under earth.
+pub fn tip_line(
+    sim: &Sim,
+    polity: &civ_agents::polity::Polity,
+    t: &civ_agents::polity::Tip,
+) -> String {
+    let n = t.households.len();
+    let tonnes = |kg: f64| {
+        if kg < 1000.0 {
+            format!("{kg:.0} kg")
+        } else {
+            format!("{:.1} t", kg / 1000.0)
+        }
+    };
+    // What was thrown away whole, by good (ADR-0044 §1): "and 3 kg of scrap iron".
+    let goods = &sim.rules().catalog.goods;
+    let whole: Vec<String> = t
+        .discards
+        .iter()
+        .map(|&(g, kg)| {
+            let name = goods
+                .get(usize::from(g))
+                .map_or_else(|| "something".to_owned(), |d| d.name.to_lowercase());
+            format!("{} of {name}", tonnes(kg))
+        })
+        .collect();
+    let whole = if whole.is_empty() {
+        String::new()
+    } else {
+        format!(" and {}", whole.join(", "))
+    };
+    let discarded: f64 = t.discards.iter().map(|&(_, kg)| kg).sum();
+    // What lies under earth (ADR-0038 §6's covering): "; all of it covered with earth", or
+    // "; 40 kg covered, 12 kg lying open".
+    let cover = if t.covered() {
+        "; all of it covered with earth".to_owned()
+    } else if t.covered_kg > 0.0 {
+        format!(
+            "; {} covered, {} lying open",
+            tonnes(t.covered_kg),
+            tonnes(t.open_kg())
+        )
+    } else {
+        String::new()
+    };
+    format!(
+        "{} holds {}, {} of it ash{whole}, from {} household{}{cover}",
+        super::markets::capitalized(&tip_words(sim, polity, t)),
+        tonnes(t.kg + t.ash_kg + discarded),
+        tonnes(t.ash_kg),
+        n,
+        if n == 1 { "" } else { "s" }
     )
 }
 

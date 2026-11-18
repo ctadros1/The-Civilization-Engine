@@ -375,3 +375,155 @@ fn a_household_grinds_at_a_neighbours_mill_for_its_toll_and_builds_none_of_its_o
     sim.with_ctx_for_tests(|pop, ctx| pop.review_mill_for_tests(ctx, customer));
     assert_eq!(sim.land().installations.len(), 1, "no second mill");
 }
+
+/// Coverage (backlog E; M10a slice DR, third part): a household weighs a mill on a year's making
+/// read between two counts at least 180 days apart: a count fewer days back is only taken anew
+/// and sets no mill, nor does one with nothing made since it; one a year back with 600 kg ground
+/// since sets one where a site serves; and a household that owns a mill sets no second.
+#[test]
+fn a_mill_is_weighed_on_a_year_read_between_counts_and_one_household_sets_one() {
+    let mut sim = village();
+    let flour = good(&sim, "flour");
+    let households = grown(&sim);
+    for &(_, who) in &households {
+        for t in [
+            "core:technique/rotary_quern",
+            "core:technique/jointed_frame",
+            "core:technique/water_wheel",
+        ] {
+            let i = sim.rules().catalog.technique_index(t).expect(t);
+            if sim.people().person(who).is_some_and(|p| p.knows(i)) {
+                continue;
+            }
+            sim.introduce_technique(who, t, false).expect("introduced");
+        }
+    }
+    let today = sim.now().day_index();
+    let count = |sim: &mut Sim, h: PermanentId, days_back: i64, ground: f64| {
+        for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+            if x.id == h {
+                let made = x.flows.get(Flow::Made, flour);
+                x.flows.add(Flow::Made, flour, ground);
+                x.mill_seen = Some(MillSeen {
+                    day: today - days_back,
+                    kg: made,
+                });
+            }
+        }
+    };
+    let review = |sim: &mut Sim, h: PermanentId| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_mill_for_tests(ctx, h));
+    };
+    let mills_of = |sim: &Sim, h: PermanentId| {
+        sim.land()
+            .installations
+            .iter()
+            .filter(|i| i.owner == h)
+            .count()
+    };
+    // The household of the first test's kind that sets one when its year is read.
+    let mut setter = None;
+    for &(h, _) in &households {
+        // A count a hundred days back: taken anew, no mill.
+        count(&mut sim, h, 100, 600.0);
+        review(&mut sim, h);
+        assert_eq!(mills_of(&sim, h), 0, "too few days between counts");
+        let seen = sim
+            .people()
+            .household(h)
+            .expect("h")
+            .mill_seen
+            .expect("counted");
+        assert_eq!(seen.day, today, "taken anew");
+        assert_eq!(
+            seen.kg,
+            sim.people()
+                .household(h)
+                .expect("h")
+                .flows
+                .get(Flow::Made, flour)
+        );
+        // A year back, nothing ground since: no mill.
+        count(&mut sim, h, 365, 0.0);
+        review(&mut sim, h);
+        assert_eq!(mills_of(&sim, h), 0, "nothing made, nothing saved");
+        // A year back, 600 kg ground since.
+        count(&mut sim, h, 365, 600.0);
+        review(&mut sim, h);
+        if mills_of(&sim, h) == 1 {
+            setter = Some(h);
+            break;
+        }
+    }
+    let h = setter.expect("a household that sets a mill, as the first test finds");
+    // Owning one, it sets no second, however much it grinds.
+    count(&mut sim, h, 365, 6000.0);
+    review(&mut sim, h);
+    assert_eq!(mills_of(&sim, h), 1, "one to a household");
+}
+
+/// Coverage (backlog E; M10a slice DR, fourth part): a neighbour's mill is one to grind at only
+/// while its owner holds a wheel for it, and only for a household with grain to grind: with the
+/// owner's wheel gone the neighbour sees none, with it back it sees the mill again, and holding
+/// no grain it sees none.
+#[test]
+fn a_neighbours_mill_is_seen_only_with_its_wheel_and_by_one_with_grain() {
+    let mut sim = village();
+    let (grain, flour, wheel) = (
+        good(&sim, "grain"),
+        good(&sim, "flour"),
+        good(&sim, "water_wheel"),
+    );
+    let households = grown(&sim);
+    let (owner, _) = households[0];
+    let (customer, carrier) = households
+        .iter()
+        .copied()
+        .find(|&(h, _)| {
+            h != owner
+                && sim.people().household(h).expect("h").settlement
+                    == sim.people().household(owner).expect("o").settlement
+        })
+        .expect("a neighbour of the same settlement");
+    let reach = (0..sim.land().reach_discharges.len())
+        .max_by(|&a, &b| sim.land().reach_discharges[a].total_cmp(&sim.land().reach_discharges[b]))
+        .expect("a reach") as u32;
+    let home = sim.people().household(owner).expect("o").home;
+    let mill = PermanentId::from_raw(9_000_003).expect("id");
+    sim.land_mut_for_tests()
+        .installations
+        .push(civ_land::power::Installation {
+            id: mill,
+            reach,
+            at: [f64::from(home.0), f64::from(home.1)],
+            head_m: 2.0,
+            race_m3s: 0.5,
+            efficiency: 0.3,
+            rated_kw: 3.0,
+            owner,
+            building: None,
+        });
+    let n = sim.rules().catalog.goods.len();
+    let set = |sim: &mut Sim, h: PermanentId, g: usize, kg: f64| {
+        for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+            x.stores.resize(x.stores.len().max(n), 0.0);
+            if x.id == h {
+                x.stores[g] = kg;
+            }
+        }
+    };
+    set(&mut sim, owner, wheel, 1.0);
+    set(&mut sim, customer, grain, 60.0);
+    set(&mut sim, customer, flour, 0.0);
+    let facts = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.mill_facts_for_tests(ctx, carrier))
+            .map(|f| f.mill)
+    };
+    assert_eq!(facts(&mut sim), Some(mill), "a mill to grind at");
+    set(&mut sim, owner, wheel, 0.0);
+    assert_eq!(facts(&mut sim), None, "no wheel, no mill");
+    set(&mut sim, owner, wheel, 1.0);
+    assert_eq!(facts(&mut sim), Some(mill));
+    set(&mut sim, customer, grain, 0.0);
+    assert_eq!(facts(&mut sim), None, "no grain to grind");
+}

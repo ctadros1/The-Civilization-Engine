@@ -1120,3 +1120,158 @@ fn a_mill_grinds_what_its_wheel_turns_more_when_the_river_runs_and_none_when_it_
     // Its wheel wore on its own books.
     assert!(sim.people().firm(firm).expect("firm").stores[wheel] < 1.0);
 }
+
+/// Coverage (backlog E; ADR-0006 §5): a workshop passes with its owners' household: their people
+/// joining another household, the workshop stays open, its stores and stations with it, and is
+/// the other household's from that day.
+#[test]
+fn a_workshop_passes_to_the_household_its_owners_people_join() {
+    let mut sim = new_world(3);
+    sim.advance_minutes(24 * 60).expect("advances");
+    let rules = sim.rules().clone();
+    let goods = &rules.catalog.goods;
+    let good = |id: &str| goods.iter().position(|d| d.id == id).expect(id);
+    let (kiln, brick) = (good("core:good/kiln"), good("core:good/brick"));
+    let now = sim.now();
+    let grown_of = |sim: &Sim, h: &civ_agents::person::Household| {
+        h.members.iter().copied().find(|&m| {
+            sim.people()
+                .person(m)
+                .is_some_and(|p| p.age_years(now) >= 20.0)
+        })
+    };
+    let mut pairs = sim
+        .people()
+        .households
+        .iter()
+        .filter_map(|(_, h)| Some((h.id, grown_of(&sim, h)?)));
+    let (maker, who) = pairs.next().expect("a household with a grown member");
+    let (heir, _) = pairs.next().expect("another");
+    drop(pairs);
+    set(
+        &mut sim,
+        maker,
+        &[
+            ("core:good/kiln", 1.0),
+            ("core:good/clay", 400.0),
+            ("core:good/firewood", 400.0),
+        ],
+    );
+    let firm = sim
+        .with_ctx_for_tests(|pop, ctx| pop.found_firm_for_tests(ctx, maker, who, brick))
+        .expect("a workshop");
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.put_in_station(ctx, firm, kiln, 1.0)));
+    sim.advance_minutes(60).expect("advances");
+    let joined = sim.now();
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, maker, heir));
+    assert!(sim.people().household(maker).is_none());
+    let f = sim.people().firm(firm).expect("the workshop");
+    assert!(f.is_open(), "it stays open");
+    assert_eq!((f.owner, f.owner_since), (heir, joined));
+    assert_eq!(f.stores[kiln], 1.0, "its station with it");
+}
+
+/// Coverage (backlog E; ADR-0006 §5): a workshop whose owners' household ends with nobody to go
+/// to closes, its owner gone: in a household none of whose people has living kin elsewhere (the
+/// founders' families of this world, their parents and children all within it), its people die,
+/// the youngest first, and the workshop is closed as its owner gone.
+#[test]
+fn a_workshop_whose_owners_end_with_no_heir_closes_as_its_owner_gone() {
+    use std::collections::BTreeSet;
+    let mut sim = new_world(3);
+    sim.advance_minutes(24 * 60).expect("advances");
+    let rules = sim.rules().clone();
+    let brick = rules
+        .catalog
+        .goods
+        .iter()
+        .position(|d| d.id == "core:good/brick")
+        .expect("brick");
+    let now = sim.now();
+    // Everyone a person is linked to through parents and children, a few steps out.
+    let kin = |sim: &Sim, from: PermanentId| -> BTreeSet<PermanentId> {
+        let records = &sim.people().records;
+        let mut seen: BTreeSet<PermanentId> = [from].into();
+        let mut layer = vec![from];
+        for _ in 0..8 {
+            let mut next = Vec::new();
+            for &x in &layer {
+                let mut near: Vec<PermanentId> = Vec::new();
+                if let Some(r) = records.get(&x) {
+                    near.extend(r.mother);
+                    near.extend(r.father);
+                }
+                near.extend(
+                    records
+                        .values()
+                        .filter(|r| r.mother == Some(x) || r.father == Some(x))
+                        .map(|r| r.id),
+                );
+                for n in near {
+                    if seen.insert(n) {
+                        next.push(n);
+                    }
+                }
+            }
+            layer = next;
+        }
+        seen
+    };
+    let lone = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .filter(|h| !h.members.is_empty())
+        .filter(|h| {
+            h.members.iter().all(|&m| {
+                kin(&sim, m)
+                    .into_iter()
+                    .all(|k| sim.people().person(k).is_none_or(|p| p.household == h.id))
+            })
+        })
+        .filter_map(|h| {
+            let grown = h.members.iter().copied().find(|&m| {
+                sim.people()
+                    .person(m)
+                    .is_some_and(|p| p.age_years(now) >= 20.0)
+            })?;
+            Some((h.id, grown, h.members.clone()))
+        })
+        .collect::<Vec<_>>();
+    let mut found = None;
+    for (h, who, members) in lone {
+        set(
+            &mut sim,
+            h,
+            &[
+                ("core:good/kiln", 1.0),
+                ("core:good/clay", 400.0),
+                ("core:good/firewood", 400.0),
+            ],
+        );
+        if let Some(firm) =
+            sim.with_ctx_for_tests(|pop, ctx| pop.found_firm_for_tests(ctx, h, who, brick))
+        {
+            found = Some((h, firm, members));
+            break;
+        }
+    }
+    let (owner, firm, mut members) =
+        found.expect("a household with no kin elsewhere that sets up a workshop");
+    // The youngest first, so that none is left without a grown member to keep them.
+    members.sort_by(|&a, &b| {
+        let age = |p: PermanentId| sim.people().person(p).map_or(0.0, |x| x.age_years(now));
+        age(a).total_cmp(&age(b))
+    });
+    for m in members {
+        sim.with_ctx_for_tests(|pop, ctx| pop.die_for_tests(ctx, m));
+    }
+    assert!(
+        sim.people().household(owner).is_none(),
+        "the household is no more"
+    );
+    let f = sim.people().firm(firm).expect("the workshop's record");
+    assert!(!f.is_open());
+    assert_eq!(f.closed.map(|(_, why)| why), Some(Exit::OwnerGone));
+}

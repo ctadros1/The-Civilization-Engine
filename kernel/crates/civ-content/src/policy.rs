@@ -148,6 +148,9 @@ pub(crate) struct PolicyFile {
     /// For a sewer laid together (`lay_sewer`, content API 213; ADR-0041 §1-§4): its terms.
     #[serde(default)]
     pub sewer: Option<SewerFile>,
+    /// For a covered tip (`cover_tip`, content API 230; ADR-0038 §6's covering): its terms.
+    #[serde(default)]
+    pub cover: Option<CoverFile>,
     /// For notes issued (`issue_notes`, content API 196, M10d slice EJ): their terms.
     #[serde(default)]
     pub notes: Option<NotesFile>,
@@ -303,6 +306,20 @@ pub struct TipFile {
     pub heap_kg: f32,
     /// How near another household's home such a heap raises it, metres.
     pub heap_near_m: f32,
+}
+
+/// The terms of a covered tip in a policy file (content API 230; ADR-0038 §6's covering; research
+/// 12-10 §2.4, §5.4), priors all.
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct CoverFile {
+    /// Kilograms a cubic metre of refuse holds, loose as it is tipped.
+    pub loose_kg_m3: f32,
+    /// Cubic metres of earth that cover a cubic metre of refuse.
+    pub cover_share: f32,
+    /// The share of a household's deaths of disease within the year it believes covering would
+    /// have spared, 0-1.
+    pub avoided_share: f32,
 }
 
 /// The terms of a refuse round run by law in a policy file (content API 211, M11f, third part;
@@ -893,6 +910,11 @@ impl PolicyFile {
             }),
             // Resolved apart, with the goods ([`PolicyFile::sewer_def`]).
             sewer: None,
+            cover: self.cover.as_ref().map(|c| civ_agents::polity::CoverDef {
+                loose_kg_m3: c.loose_kg_m3,
+                cover_share: c.cover_share,
+                avoided_share: c.avoided_share,
+            }),
             // Resolved apart, with the good ([`PolicyFile::notes_def`]).
             notes: None,
             plan: self.plan.as_ref().map(|g| civ_agents::polity::PlanDef {
@@ -1443,6 +1465,28 @@ impl PolicyFile {
             (None, _) => {}
             (Some(_), _) => p.push("`round` is for `does = \"collect_refuse\"`".to_owned()),
         }
+        // A covered tip's terms (ADR-0038 §6's covering): only for `cover_tip`, which must have
+        // them.
+        match (&self.cover, PolicyKind::from_name(&self.does)) {
+            (None, Some(PolicyKind::CoverTip)) => {
+                p.push("a `cover_tip` template needs a `cover` table".to_owned());
+            }
+            (Some(c), Some(PolicyKind::CoverTip)) => {
+                for (name, v, lo, hi) in [
+                    ("loose_kg_m3", c.loose_kg_m3, 10.0, 2000.0),
+                    ("cover_share", c.cover_share, 0.0, 1.0),
+                    ("avoided_share", c.avoided_share, 0.0, 1.0),
+                ] {
+                    if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                        p.push(format!(
+                            "`cover.{name}` must be between {lo} and {hi} (got {v})"
+                        ));
+                    }
+                }
+            }
+            (None, _) => {}
+            (Some(_), _) => p.push("`cover` is for `does = \"cover_tip\"`".to_owned()),
+        }
         // A sewer's terms (ADR-0041 §1-§4): only for `lay_sewer`, which must have them.
         match (&self.sewer, PolicyKind::from_name(&self.does)) {
             (None, Some(PolicyKind::LaySewer)) => {
@@ -1798,6 +1842,7 @@ impl PolicyFile {
                 | PolicyKind::RefuseToTip
                 | PolicyKind::CollectRefuse
                 | PolicyKind::LaySewer
+                | PolicyKind::CoverTip
                 | PolicyKind::BearerHeard
                 | PolicyKind::IssueNotes
                 | PolicyKind::LegalTender
@@ -1880,6 +1925,7 @@ impl PolicyFile {
                 | PolicyKind::RefuseToTip
                 | PolicyKind::CollectRefuse
                 | PolicyKind::LaySewer
+                | PolicyKind::CoverTip
                 | PolicyKind::BearerHeard
                 | PolicyKind::IssueNotes
                 | PolicyKind::LegalTender
@@ -2199,6 +2245,7 @@ mod tests {
             tip: None,
             round: None,
             sewer: None,
+            cover: None,
             notes: None,
         }
     }

@@ -665,6 +665,24 @@ fn a_home_along_a_main_connects_where_gas_light_costs_it_less_and_pays_by_the_me
     // A burner held whole, it is fitted at the consumer's home, lit, and paid for by the meter
     // in coal: four hours of a burner's gas at the coal a retort charges for it.
     set(&mut sim, works, burner, 1.0);
+    // A lamp held whole whose hour costs it less than gas light's, it keeps to its lamp (backlog
+    // E, coverage): knowing how to render tallow it puts a figure on its lamp's fuel, and an
+    // hour of the lamp's tallow costs it less than an hour of a burner's gas at the meter.
+    teach(&mut sim, consumer, "core:technique/lamps");
+    set(&mut sim, consumer, lamp, 1.0);
+    let tallow = index(&sim, "core:good/tallow");
+    let priced = sim.with_ctx_for_tests(|pop, ctx| pop.own_costs_for_tests(ctx, consumer));
+    let lamp_def = &sim.rules().catalog.goods[lamp];
+    let lamp_h = lamp_def.light.expect("a lamp").kg_per_hour
+        * priced[tallow].expect("it prices tallow, knowing how to render it");
+    let gas_h = 0.071 / 0.14 * coal_h;
+    assert!(
+        lamp_h < gas_h,
+        "a lamp's hour {lamp_h} against gas light's {gas_h}"
+    );
+    assert!(evening(&mut sim).is_none(), "it keeps to its lamp");
+    // Without the lamp it weighs gas against an hour of its work, as below.
+    set(&mut sim, consumer, lamp, 0.0);
     let works_coal = held(&sim, works, coal);
     let c = evening(&mut sim).expect("connected");
     assert_eq!(

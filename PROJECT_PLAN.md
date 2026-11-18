@@ -10042,8 +10042,11 @@ and M6a gives rivers a daily flow.
       without the change), carts (3), boats (8), rail (15), fetch (25), settlements (26),
       roundtrip (110) and determinism (1), the civ-agents and civ-sim unit tests (306 and 31), the
       civ-host lib tests (82); the ten smoke seeds pass; fmt and clippy clean. No existing
-      assertion moved. **Not yet:** a keeper that moves to another settlement whole keeps its
-      line from its old door (a move is not a merge); a road line told in the chronicle when it
+      assertion moved. **Not yet:** a keeper that moves to another settlement whole (corrected
+      2026-11-18: a move makes a new household and takes the old, so its line is one whose keeper
+      is no more and ends at the next midnight, told since the twenty-second item as nobody left
+      to run it; its motor cart stays, nobody's, for whoever takes it up; neither goes with the
+      household that moved); a road line told in the chronicle when it
       passes or ends (done 2026-11-18, twenty-second item); and a lived world where a keeper's household ends.
     - *Backlog D, twenty-first item (2026-11-18): homes below a break connect while a sewer is
       broken* (backlog C's fourth slice's "Not yet": new connections below a break while it is

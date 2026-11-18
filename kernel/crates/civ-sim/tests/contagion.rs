@@ -1441,3 +1441,191 @@ fn shedders_digging_a_well_keep_their_hours_there_and_none_at_home() {
     let (who, _, hours) = kept.expect("hours kept at the well");
     assert!(members.contains(&who) && hours > 0.0);
 }
+
+/// A silent carrier from today in household `h`: its first member, shedding cholera for 60 days.
+fn a_silent_carrier(sim: &mut Sim, h: PermanentId) -> PermanentId {
+    let d = cholera(sim);
+    let who = household(sim, h).1[0];
+    let day = sim.now().day_index();
+    sim.people_mut_for_tests().sickness.add(
+        who,
+        Some(h),
+        d,
+        day,
+        Acquired::Observer { influence: 0 },
+        civ_agents::sickness::Course {
+            shed_from: day,
+            shed_until: day + 60,
+            ill_from: day,
+            ill_until: day,
+            severe: false,
+            immune_until: day + 365,
+        },
+    );
+    who
+}
+
+/// Today's shedding moves to node `to`, doses.
+fn shed_to(sim: &Sim, day: i64, to: Node) -> f64 {
+    sim.people()
+        .contagion
+        .moves
+        .iter()
+        .filter(|m| m.day == day && m.how == How::Shed && m.to == to)
+        .map(|m| m.amount)
+        .sum()
+}
+
+/// Shedding where people work, slice 4 (ADR-0021 §4): at another household's home (teaching,
+/// study, writing or reading there) that home's heap takes the share, its heap being the node
+/// the kernel keeps for a home's ground; the hours save and load exactly. Tending stays on its own
+/// route: a carrier who tends another household keeps no hours, and all the day's shedding goes
+/// to their own heap, nothing counted twice.
+#[test]
+fn at_another_s_home_its_heap_takes_the_share_and_tending_keeps_none() {
+    let mut sim = village(6);
+    let d = cholera(&sim);
+    let daily = sim.rules().catalog.diseases[usize::from(d)].shed_silent_per_day;
+    let hh = households(&sim);
+    let (h, host) = (hh[0], hh[1]);
+    let who = a_silent_carrier(&mut sim, h);
+    let (host_home, _) = household(&sim, host);
+    // Three hours at the host's home, as a learner or teacher there.
+    sim.with_ctx_for_tests(|pop, ctx| pop.note_worked_ground_for_tests(ctx, who, host_home, 3.0));
+    assert_eq!(sim.people().worked_homes, vec![(who, host, 3.0)]);
+    assert!(sim.people().worked_ground.is_empty(), "not the ground");
+    let loaded = reloaded(&mut sim);
+    assert_eq!(loaded.people().worked_homes, sim.people().worked_homes);
+    sim.land_mut_for_tests().water.last_surplus_mm = 0.0;
+    let today = sim.now().day_index();
+    sim.with_ctx_for_tests(|pop, ctx| pop.contagion_day_for_tests(ctx));
+    let (there, home) = (
+        shed_to(&sim, today, Node::Midden(host)),
+        shed_to(&sim, today, Node::Midden(h)),
+    );
+    assert!(
+        (there - daily * 3.0 / 24.0).abs() < 1e-9,
+        "{there} at the host's heap"
+    );
+    assert!(
+        (there + home - daily).abs() < 1e-9,
+        "the day's shedding whole"
+    );
+    assert!(sim.people().worked_homes.is_empty(), "drawn at midnight");
+    // Tending the host's people: no hours kept, and all of the next day's shedding at home.
+    sim.advance_minutes(DAY).expect("lives");
+    sim.people_mut_for_tests().worked_ground.clear();
+    sim.people_mut_for_tests().worked_homes.clear();
+    sim.people_mut_for_tests().worked.clear();
+    sim.with_ctx_for_tests(|pop, ctx| pop.tended_for_tests(ctx, who, host, 120));
+    let p = sim.people();
+    assert!(
+        p.worked.is_empty() && p.worked_ground.is_empty() && p.worked_homes.is_empty(),
+        "tending keeps no hours"
+    );
+    // (The day lived has had its own midnight: what it shed is counted apart.)
+    let today = sim.now().day_index();
+    let anywhere = |sim: &Sim| -> f64 {
+        sim.people()
+            .contagion
+            .moves
+            .iter()
+            .filter(|m| m.day == today && m.how == How::Shed && m.from == Node::Person(who))
+            .map(|m| m.amount)
+            .sum()
+    };
+    let (home0, all0) = (shed_to(&sim, today, Node::Midden(h)), anywhere(&sim));
+    sim.with_ctx_for_tests(|pop, ctx| pop.contagion_day_for_tests(ctx));
+    let home = shed_to(&sim, today, Node::Midden(h)) - home0;
+    let all = anywhere(&sim) - all0;
+    assert!((home - daily).abs() < 1e-9, "{home}: all at home");
+    assert!((all - daily).abs() < 1e-9, "{all}: once");
+}
+
+/// Shedding where people work, slice 4: work in another settlement sheds into the ground there,
+/// and while it lasts it counts toward what is left of the disease with the settlement whose
+/// hearth lies nearest it, not the worker's own.
+#[test]
+fn work_in_another_settlement_sheds_there_and_counts_with_its_hearth() {
+    let mut sim = Sim::create_for_tests(
+        &NewWorld {
+            name: "Neighbours".to_owned(),
+            seed: 3,
+            preset_id: PRESET.to_owned(),
+            size_cells: 768,
+            band_size: 30,
+            neighbours: vec![0],
+            neighbours_known: true,
+            regime_id: String::new(),
+        },
+        content(),
+        [9; 16],
+    )
+    .expect("generates");
+    assert_eq!(sim.land().settlements.len(), 2);
+    let d = cholera(&sim);
+    let daily = sim.rules().catalog.diseases[usize::from(d)].shed_silent_per_day;
+    let h = households(&sim)[0];
+    let ours = sim
+        .people()
+        .household(h)
+        .expect("home")
+        .settlement
+        .expect("ours");
+    let theirs = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|s| s.id != ours)
+        .cloned()
+        .expect("the other");
+    let who = a_silent_carrier(&mut sim, h);
+    // Four hours on land beside the other settlement's hearth, away from any home there.
+    let map = sim.map();
+    let at = (0..16)
+        .map(|k| f32::from(k as u8) * std::f32::consts::PI / 8.0)
+        .map(|a| {
+            (
+                theirs.hearth_m.0 + 24.0 * a.cos(),
+                theirs.hearth_m.1 + 24.0 * a.sin(),
+            )
+        })
+        .find(|&at| {
+            let c = cell_of(map, at);
+            map.water[c] == civ_world::WATER_LAND
+                && !households(&sim)
+                    .iter()
+                    .any(|&x| cell_of(map, household(&sim, x).0) == c)
+        })
+        .expect("open land by their hearth");
+    let cell = cell_of(map, at) as u32;
+    sim.with_ctx_for_tests(|pop, ctx| pop.note_worked_ground_for_tests(ctx, who, at, 4.0));
+    assert_eq!(sim.people().worked_ground, vec![(who, cell, 4.0)]);
+    sim.land_mut_for_tests().water.last_surplus_mm = 0.0;
+    let today = sim.now().day_index();
+    let left = |sim: &mut Sim, s| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.disease_left_for_tests(ctx, d, Some(s)))
+    };
+    let (ours0, theirs0) = (left(&mut sim, ours), left(&mut sim, theirs.id));
+    sim.with_ctx_for_tests(|pop, ctx| pop.contagion_day_for_tests(ctx));
+    let there = shed_to(&sim, today, Node::Ground(cell));
+    assert!(
+        (there - daily * 4.0 / 24.0).abs() < 1e-9,
+        "{there} shed there"
+    );
+    let held = sim.people().contagion.load(Node::Ground(cell), d);
+    assert!(held > 0.0);
+    let theirs1 = left(&mut sim, theirs.id);
+    let ours1 = left(&mut sim, ours);
+    eprintln!("theirs {theirs0:.2} -> {theirs1:.2}; ours {ours0:.2} -> {ours1:.2}; held {held:.2}");
+    assert!(
+        theirs1 - theirs0 >= held - 1e-9,
+        "counted with the hearth nearest: {theirs0} -> {theirs1}"
+    );
+    // Ours holds the rest of the day at the heap, not the ground there.
+    let at_home = sim.people().contagion.load(Node::Midden(h), d);
+    assert!(
+        (ours1 - ours0 - at_home).abs() < 1e-6 + 1e-9 * ours1,
+        "{ours0} -> {ours1}, heap {at_home}"
+    );
+}

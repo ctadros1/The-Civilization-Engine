@@ -202,11 +202,31 @@ impl Population {
         if ctx.map.water.get(cell) != Some(&civ_world::WATER_LAND) {
             return;
         }
-        let home = self
-            .person(who)
-            .and_then(|p| self.household(p.household))
+        let own = self.person(who).map(|p| p.household);
+        let home = own
+            .and_then(|h| self.household(h))
             .map(|x| cell_of(ctx.map, x.home));
         if home == Some(cell) {
+            return;
+        }
+        // At another household's home its heap is the home's ground (ADR-0021 §4): the heap
+        // beside it takes what they shed there, as it takes its own people's.
+        let host = self
+            .households
+            .iter()
+            .map(|(_, x)| x)
+            .filter(|x| Some(x.id) != own && !x.members.is_empty())
+            .find(|x| cell_of(ctx.map, x.home) == cell)
+            .map(|x| x.id);
+        if let Some(host) = host {
+            match self
+                .worked_homes
+                .iter_mut()
+                .find(|w| w.0 == who && w.1 == host)
+            {
+                Some(w) => w.2 += hours as f32,
+                None => self.worked_homes.push((who, host, hours as f32)),
+            }
             return;
         }
         let cell = cell as u32;
@@ -268,6 +288,7 @@ impl Population {
         day: i64,
         worked: &[(PermanentId, PermanentId, f32)],
         worked_ground: &[(PermanentId, u32, f32)],
+        worked_homes: &[(PermanentId, PermanentId, f32)],
     ) {
         let diseases = &ctx.catalog.diseases;
         // What passed the rivers yesterday has gone downstream.
@@ -352,6 +373,25 @@ impl Population {
                     how: How::Shed,
                     from: Node::Person(e.person),
                     to: Node::Ground(cell),
+                    amount: there,
+                });
+            }
+            // And at other households' homes, to their heaps.
+            for &(_, host, hours) in worked_homes.iter().filter(|w| w.0 == e.person) {
+                if host == p.household || self.household(host).is_none() {
+                    continue;
+                }
+                let there = (amount * f64::from(hours) / 24.0).min(home);
+                if there <= 0.0 {
+                    continue;
+                }
+                home -= there;
+                shed.push(Move {
+                    day,
+                    disease: e.disease,
+                    how: How::Shed,
+                    from: Node::Person(e.person),
+                    to: Node::Midden(host),
                     amount: there,
                 });
             }
@@ -526,7 +566,8 @@ impl Population {
     pub fn contagion_day_for_tests(&mut self, ctx: &Ctx) {
         let worked = std::mem::take(&mut self.worked);
         let ground = std::mem::take(&mut self.worked_ground);
-        self.contagion_day(ctx, ctx.now.day_index(), &worked, &ground);
+        let homes = std::mem::take(&mut self.worked_homes);
+        self.contagion_day(ctx, ctx.now.day_index(), &worked, &ground, &homes);
     }
 
     /// Someone of `household` drew `share` of the water standing in well `well` on `day`: the

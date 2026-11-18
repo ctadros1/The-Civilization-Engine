@@ -854,6 +854,10 @@ pub struct Population {
     /// Likewise the hours they worked on other ground today, by map cell: at a pit or a deposit,
     /// a gathering block, or a way under work (ADR-0021 §4).
     pub worked_ground: Vec<(PermanentId, u32, f32)>,
+    /// And the hours they worked at another household's home today (teaching, study, writing or
+    /// reading there, or work on it), by that household: its heap is that home's ground
+    /// (ADR-0021 §4).
+    pub worked_homes: Vec<(PermanentId, PermanentId, f32)>,
     /// What each money is worth to each household from its use as money, by household and money
     /// (M10d slice EF, first part; ADR-0035 §12): built at midnight.
     pub money: Vec<crate::market::MoneyBelief>,
@@ -6795,6 +6799,8 @@ impl Population {
                     if let Target::Technique(t) = p.act.target {
                         let who = p.id;
                         crate::knowledge::tally(&mut self.taught, who, t, minutes as f32);
+                        // Where they shed while they do it, away from home (ADR-0021 §4).
+                        self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
                 }
                 Some(Behavior::Study) => {
@@ -6802,6 +6808,8 @@ impl Population {
                         let who = p.id;
                         crate::knowledge::tally(&mut self.studied, who, t, minutes as f32);
                         self.pay_study_fee(ctx, who, t);
+                        // Where they shed while they do it, away from home (ADR-0021 §4).
+                        self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
                 }
                 // A record written toward, or read (M10c slice EC).
@@ -6809,12 +6817,16 @@ impl Population {
                     if let Target::Technique(t) = p.act.target {
                         let who = p.id;
                         self.finish_write(ctx, who, t, f64::from(minutes));
+                        // Where they shed while they do it, away from home (ADR-0021 §4).
+                        self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
                 }
                 Some(Behavior::Read) => {
                     if let Target::Technique(t) = p.act.target {
                         let who = p.id;
                         self.finish_read(ctx, who, t, f64::from(minutes));
+                        // Where they shed while they do it, away from home (ADR-0021 §4).
+                        self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
                 }
                 // A call left at a carer's door (M10c slice DZ, second part).

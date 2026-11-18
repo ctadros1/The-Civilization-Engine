@@ -1241,6 +1241,7 @@ pub(super) fn decode<R: Read + Seek>(
         people.staffed = decode_staffed(&bytes)?;
         people.worked = decode_worked(&bytes)?;
         people.worked_ground = decode_worked_ground(&bytes)?;
+        people.worked_homes = decode_worked_homes(&bytes)?;
     }
     // What people shed (schema 76); before, nothing lies anywhere.
     if schema >= Schema::V76 {
@@ -14486,6 +14487,14 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
             .collect();
         fbb.create_vector(&worked)
     });
+    let worked_homes = (!people.worked_homes.is_empty()).then(|| {
+        let worked: Vec<_> = people
+            .worked_homes
+            .iter()
+            .map(|&(p, h, hours)| save::HomeHoursSave::new(p.get(), h.get(), hours))
+            .collect();
+        fbb.create_vector(&worked)
+    });
     let worked_ground = (!people.worked_ground.is_empty()).then(|| {
         let worked: Vec<_> = people
             .worked_ground
@@ -14516,6 +14525,7 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
             staffed: Some(staffed),
             worked,
             worked_ground,
+            worked_homes,
             inoculation_calls: Some(inoculation_calls),
             vaccinated: Some(vaccinated),
             register: Some(register),
@@ -15423,6 +15433,23 @@ fn decode_worked(bytes: &[u8]) -> Result<Vec<(PermanentId, PermanentId, f32)>, L
             Some((
                 PermanentId::from_raw(w.person())?,
                 PermanentId::from_raw(w.field())?,
+                w.hours(),
+            ))
+        })
+        .collect())
+}
+
+fn decode_worked_homes(bytes: &[u8]) -> Result<Vec<(PermanentId, PermanentId, f32)>, LoadError> {
+    let root =
+        section_root::<save::SicknessSave>(bytes).map_err(|e| unreadable(SECTION_SICKNESS, &e))?;
+    Ok(root
+        .worked_homes()
+        .into_iter()
+        .flatten()
+        .filter_map(|w| {
+            Some((
+                PermanentId::from_raw(w.person())?,
+                PermanentId::from_raw(w.household())?,
                 w.hours(),
             ))
         })

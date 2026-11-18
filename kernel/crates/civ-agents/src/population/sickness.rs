@@ -53,6 +53,7 @@ impl Population {
         // And yesterday's hours at fields of those who shed by water (ADR-0021 §4).
         let worked = std::mem::take(&mut self.worked);
         let worked_ground = std::mem::take(&mut self.worked_ground);
+        let worked_homes = std::mem::take(&mut self.worked_homes);
         if self.sickness.quiet() && self.contagion.is_empty() && !self.sickness.outbreak_open() {
             return;
         }
@@ -125,7 +126,7 @@ impl Population {
         // The sickhouses' admissions and discharges (M10c slice EE, fourth part).
         self.admit_day(ctx, day);
         // What people shed moves through the ground and water (step two).
-        self.contagion_day(ctx, day, &worked, &worked_ground);
+        self.contagion_day(ctx, day, &worked, &worked_ground, &worked_homes);
         // Who is exposed today, by every route, before anyone takes it: nobody infected today
         // sheds before tomorrow, so no chain runs within a day.
         let mut shedding: BTreeMap<(PermanentId, u16), u32> = BTreeMap::new();
@@ -312,6 +313,18 @@ impl Population {
     /// doses: in their heaps and stored water, in their wells and their polity's and its tips, on
     /// their sewage farms and the fields they work, in the ground nearer their hearth than any
     /// other where someone shedding worked, and on its way through the ground to any of those. What reaches a river is carried off by the next day.
+    /// What is left of `disease` with settlement `settlement`'s households, as
+    /// [`Population::disease_left`] reckons it: for tests.
+    #[doc(hidden)]
+    pub fn disease_left_for_tests(
+        &self,
+        ctx: &Ctx,
+        disease: u16,
+        settlement: Option<PermanentId>,
+    ) -> f64 {
+        self.disease_left(ctx, disease, settlement)
+    }
+
     fn disease_left(&self, ctx: &Ctx, disease: u16, settlement: Option<PermanentId>) -> f64 {
         let ours = |h: PermanentId| {
             settlement.is_none_or(|s| self.household(h).is_some_and(|x| x.settlement == Some(s)))

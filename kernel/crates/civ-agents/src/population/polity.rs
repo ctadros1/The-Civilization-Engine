@@ -163,6 +163,10 @@ pub(super) struct Forecasts {
     forum_cases: Vec<ForumCase>,
     /// Those a forum would draw its sitters from (ADR-0025 §1).
     sit_pools: SitPools,
+    /// The days the cases within memory span (`remember_days`), and each forum law in force
+    /// held for a term with the days left in it, by law id (ADR-0025 §1, M7a slice BN): what a
+    /// forum's forecast reckons its service by.
+    forum_terms: (f64, Vec<(PermanentId, f64)>),
     /// What a duty or an embargo would bring each household (M7c slice BV).
     trade: TradeForecast,
     /// What each household is owed on loans refused or left unpaid and not yet heard, and what
@@ -909,6 +913,8 @@ impl Forecasts {
             // the difference in what it got back or paid, a year; and the evenings its people
             // spent hearing cases, which they would keep, less those they would give sitting in
             // the forum on the cases within memory (ADR-0025 §1).
+            // Held for a term, only over its share of the days the cases span: the gathering hears
+            // the rest once it lapses (ADR-0025 §1; research 09-02 §3.6).
             Some(PolicyKind::HearCases) => {
                 let Some(def) = policies
                     .get(usize::from(m.policy))
@@ -916,17 +922,7 @@ impl Forecasts {
                 else {
                     return 0.0;
                 };
-                let mut net = 0.0;
-                for c in &self.forum_cases {
-                    let Some(side) = c.side(h) else {
-                        continue;
-                    };
-                    let chance = c.chance(def, m.nominee);
-                    net += side * (chance - f64::from(u8::from(c.found))) * c.kcal;
-                }
-                let evenings = self.gathered_evenings(h) - self.sitting_evenings(def, m.nominee, h);
-                let kept = evenings * params.elections.w_evening / pp.w_gain.max(1e-9);
-                kept + Self::forum_net(o, net, params)
+                self.serves(m, policies) * self.forum_gain(m, def, h, o, params)
             }
             // A duty or an embargo (M7c slice BV): what it brings back less what it costs, a year.
             Some(PolicyKind::Duty) => {
@@ -1181,6 +1177,56 @@ impl Forecasts {
         }
     }
 
+    /// What forum `def` of move `m` would bring household `h`, outlook `o`, against the gathering,
+    /// gain units, were it to hear every case within memory: its own cases heard again as the
+    /// forum would hear them, the difference in what it got back or paid, a year; and the
+    /// evenings its people spent hearing cases, which they would keep, less those they would give
+    /// sitting in the forum (ADR-0025 §1).
+    fn forum_gain(
+        &self,
+        m: &MoveOption,
+        def: &crate::forum::ForumDef,
+        h: PermanentId,
+        o: &Outlook,
+        params: &PeopleParams,
+    ) -> f64 {
+        let mut net = 0.0;
+        for c in &self.forum_cases {
+            let Some(side) = c.side(h) else {
+                continue;
+            };
+            let chance = c.chance(def, m.nominee);
+            net += side * (chance - f64::from(u8::from(c.found))) * c.kcal;
+        }
+        let evenings = self.gathered_evenings(h) - self.sitting_evenings(def, m.nominee, h);
+        let kept = evenings * params.elections.w_evening / params.polity.w_gain.max(1e-9);
+        kept + Self::forum_net(o, net, params)
+    }
+
+    /// The share of the days the cases within memory span that a forum of move `m` would serve
+    /// (ADR-0025 §1, M7a slice BN; research 09-02 §3.6: a term's end is its own procedure): all of
+    /// them without a term, else its term's share, after which its law lapses and the gathering
+    /// hears cases again.
+    fn serves(&self, m: &MoveOption, policies: &[crate::polity::PolicyDef]) -> f64 {
+        policies
+            .get(usize::from(m.policy))
+            .and_then(|d| d.tenure)
+            .map_or(1.0, |t| {
+                (f64::from(t.term_days) / self.forum_terms.0).min(1.0)
+            })
+    }
+
+    /// The share of the days the cases within memory span that forum law `law` in force still
+    /// serves: all of them without a term, else what is left of its term.
+    fn serving(&self, law: PermanentId) -> f64 {
+        self.forum_terms
+            .1
+            .binary_search_by_key(&law, |x| x.0)
+            .map_or(1.0, |i| {
+                (self.forum_terms.1[i].1 / self.forum_terms.0).min(1.0)
+            })
+    }
+
     /// What a forum's difference in what a household got back (or paid) over the cases of its
     /// within memory, kcal, is worth a year, gain units.
     fn forum_net(o: &Outlook, net: f64, params: &PeopleParams) -> f64 {
@@ -1202,7 +1248,9 @@ impl Forecasts {
     /// AH). A forum is weighed case by case: each of the household's cases within memory heard as
     /// `m` would hear it, against what `old` did with it if it heard it (found it, or did not,
     /// or left it unheard) or would have; and the household is spared the evenings its people
-    /// give sitting in `old` less those they would give sitting in `m` (ADR-0025 §1).
+    /// give sitting in `old` less those they would give sitting in `m` (ADR-0025 §1). Each is
+    /// weighed over the share of the days the cases span that it would serve, a term's or what is
+    /// left of one: the gathering hears cases once it lapses.
     pub(super) fn replacing(
         &self,
         m: &MoveOption,
@@ -1241,7 +1289,15 @@ impl Forecasts {
             net += side * (c.chance(new, m.nominee) - before) * c.kcal;
         }
         let w = params.elections.w_evening / params.polity.w_gain.max(1e-9);
-        spared * w + Self::forum_net(&self.outlooks[i].1, net, params)
+        let both = spared * w + Self::forum_net(&self.outlooks[i].1, net, params);
+        // Over the days the cases span: while both would serve, the one against the other; then
+        // whichever serves the longer, against the gathering that hears cases once it lapses
+        // (ADR-0025 §1; research 09-02 §3.6).
+        let (s_new, s_old) = (self.serves(m, policies), self.serving(old));
+        let o = &self.outlooks[i].1;
+        let lo = s_new.min(s_old);
+        lo * both + (s_new - lo) * self.forum_gain(m, new, h, o, params)
+            - (s_old - lo) * self.forum_gain(kept, was, h, o, params)
     }
 }
 
@@ -2453,6 +2509,18 @@ impl Population {
                 kcal / (households.len() + theirs).max(1) as f64
             }),
             forum_cases: self.forum_cases(ctx, pi),
+            forum_terms: {
+                let polity = &self.polities[pi];
+                let day = ctx.now.day_index();
+                let mut left: Vec<(PermanentId, f64)> = polity
+                    .laws
+                    .iter()
+                    .filter(|l| l.kind == PolicyKind::HearCases && l.status == LawStatus::InForce)
+                    .filter_map(|l| Some((l.id, (polity.term_of(l.id)?.until - day).max(0) as f64)))
+                    .collect();
+                left.sort_unstable_by_key(|x| x.0);
+                (f64::from(ctx.params.crime.remember_days.max(1)), left)
+            },
             sit_pools: if ctx
                 .catalog
                 .policies

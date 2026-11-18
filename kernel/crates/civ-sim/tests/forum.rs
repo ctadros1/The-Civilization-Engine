@@ -1763,3 +1763,133 @@ fn an_evening_at_the_hearth_is_given_once_whatever_sits_there() {
     );
     assert!(near(theirs(hh[3].0), 0.0), "{}", theirs(hh[3].0));
 }
+
+/// A forum held for a term serves only its term (ADR-0025 §1, M7a slice BN; research 09-02 §3.6:
+/// a term's end is its own procedure; the fixture 1 diagnosis's F4): a hearer named for a year is
+/// forecast over its year's share of the days the cases within memory span, the gathering hearing
+/// the rest once its law lapses, so it no longer forecasts exactly as one named for good.
+#[test]
+fn a_hearer_for_a_term_is_forecast_to_serve_its_term_and_then_lapse() {
+    let mut sim = world(3);
+    sim.set_notable_tier(false);
+    let hh = households(&sim);
+    assert!(hh.len() >= 4, "four households: {hh:?}");
+    let settlement = sim.people().polities[0].settlement;
+    for k in 0..2 {
+        let id = case(&mut sim, &hh[0], &hh[1]);
+        let now = sim.now();
+        let c = sim
+            .people_mut_for_tests()
+            .order
+            .cases
+            .iter_mut()
+            .find(|c| c.id == id)
+            .expect("the case");
+        (c.stage, c.heard, c.opened) = (CaseStage::NotFound, Some(now), c.opened - k);
+    }
+    let policies = sim.rules().catalog.policies.clone();
+    let at = |id: &str| policies.iter().position(|d| d.id == id).expect("in core") as u16;
+    let year = at("core:policy/zestfully_name_a_hearer_for_a_year");
+    let term = policies[usize::from(year)]
+        .tenure
+        .expect("a term")
+        .term_days;
+    let memory = sim.rules().people.crime.remember_days;
+    assert!(term < memory, "{term} {memory}");
+    let share = f64::from(term) / f64::from(memory);
+    let gains = |sim: &mut Sim, policy: u16| {
+        sim.with_ctx_for_tests(|pop, ctx| {
+            pop.forum_gains_for_tests(ctx, settlement, policy, Some(hh[2].1[0]))
+        })
+    };
+    let for_good = gains(&mut sim, at("core:policy/name_a_hearer"));
+    let for_a_year = gains(&mut sim, year);
+    let near = |a: f64, b: f64| (a - b).abs() < 1e-9 * (1.0 + a.abs() + b.abs());
+    assert!(for_good.iter().any(|g| g.1 != 0.0), "{for_good:?}");
+    for (g, y) in for_good.iter().zip(&for_a_year) {
+        assert_eq!(g.0, y.0);
+        assert!(near(y.1, share * g.1), "{} {} {share}", y.1, g.1);
+    }
+}
+
+/// A petition for another hearer in place of one whose term is out (ADR-0025 §1, M7a slice BN):
+/// the one in force serves no more of the days the cases span, so the hearer's household is
+/// spared nothing by the change (the gathering would hear the cases anyway), and the one named
+/// is weighed only over the term the new law would hold.
+#[test]
+fn a_petition_against_a_hearer_whose_term_is_out_spares_their_household_nothing() {
+    use civ_agents::crime::CaseStance;
+    use civ_agents::faction::{Faction, Member, Why};
+    use civ_agents::polity::Term;
+    use civ_agents::word::Blamed;
+    let mut sim = world(3);
+    let hh = households(&sim);
+    assert!(hh.len() >= 4, "four households: {hh:?}");
+    let hearer = hh[3].1[0];
+    let forum = law(
+        &mut sim,
+        "core:policy/zestfully_name_a_hearer_for_a_year",
+        Some(hearer),
+    );
+    let id = case(&mut sim, &hh[0], &hh[1]);
+    let now = sim.now();
+    let pop = sim.people_mut_for_tests();
+    // Its term ends today.
+    pop.polities[0].set_term(
+        forum,
+        Term {
+            until: now.day_index(),
+            pool: 0,
+        },
+    );
+    let household = pop.person(hearer).expect("alive").household;
+    let c = pop
+        .order
+        .cases
+        .iter_mut()
+        .find(|c| c.id == id)
+        .expect("the case");
+    c.stage = CaseStage::NotFound;
+    c.heard = Some(now);
+    c.forum = Some(forum);
+    c.stances = vec![CaseStance {
+        person: hearer,
+        household,
+        stance: Stance::Abstain,
+        stake: 0.0,
+        belief: 0.0,
+        regard: 0.0,
+        precedent: 0.0,
+    }];
+    let organizer = hh[2].1[0];
+    let faction = sim.allocate_id_for_tests();
+    let pop = sim.people_mut_for_tests();
+    let settlement = pop.polities[0].settlement;
+    pop.factions.list.push(Faction::found(
+        faction,
+        settlement,
+        Blamed::Forum(forum),
+        organizer,
+        now,
+    ));
+    pop.factions.join(Member {
+        person: organizer,
+        faction,
+        since: now.day_index(),
+        why: Why::default(),
+    });
+    let (m, stakes) = sim
+        .with_ctx_for_tests(|pop, ctx| pop.petition_demand_for_tests(ctx, 0, faction))
+        .expect("another hearer in place of the one in force");
+    assert_eq!(m.ends, Some(forum));
+    let stake = |h: PermanentId| {
+        stakes
+            .iter()
+            .find(|s| s.0 == h)
+            .map_or(0.0, |s| f64::from(s.1))
+    };
+    // The one named would give their evening, over the new term; the hearer's household is
+    // spared none.
+    assert!(stake(hh[2].0) < 0.0, "{m:?} {stakes:?}");
+    assert_eq!(stake(hh[3].0), 0.0, "{stakes:?}");
+}

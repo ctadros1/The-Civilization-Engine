@@ -10018,6 +10018,21 @@ and M6a gives rivers a daily flow.
       clippy clean. **The notables' gate**, locally: passes, every aggregate unchanged (one run of
       40 differs, fixture 2 with the tier, stream 3, in its moved share alone: 0.03697 to
       0.03695); fixture 1's proposals +51.9 % and fixture 2's +52.7 % against 105 %.
+    - *Deliberation fix (2026-11-18): a hearer for a term is forecast to serve its term, then
+      lapse* (§9, of that name; the fixture 1 diagnosis's F4; §8 16, third). A forum's forecast
+      replays the cases within memory (`remember_days`, 730) as it would hear them, and did so in
+      full for a forum held for a term: a hearer named for a year forecast exactly as one named
+      for good, which made the two templates tie. **Fixed:** a forum held for a term is weighed
+      over its term's share of the days the cases span (360 of 730), the gathering hearing the
+      rest once its law lapses; a forum put in place of one in force (a petition among them) is
+      weighed over each one's share, the one in force by what is left of its term. **Tested:**
+      forum (21, two new: the forecast scene and a petition against a hearer whose term is out,
+      whose household is now spared nothing; both fail without the change), and the faction,
+      polity, review, council, custom, opinion, values, credit, crime, holdings, roundtrip and
+      determinism targets; the civ-agents unit tests (309); smoke; fmt and clippy clean. **The
+      notables' gate**, locally: gate-neutral (all 40 runs identical to the last fix's; fixture
+      1's proposals +51.9 % and fixture 2's +52.7 % against 105 %). **Not yet:** a council's
+      seats' term in the amendment forecast; a renewable hearer's chance of being named again.
     - *Backlog D, eighteenth item (2026-11-04): a household's line, wagons and trains pass on,
       and a line nobody holds is taken up* (the third and fourth items' "Not yet": a household's
       line, wagons and trains passing on; ADR-0034 §2, §3, §6; research 08-09 §1.2 and the
@@ -11086,7 +11101,8 @@ and M6a gives rivers a daily flow.
        2026-11-18 (§9, "A sitting that could not decide is no support seen").
     3. *A forum's forecast blind to its hearer's term* (F4): a hearer for a year forecasts as one
        for good; ADR-0025's tenure and 09-02 §3.6; removes the twin tie at its root, which
-       ADR-0046's merging only hides; deliberation.
+       ADR-0046's merging only hides; deliberation. **Landed** 2026-11-18 (§9, "A hearer for a term is
+       forecast to serve its term, then lapse").
     4. *ADR-0025's "Writing arrives"*: written findings reaching further and lasting longer
        (09-07); writing exists; larger, touching precedent memory and saves.
     5. *Gleaning a crop a household that went left standing* (the 2026-11-04 recurring-red
@@ -12833,3 +12849,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **A council's quorum is counted against those seated (2026-11-18; the entry above's F2; ADR-0024 §1; research 09-05 §1.4, §2.1, 09-02's "do not prohibit historically dysfunctional combinations"):** Decided by Claude under standing owner authority (2026-11-18). ADR-0024 §1 says an empty seat stays empty until its election and a body short of quorum fails, recorded; slice BO read the quorum's denominator as the seats, filled or empty. 09-05 §1.4 makes the denominator a rule's own field (all members, those present, or those voting), and its §2.1 example counts "senators chosen and sworn", not vacancies; a member is one seated, not a seat. **Chosen over capping seats below the electorate:** 09-02 asks that dysfunctional combinations be allowed and flagged, not prohibited, and a cap would forbid a council the content offers; counting those seated lets such a council sit with whoever stood, which is what a council with vacancies does. With no seat filled nobody sits, and it fails for want of a quorum, recorded. The by-election rule is unchanged: while too few are seated for a quorum of all the seats, an election is called, so vacancies are still sought. **Left:** whether a council of as many seats as its electorate should be offered, and whether one that cannot sit should fall back to the gathering (§8 15).
 - **An evening at the hearth is given once, whatever sits there (2026-11-18; the forum entry's "Left" and the entry below, "not landed", now landed; ADR-0025 §1):** Decided by Claude under standing owner authority (2026-11-18). A gathering and a forum's sitting are both an evening at the hearth and one evening serves both, so a forum's forecast now counts evenings rather than cases, from the record alone: a sitting is the evening after a case was brought; a gathering's evening is the one before the midnight that decided it; a law's stances are those who came. A sitter is charged an evening once however many cases they would sit on, and not at all on one they came to decide a law; a gathering's hearing of cases is credited an evening once, and not at all where they came to decide a law there too, since the gathering would have met for it whatever heard the cases. No weight or tolerance changes. First built before the council fix and not landed (fixture 1's proposals +117.9 % through a hollow council, the entries below); after it, gate-neutral. Recorded, not chased: a council's evenings are still counted a decision at a time.
 - **A sitting that could not decide is no support seen (2026-11-18; the fixture 1 diagnosis's F3; research 09-05 §1.2):** Decided by Claude under standing owner authority (2026-11-18). A sponsor's expected support for a proposal they saw decided is capped at what it got there (M4c). For a sitting short of its quorum the cap was the share for of those who came, so a lone supporter read full support. 09-05 §1.2 has a sponsor weigh expected success and counts a nondecision as an outcome: a sitting that could not decide brought the proposal no nearer to passing, whoever stood for it there, so it now caps the expected support at none. A sitting decided with nobody taking a side still sets no cap, as before.
+- **A hearer for a term is forecast to serve its term, then lapse (2026-11-18; the fixture 1 diagnosis's F4; ADR-0025 §1, M7a slice BN; research 09-02 §3.6):** Decided by Claude under standing owner authority (2026-11-18). The forecast has no horizon beyond the cases within memory, which it replays as a forum would hear them and states by the year; a term cannot be seen in a yearly rate, but it can in that replay: a forum held for `term_days` would have heard only that share of the days the cases span, and the gathering the rest after its law lapsed (a term's end is its own procedure, 09-02 §3.6; it lapses, M7a slice BN). So a forum with a term is weighed at `term_days / remember_days` (at most all) of what it would bring, and one in place of another over each one's share, the one in force by what is left of its term: while both would serve, one against the other, then whichever serves longer against the gathering. No weight is added; the share comes from the content's term and the people profile's memory. A renewable term is not forecast to be renewed (a new law is needed), as in the world.

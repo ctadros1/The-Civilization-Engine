@@ -10207,6 +10207,26 @@ and M6a gives rivers a daily flow.
       later), so a day set before the world began is taken as never, which no lived world makes.
       **Tested:** rounds (5), sewers (19), transit (8); fmt and clippy clean; the code is that of
       the smoke run of the twenty-fifth item.
+    - *Backlog E, coverage, second pass (2026-11-18): the destructor, the gasworks and the
+      viewers' roles.* Tests only; no code changed and no fault found. **The destructor**
+      (`refuse_draws`): a keeper draws an evening's refuse for each whole destructor it holds
+      (one and a half draw one evening's, two draw two), and nothing once the law that keeps its
+      tip open has ended though the tip still holds refuse (destructor,
+      `refuse_is_drawn_for_whole_destructors_only_and_not_once_the_tip_s_law_has_ended`). A first
+      draft found the two engines drawing only what was left of a 1,000 kg tip: the tip ran out,
+      not a fault. **The gasworks:** its connecting, metering, cutting off and restoring, mains
+      and their laying were all pinned by the M10b tests; the one branch none reaches is a home
+      weighing gas light against a lamp it holds whole. A probe found that in the test's world a
+      household puts no figure on tallow, so its lamp's hour has no cost and the lamp is not
+      weighed (it weighs gas against an hour of its work, as without one): pinning the branch
+      needs a household that prices its lamp's fuel, left for a later pass. **The viewers' roles**
+      (ADR-0039 §6): a viewer on the network handed the driving keeps it while viewers on this
+      machine come and go; when it leaves with none on this machine left, nobody drives and
+      another on the network does not take over, the viewers' payload naming the driver 0 and
+      everyone a spectator; the next from this machine to come drives (civ-host's server unit
+      tests, `a_network_driver_leaving_with_none_local_left_leaves_nobody_driving`). **Tested:**
+      destructor (6), gas (9), the civ-host lib tests (83), the civ-agents and civ-sim unit
+      tests; the ten smoke seeds pass; fmt and clippy clean.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads

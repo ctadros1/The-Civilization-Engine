@@ -575,3 +575,52 @@ fn saves_and_goes_on_alike(sim: &mut Sim, minutes: i64) {
     loaded.advance_minutes(minutes).expect("advances");
     same(sim, &loaded);
 }
+
+/// Coverage (backlog E; ADR-0038 §5): a keeper draws for its whole destructors only, an evening's
+/// refuse each (one and a half draw one evening's, two draw two), and draws nothing once the law
+/// that keeps its tip open has ended, though the tip still holds refuse.
+#[test]
+fn refuse_is_drawn_for_whole_destructors_only_and_not_once_the_tip_s_law_has_ended() {
+    let (mut sim, keeper, tip) = a_village_with_a_tip();
+    let (destructor, refuse) = (
+        good(&sim, "core:good/destructor"),
+        good(&sim, "core:good/refuse"),
+    );
+    let evening = 3.6 * RATED_KW * 4.0 / (REFUSE_MJ * EFFICIENCY);
+    let draw = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.refuse_draws_for_tests(ctx));
+        held(sim, keeper, refuse)
+    };
+    // A tip holding enough for every evening drawn here.
+    for t in &mut sim.people_mut_for_tests().polities[0].tips {
+        if t.id == tip.id {
+            t.kg = 10_000.0;
+        }
+    }
+    set(&mut sim, keeper, destructor, 1.5);
+    set(&mut sim, keeper, refuse, 0.0);
+    let got = draw(&mut sim);
+    assert!(
+        (got - evening).abs() < 1e-9,
+        "one whole engine's evening: {got}"
+    );
+    set(&mut sim, keeper, destructor, 2.0);
+    set(&mut sim, keeper, refuse, 0.0);
+    let got = draw(&mut sim);
+    assert!(
+        (got - 2.0 * evening).abs() < 1e-9,
+        "two engines' evenings: {got}"
+    );
+    // The tip's law ended: its tip is open to nobody, and nothing is drawn.
+    let law = tip.law;
+    for l in &mut sim.people_mut_for_tests().polities[0].laws {
+        if l.id == law {
+            l.status = LawStatus::Superseded;
+        }
+    }
+    let before = the_tip(&sim, tip.id).kg;
+    assert!(before > 0.0);
+    set(&mut sim, keeper, refuse, 0.0);
+    assert_eq!(draw(&mut sim), 0.0, "no open tip, no refuse");
+    assert_eq!(the_tip(&sim, tip.id).kg, before);
+}

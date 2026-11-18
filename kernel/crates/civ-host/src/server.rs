@@ -665,6 +665,46 @@ mod tests {
         );
     }
 
+    /// Coverage (backlog E; ADR-0039 §6): a viewer on the network handed the driving keeps it while
+    /// viewers on this machine come and go; when it leaves with none on this machine left, nobody
+    /// drives, and another on the network does not take over; the next from this machine to come
+    /// drives. The payload names nobody driving as 0.
+    #[test]
+    fn a_network_driver_leaving_with_none_local_left_leaves_nobody_driving() {
+        let mut r = Roster::default();
+        let a = r.join("a".to_owned(), true);
+        let far = r.join("far".to_owned(), false);
+        let other = r.join("other".to_owned(), false);
+        assert_eq!(r.hand_over(a, far), Ok(()));
+        let b = r.join("b".to_owned(), true);
+        assert!(
+            r.drives(far) && !r.drives(b),
+            "arriving takes no driving from a driver"
+        );
+        r.leave(a);
+        r.leave(b);
+        assert!(r.drives(far), "locals leaving change nothing");
+        r.leave(far);
+        assert_eq!(r.driver, None, "nobody from this machine left to drive");
+        assert!(!r.drives(other));
+        let p = r.payload(other);
+        let events = civ_schema::flatbuffers::root::<wire::Events>(&p).expect("decodes");
+        let v = events.viewers().expect("viewers");
+        assert_eq!(
+            (v.you(), v.role(), v.driver()),
+            (other, wire::ViewerRole::Spectator, 0)
+        );
+        assert!(
+            v.viewers()
+                .iter()
+                .flatten()
+                .all(|x| x.role() == wire::ViewerRole::Spectator),
+            "nobody listed as driving"
+        );
+        let c = r.join("c".to_owned(), true);
+        assert!(r.drives(c));
+    }
+
     #[test]
     fn secrets_match_only_when_equal() {
         assert!(same_secret(b"abc", b"abc"));

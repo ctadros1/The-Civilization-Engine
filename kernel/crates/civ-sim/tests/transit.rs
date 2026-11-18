@@ -1131,3 +1131,74 @@ fn a_household_that_moves_takes_its_carts_along_a_way_to_its_new_home() {
         "nothing left in the old household's name"
     );
 }
+
+/// A keeper that moves reposts its runs from its new door through its own review (backlog D,
+/// twenty-sixth item; the twenty-fifth item's "Not yet"): no new rule. Its motor cart goes with
+/// it; its old line, whose keeper is no more, is taken off at midnight; at its review the new
+/// household, keeping that cart and no line, posts nothing while its new settlement's people
+/// run too few errands to any other, and once they run a dozen a year to the settlement it left,
+/// posts runs there from its new door, told as posted.
+#[test]
+fn a_keeper_that_moves_reposts_its_runs_from_its_new_door() {
+    use civ_agents::RoadStep;
+    let (mut sim, keeper, _, home, market, cells, _) = two_doors_and_a_hearth();
+    let motor = posted(&mut sim, keeper, home, market, cells[0]);
+    let members = sim
+        .people()
+        .household(keeper)
+        .expect("keeper")
+        .members
+        .clone();
+    sim.with_ctx_for_tests(|pop, ctx| pop.relocate_for_tests(ctx, keeper, market));
+    let (to, new_home) = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .find(|h| h.members.contains(&members[0]))
+        .map(|h| (h.id, h.home))
+        .expect("moved");
+    let door = civ_agents::population::cell_of(sim.map(), new_home) as u32;
+    let cart = sim
+        .land()
+        .carts
+        .list
+        .iter()
+        .find(|c| c.id == motor)
+        .cloned()
+        .expect("the cart");
+    assert_eq!((cart.owner, cart.at), (to, door), "its cart came with it");
+    let day = sim.now().day_index();
+    sim.with_ctx_for_tests(|pop, ctx| pop.transit_reviews_for_tests(ctx, day));
+    assert!(
+        sim.land().runs.roads.iter().all(|l| l.operator != keeper),
+        "the old line is taken off"
+    );
+    // Too few errands from its new settlement: nothing posted.
+    let review =
+        |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.review_road_line_for_tests(ctx, to));
+    review(&mut sim);
+    assert!(sim.land().runs.roads.iter().all(|l| l.operator != to));
+    // A dozen errands a year and more to the settlement it left: posted from its new door.
+    let year = day.div_euclid(civ_core::time::DAYS_PER_YEAR);
+    sim.people_mut_for_tests()
+        .contacts
+        .years
+        .entry((year, market, home))
+        .or_default()
+        .bought = 730;
+    review(&mut sim);
+    let l = sim
+        .land()
+        .runs
+        .roads
+        .iter()
+        .find(|l| l.operator == to)
+        .cloned()
+        .expect("a road line posted");
+    assert_eq!((l.cart, l.market, l.cells[0]), (motor, home, door));
+    let told = road_entries(&sim);
+    let t = told.last().expect("told");
+    assert_eq!(t.number, f64::from(RoadStep::Posted as u8));
+    assert_eq!(t.settlement, Some(market), "in its new settlement");
+}

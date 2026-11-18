@@ -414,4 +414,33 @@ mod tests {
         let (causes, _) = dispatch(&lines, &[hookup(100, 10, 1.0)], id(2), 100.0, &P);
         assert_eq!(causes, vec![Cause::LineDown]);
     }
+
+    /// Coverage (backlog E; M11a): a whole line that is broken takes down every hookup on it and
+    /// beyond it, while one on another branch from the station is served; mended, it serves again.
+    #[test]
+    fn a_broken_line_takes_down_the_hookups_beyond_it_and_no_others() {
+        let mut lines = vec![
+            line(10, None, 6.0, 100.0),
+            line(11, Some(10), 2.0, 100.0),
+            line(12, None, 6.0, 100.0),
+        ];
+        lines[0].broken = true;
+        let hookups = vec![
+            hookup(100, 10, 1.0),
+            hookup(101, 11, 1.0),
+            hookup(102, 12, 1.0),
+        ];
+        let (causes, sent) = dispatch(&lines, &hookups, id(1), 100.0, &P);
+        assert_eq!(
+            causes,
+            vec![Cause::LineDown, Cause::LineDown, Cause::Served]
+        );
+        assert!(
+            sent >= 1.0,
+            "the other branch's hookup is sent its current: {sent}"
+        );
+        lines[0].broken = false;
+        let (causes, _) = dispatch(&lines, &hookups, id(1), 100.0, &P);
+        assert_eq!(causes, vec![Cause::Served; 3]);
+    }
 }

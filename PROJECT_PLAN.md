@@ -10227,6 +10227,30 @@ and M6a gives rivers a daily flow.
       tests, `a_network_driver_leaving_with_none_local_left_leaves_nobody_driving`). **Tested:**
       destructor (6), gas (9), the civ-host lib tests (83), the civ-agents and civ-sim unit
       tests; the ten smoke seeds pass; fmt and clippy clean.
+    - *Backlog E, coverage, third pass (2026-11-18): the gas lamp, the telegraph and wires, the
+      timetable.* Tests only; no code changed and no fault found. **Gas light against a lamp held
+      whole** (the branch the second pass left): the M10b connecting test now teaches its
+      consumer `lamps`, so that it prices tallow by rendering meat (10.9 of its hours a
+      kilogram), and gives it a fat lamp: an hour of the lamp's tallow costs it less than an hour
+      of a burner's gas at the meter, and it does not connect; without the lamp it connects as
+      before (gas, steps added before the existing ones, none moved). **The telegraph office's
+      slots:** one message every sixty over its messages an hour minutes (ten), after the last in
+      its queue, within 08:00 to 20:00: two handed in at nine go at ten and twenty past; one
+      handed in at a minute to eight in the evening goes at ten past eight the next morning; one
+      whose office has lost its instrument is not sent (telegraph,
+      `an_operator_sends_one_message_a_slot_within_the_office_hours`). **A broken line of
+      current** (nothing breaks one in a world yet; a line not yet whole was the only "down" the
+      dispatch tests had): a whole line marked broken takes down every hookup on it and beyond,
+      one on another branch is served, and mended all are (civ-land's wire unit tests,
+      `a_broken_line_takes_down_the_hookups_beyond_it_and_no_others`); a broken telegraph wire
+      losing its telegram was already pinned. **The timetable** trains and road lines share
+      (`departures`): first at six, a day's runs spread evenly over the twelve hours from then,
+      at least one and at most four; a road line's runs back leave the far hearth a run's
+      minutes, rounded up, and a fifteen-minute turn after each run out (transit,
+      `the_timetable_spreads_a_days_runs_over_twelve_hours_from_six`); a rail line's runs a day
+      set by its freight at one and four, and its fare, were already pinned. **Tested:** gas (9),
+      telegraph (16), transit (9), wires (8), rail (16), civ-land's unit tests, the civ-agents and
+      civ-sim unit tests, the civ-host lib tests; the ten smoke seeds pass; fmt and clippy clean.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads

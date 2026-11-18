@@ -1547,3 +1547,86 @@ fn an_office_to_be_short_of_copper_where_none_lies_stops_looking_once_its_ground
         assert!(p.bytes == q.bytes, "section `{}` differs", p.tag);
     }
 }
+
+/// Coverage (backlog E; M11c): an office's operator sends one message every sixty over its
+/// messages an hour minutes, after the last in its queue, within the hours it is kept (08:00 to
+/// 20:00): two telegrams handed in at nine in the morning go ten and twenty minutes on; one
+/// handed in at a minute to eight in the evening goes at ten past eight the next morning; and one
+/// whose office is no more is not sent.
+#[test]
+fn an_operator_sends_one_message_a_slot_within_the_office_hours() {
+    use civ_agents::reports::{Telegram, TelegramStage};
+    let mut sim = world();
+    let [(a, sa, _), (b, sb, _)] = pair(&sim);
+    office(&mut sim, a);
+    office(&mut sim, b);
+    let rate = sim.rules().catalog.goods[good(&sim, "core:good/telegraph_instrument")]
+        .telegraph
+        .expect("an instrument")
+        .messages_h;
+    let gap = (60.0 / rate).ceil() as i64;
+    assert_eq!(gap, 10);
+    let senders: Vec<PermanentId> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .filter(|h| h.settlement == Some(sa) && h.id != a && !h.members.is_empty())
+        .map(|h| h.id)
+        .take(3)
+        .collect();
+    assert_eq!(senders.len(), 3, "three households to send");
+    let at = |sim: &mut Sim, minute: i64| {
+        let rest = 1440 - sim.now().minutes().rem_euclid(1440) + minute;
+        sim.advance_minutes(rest).expect("lives");
+    };
+    let hand = |sim: &mut Sim, h: PermanentId| {
+        let now = sim.now().minutes();
+        sim.people_mut_for_tests().reports.telegrams.insert(
+            h,
+            Telegram {
+                near: a,
+                far: b,
+                market: sb,
+                handed: now,
+                due: now,
+                stage: TelegramStage::Handed,
+                answer: Vec::new(),
+                claims: Vec::new(),
+                teller: None,
+            },
+        );
+    };
+    let due = |sim: &Sim, h: PermanentId| sim.people().reports.telegrams[&h].due;
+    // Two at nine in the morning: ten and twenty minutes on, one after the other.
+    at(&mut sim, 9 * 60);
+    let nine = sim.now().minutes();
+    hand(&mut sim, senders[0]);
+    hand(&mut sim, senders[1]);
+    sim.with_ctx_for_tests(|pop, ctx| pop.telegrams_handed_for_tests(ctx));
+    let mut dues = vec![due(&sim, senders[0]), due(&sim, senders[1])];
+    dues.sort_unstable();
+    assert_eq!(dues, vec![nine + gap, nine + 2 * gap]);
+    for &h in &senders[..2] {
+        assert_eq!(
+            sim.people().reports.telegrams[&h].stage,
+            TelegramStage::Asked
+        );
+    }
+    sim.people_mut_for_tests().reports.telegrams.clear();
+    // One at a minute to eight in the evening: the office is shut by its slot, so it goes at ten
+    // past eight the next morning.
+    at(&mut sim, 20 * 60 - 1);
+    let evening = sim.now().minutes();
+    hand(&mut sim, senders[2]);
+    sim.with_ctx_for_tests(|pop, ctx| pop.telegrams_handed_for_tests(ctx));
+    let next_morning = evening - evening.rem_euclid(1440) + 1440 + 8 * 60 + gap;
+    assert_eq!(due(&sim, senders[2]), next_morning);
+    sim.people_mut_for_tests().reports.telegrams.clear();
+    // Its instrument gone, the office is no more: the telegram is not sent.
+    let instrument = good(&sim, "core:good/telegraph_instrument");
+    set(&mut sim, a, instrument, 0.0);
+    hand(&mut sim, senders[0]);
+    sim.with_ctx_for_tests(|pop, ctx| pop.telegrams_handed_for_tests(ctx));
+    assert!(!sim.people().reports.telegrams.contains_key(&senders[0]));
+}

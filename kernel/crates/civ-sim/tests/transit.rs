@@ -1268,3 +1268,35 @@ fn a_keepers_review_sets_its_runs_and_fare_by_the_rides_taken() {
         cost
     );
 }
+
+/// Coverage (backlog E; M10b slice DX, second part; M11b, third part): the timetable trains and
+/// road lines share leaves first at six in the morning and spreads a day's runs evenly over the
+/// twelve hours from then (one at 06:00; two at 06:00 and 12:00; four three hours apart), at
+/// least one run and at most four; a road line's runs back leave the far hearth a run's minutes,
+/// rounded up, and a fifteen-minute turn after each run out.
+#[test]
+fn the_timetable_spreads_a_days_runs_over_twelve_hours_from_six() {
+    let sim = world(1);
+    let s = sim.land().settlements.clone();
+    let mut l = posted_like(
+        &sim,
+        PermanentId::from_raw(7).expect("an id"),
+        s[1].id,
+        vec![1, 2, 3],
+    );
+    l.minutes = vec![0.0, 20.0, 41.5];
+    let out = |l: &civ_land::trains::RoadLine| civ_agents::population::road_departures(l, false);
+    let back = |l: &civ_land::trains::RoadLine| civ_agents::population::road_departures(l, true);
+    l.runs_a_day = 1;
+    assert_eq!(out(&l), vec![360]);
+    assert_eq!(back(&l), vec![360 + 42 + 15]);
+    l.runs_a_day = 2;
+    assert_eq!(out(&l), vec![360, 720]);
+    l.runs_a_day = 4;
+    assert_eq!(out(&l), vec![360, 540, 720, 900]);
+    assert_eq!(back(&l), vec![417, 597, 777, 957]);
+    l.runs_a_day = 9;
+    assert_eq!(out(&l).len(), 4, "at most four");
+    l.runs_a_day = 0;
+    assert_eq!(out(&l), vec![360], "at least one");
+}

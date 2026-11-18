@@ -1863,3 +1863,55 @@ fn while_a_sewer_is_broken_only_homes_below_the_break_connect() {
     let s = sim.people().polities[0].sewers[0].clone();
     assert!(s.connections.iter().any(|c| c.household == order[above]));
 }
+
+/// Coverage (backlog E; ADR-0044 §5): a connection's days unserved count each day once for its
+/// cause, however often the day is reckoned, and a new calendar year counts afresh: lived to the
+/// year's last day still broken, each counts every day of the year it went unserved, and on the
+/// next year's first day one.
+#[test]
+fn a_connections_days_unserved_count_each_day_once_and_afresh_each_year() {
+    let (mut sim, _, _, _) = three_homes_sewered();
+    {
+        let s = &mut sim.people_mut_for_tests().polities[0].sewers[0];
+        let last = s.cells.len() - 1;
+        s.loss[last] = 1.0;
+        s.broken = s.lowest_collapse();
+    }
+    let day_of =
+        |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.sewer_day_for_tests(ctx, &[]));
+    let broken = |sim: &Sim| {
+        sim.people().polities[0].sewers[0]
+            .connections
+            .iter()
+            .map(|c| c.days_unserved(SewerCause::Broken))
+            .collect::<Vec<_>>()
+    };
+    day_of(&mut sim);
+    assert_eq!(broken(&sim), vec![1, 1, 1]);
+    day_of(&mut sim);
+    assert_eq!(broken(&sim), vec![1, 1, 1], "the same day counts once");
+    sim.advance_minutes(DAY).expect("lives");
+    day_of(&mut sim);
+    assert_eq!(broken(&sim), vec![2, 2, 2]);
+    // Lived on to the year's last day and past it, still broken: the new year counts afresh.
+    let year = civ_core::time::DAYS_PER_YEAR;
+    let to_last = year - 1 - sim.now().day_index().rem_euclid(year);
+    sim.advance_minutes(to_last * DAY).expect("lives");
+    day_of(&mut sim);
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert!(
+        s.broken.is_some(),
+        "still broken, or this test shows nothing"
+    );
+    let before: Vec<u16> = broken(&sim);
+    assert!(before.iter().all(|&d| d > 2), "{before:?}");
+    sim.advance_minutes(DAY).expect("lives");
+    day_of(&mut sim);
+    assert_eq!(
+        sim.now().day_index().rem_euclid(year),
+        0,
+        "the year's first day"
+    );
+    assert_eq!(broken(&sim), vec![1, 1, 1], "counted afresh");
+    saves_and_goes_on_alike(&mut sim, DAY);
+}

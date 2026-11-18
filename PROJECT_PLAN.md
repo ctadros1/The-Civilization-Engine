@@ -10188,6 +10188,25 @@ and M6a gives rivers a daily flow.
       settlement it left posts its runs there from its new door, told as posted in its new
       settlement (`review_road_line`, unchanged: no weight or threshold moved). **Tested:**
       transit (7, one new; it fails without the twenty-fifth item, the cart not coming).
+    - *Backlog E, coverage (2026-11-18): three recent behaviours with no test pinned down.* Tests
+      only; no code changed and no fault found. Each "Tested:" list of the M11 transit, refuse and
+      sewer slices was read against the code; three paths no test exercised: (1) a refuse round's
+      load at a tip a law covers is asked covered as it comes, as a household's heap is (rounds,
+      `a_rounds_load_at_a_covered_tip_is_asked_covered`: the covering's work grows by exactly the
+      run's tipped kilograms at the law's hours a kilogram; it fails with the asking removed);
+      (2) a road line keeper's yearly review setting its runs a day and fare by the rides taken
+      (M11b third part's "A year on it sets its runs a day … and its fare by them", whose test
+      checked only that it saved): a run and a half's riders take two runs at a run's fuel over
+      the riders a run carries, more than four runs' riders take four, a few riders one run at
+      the whole run's fuel, and it counts afresh from that day (transit,
+      `a_keepers_review_sets_its_runs_and_fare_by_the_rides_taken`); (3) a sewer connection's
+      days unserved count each day once however often it is reckoned and afresh each calendar
+      year, lived across a real year's end while broken (sewers,
+      `a_connections_days_unserved_count_each_day_once_and_afresh_each_year`). Noted, not a
+      fault: the reset reads a connection's last day only when it is a day of the world (0 or
+      later), so a day set before the world began is taken as never, which no lived world makes.
+      **Tested:** rounds (5), sewers (19), transit (8); fmt and clippy clean; the code is that of
+      the smoke run of the twenty-fifth item.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads

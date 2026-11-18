@@ -1202,3 +1202,69 @@ fn a_keeper_that_moves_reposts_its_runs_from_its_new_door() {
     assert_eq!(t.number, f64::from(RoadStep::Posted as u8));
     assert_eq!(t.settlement, Some(market), "in its new settlement");
 }
+
+/// Coverage (backlog E; M11b, third part): at its yearly review a keeper sets its runs a day by
+/// the rides taken since it last weighed them, as many as a run seats each (a rider and what they
+/// carry at 100 kg), at most four, and its fare by them: a run's fuel at its own cost over the
+/// riders a run carries; and it counts afresh from that day.
+#[test]
+fn a_keepers_review_sets_its_runs_and_fare_by_the_rides_taken() {
+    let (mut sim, keeper, _, home, market, cells, _) = two_doors_and_a_hearth();
+    posted(&mut sim, keeper, home, market, cells[0]);
+    let first = sim.land().runs.roads[0].clone();
+    // Posted with 730 errands a year: two riders a run expected, so a run's fuel cost is twice
+    // the fare.
+    let cost = f64::from(first.fare_kcal) * 2.0;
+    let seats = {
+        let v = sim
+            .rules()
+            .catalog
+            .vehicle_index("core:vehicle/road_engine")
+            .expect("a road engine");
+        (sim.rules().catalog.vehicles[v].payload_kg / 100.0).floor()
+    };
+    let day = sim.now().day_index();
+    let review = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_road_line_for_tests(ctx, keeper))
+    };
+    // A hundred days of riders, a direction's a day one and a half runs' seats.
+    {
+        let l = &mut sim.land_mut_for_tests().runs.roads[0];
+        l.since = day - 100;
+        l.riders = (2.0 * 100.0 * seats * 1.5) as u32;
+    }
+    review(&mut sim);
+    let l = sim.land().runs.roads[0].clone();
+    assert_eq!(l.runs_a_day, 2, "a run and a half's riders take two runs");
+    let per_run = seats * 1.5 / 2.0;
+    assert!(
+        (f64::from(l.fare_kcal) - cost / per_run).abs() < 1e-3 * (cost / per_run),
+        "fare {} against {}",
+        l.fare_kcal,
+        cost / per_run
+    );
+    assert_eq!((l.riders, l.since), (0, day), "counted afresh");
+    // Far more riders than four runs seat: four runs.
+    {
+        let l = &mut sim.land_mut_for_tests().runs.roads[0];
+        l.since = day - 10;
+        l.riders = (2.0 * 10.0 * seats * 9.0) as u32;
+    }
+    review(&mut sim);
+    assert_eq!(sim.land().runs.roads[0].runs_a_day, 4, "at most four");
+    // A few riders: one run, its fare the whole run's fuel shared over at least one rider.
+    {
+        let l = &mut sim.land_mut_for_tests().runs.roads[0];
+        l.since = day - 100;
+        l.riders = 20;
+    }
+    review(&mut sim);
+    let l = sim.land().runs.roads[0].clone();
+    assert_eq!(l.runs_a_day, 1);
+    assert!(
+        (f64::from(l.fare_kcal) - cost).abs() < 1e-3 * cost,
+        "fare {} against {}",
+        l.fare_kcal,
+        cost
+    );
+}

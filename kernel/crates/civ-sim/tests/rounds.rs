@@ -647,3 +647,45 @@ fn a_polity_runs_a_round_by_law_paid_from_its_store() {
     sim.with_ctx_for_tests(|pop, ctx| pop.law_rounds_for_tests(ctx));
     assert!(round_of(&sim, keeper).is_none());
 }
+
+/// Coverage (backlog E): a refuse round's load tipped at a tip a law covers is asked covered as
+/// it comes, as a household's own heap is (ADR-0038 §6's covering): the covering's work grows by
+/// what the run tipped, at the law's hours a kilogram.
+#[test]
+fn a_rounds_load_at_a_covered_tip_is_asked_covered() {
+    let (mut sim, keeper, tip) = a_village_with_a_cart();
+    let cover = a_law(&mut sim, PolicyKind::CoverTip);
+    sim.with_ctx_for_tests(|pop, ctx| pop.cover_passed_for_tests(ctx, 0, cover));
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_refuse_round_for_tests(ctx, keeper));
+    let round = round_of(&sim, keeper).expect("a round posted");
+    for &h in &round.homes {
+        set_heap(&mut sim, h, 30.0, 1.0);
+    }
+    let asked = |sim: &Sim| {
+        sim.people().polities[0]
+            .way_site_of(cover)
+            .map_or(0.0, |s| s.labour_h)
+    };
+    let before = (asked(&sim), sim.people().polities[0].tips[0].tipped_kg());
+    let ran = sim.with_ctx_for_tests(|pop, ctx| pop.refuse_run_for_tests(ctx, round.id));
+    assert!(ran, "the round ran");
+    let t = &sim.people().polities[0].tips[0];
+    assert_eq!(t.id, tip.id);
+    let tipped = t.tipped_kg() - before.1;
+    assert!(tipped > 0.0, "the run tipped its load");
+    let def = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .find_map(|d| d.cover)
+        .expect("the core covers tips");
+    let per_kg = def.h_per_kg(sim.rules().people.digging.h_per_m3);
+    assert!(
+        (asked(&sim) - before.0 - tipped * per_kg).abs() < 1e-9,
+        "asked {} h more for {} kg",
+        asked(&sim) - before.0,
+        tipped
+    );
+    assert!(!sim.people().polities[0].tips[0].covered());
+}

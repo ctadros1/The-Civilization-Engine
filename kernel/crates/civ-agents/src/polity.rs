@@ -933,7 +933,8 @@ pub struct RoundDef {
 /// that stays in it as deposit (0: none), the deposit a metre holds before it is blocked,
 /// kilograms, and the hours clearing a tonne of it takes; and its leakage (research 12-11 §4):
 /// the share of what passes a kilometre of wall worn through that leaks out into the ground
-/// there (0: none), in proportion to each metre's wear.
+/// there (0: none), in proportion to each metre's wear, and the depth of its invert below the
+/// ground, metres, at which a water table standing higher takes groundwater in instead.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SewerDef {
     pub walls: Vec<usize>,
@@ -954,6 +955,7 @@ pub struct SewerDef {
     pub block_kg_m: f32,
     pub clear_h_t: f32,
     pub leak_per_km: f32,
+    pub depth_m: f32,
 }
 
 /// Why a connection's share did or did not go into its sewer on a day (ADR-0041 §2).

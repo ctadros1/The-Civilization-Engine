@@ -87,8 +87,8 @@ These are design priors anchored to the measurements above, not measurements the
   - A village sewer of 300 m at half wear then leaks about 1.5 per cent, within the 1–5 per cent the reviews give (§1.1).
   - A new sewer leaks nothing, a simplification of the small allowable leakage and of rehabilitation's 50–90 per cent cut (§1.3).
 - **What leaks soaks into the ground at the leaking cell, by the paths a heap's seepage takes.** It goes toward the wells and rivers within the seepage reach and no higher, with the travel time through the ground and decay on the way. The narrow zone (§3) and the 15 m setbacks sit within the 30 m reach already used for heaps.
+- **A pipe below the water table lets nothing out.** Where the aquifer's head stands above the invert, a worn wall takes groundwater in instead (§2; built 2026-11-18). The invert's depth, 2.8 m, is an estimate taken from the Chesapeake review's mean invert depth of 9.2 ft, a professional judgement.
 - **Not yet:**
-  - the water table standing above the pipe, which would turn a leak into infiltration (§2); the kernel keeps no pipe depth;
   - storms raising leakage above the clogged rate (§2);
   - fissured ground carrying pathogens farther (§3);
   - infiltration's added flow (§1.2), which would need a sewer's water, not only its loads.

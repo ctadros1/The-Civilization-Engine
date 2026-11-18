@@ -386,6 +386,11 @@ pub struct SewerFile {
     /// nothing leaks.
     #[serde(default)]
     pub leak_per_km: f32,
+    /// The depth of its invert below the ground, metres (content API 232; research 12-11 §2): where
+    /// the water table stands above it, a worn wall takes groundwater in rather than letting
+    /// sewage out, and nothing leaks there. Absent or 0, the pipe lies at the ground.
+    #[serde(default)]
+    pub depth_m: f32,
 }
 
 /// The terms of a polity's notes in a policy file (content API 196, M10d slice EJ).
@@ -762,6 +767,7 @@ impl PolicyFile {
             block_kg_m: s.block_kg_m,
             clear_h_t: s.clear_h_t,
             leak_per_km: s.leak_per_km,
+            depth_m: s.depth_m,
         })
     }
 
@@ -1514,6 +1520,7 @@ impl PolicyFile {
                     ("block_kg_m", s.block_kg_m, 0.0, 100_000.0),
                     ("clear_h_t", s.clear_h_t, 0.0, 1000.0),
                     ("leak_per_km", s.leak_per_km, 0.0, 1.0),
+                    ("depth_m", s.depth_m, 0.0, 30.0),
                 ] {
                     if !(v.is_finite() && (lo..=hi).contains(&v)) {
                         p.push(format!(

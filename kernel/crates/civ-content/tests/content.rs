@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 231
+kernel_content_api = 232
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -3765,6 +3765,9 @@ fn the_core_lets_a_polity_lay_a_sewer_to_the_river() {
     // Its worn walls leak a tenth of what passes a kilometre at full wear (content API 231;
     // research 12-11 §4), an estimate.
     assert_eq!(s.leak_per_km, 0.1);
+    // Its invert lies 2.8 m down, below which a water table takes groundwater in (content API
+    // 232; research 12-11 §2), an estimate.
+    assert_eq!(s.depth_m, 2.8);
     assert_eq!(s.tank, good("core:good/settling_tank"));
     assert_eq!(s.sludge, good("core:good/sludge"));
     // Its id sorts after every older template's (the protection rule's, ADR-0037 §5, is newer).
@@ -3834,6 +3837,11 @@ fn a_sewer_template_needs_its_terms_and_only_it_has_them() {
             "lay_sewer",
             format!("{terms}leak_per_km = 1.5\n"),
             "`sewer.leak_per_km` must be between",
+        ),
+        (
+            "lay_sewer",
+            format!("{terms}depth_m = -1.0\n"),
+            "`sewer.depth_m` must be between",
         ),
     ] {
         let bad = load_fixture(&[

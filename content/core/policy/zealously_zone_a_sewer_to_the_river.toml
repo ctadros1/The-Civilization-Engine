@@ -62,6 +62,11 @@ clear_h_t = 10.0
 # at half wear leaks about a tenth; a village's 300 m at half wear about 1.5 %, within the 1-5 % of
 # dry-weather flow the reviews give; a new sewer nothing.
 leak_per_km = 0.1
+# Its invert lies 2.8 m below the ground (content API 232; research 12-11 §2): where the water table
+# stands higher, a worn wall takes groundwater in instead and lets nothing out (Rastatt; measured).
+# The depth is an estimate: the Chesapeake Bay Program's mean invert depth of 9.2 ft, a professional
+# judgement.
+depth_m = 2.8
 
 # An authoring judgement, not a measurement, as for a line laid together: a share of every
 # household's hours is asked, for cleaner homes.

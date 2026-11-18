@@ -1123,8 +1123,9 @@ impl Population {
     /// What of `amount` doses entering sewer `si` of polity `pi` at household `h`'s drain reaches
     /// its outfall, and what leaks out on the way, by route cell (research 12-11 §4): at each cell
     /// from where the drain enters down to the outfall, what is left loses the share
-    /// `leak_per_km` × the cell's wall loss × its metres ÷ 1,000 into the ground there. A new
-    /// sewer, or a template with no `leak_per_km`, leaks nothing.
+    /// `leak_per_km` × the cell's wall loss × its metres ÷ 1,000 into the ground there, unless the
+    /// water table stands above its invert there today. A new sewer, or a template with no
+    /// `leak_per_km`, leaks nothing.
     fn sewer_leaks(
         &self,
         ctx: &Ctx,
@@ -1153,7 +1154,7 @@ impl Population {
         let mut left = amount;
         for i in entry..s.cells.len() {
             let loss = f64::from(s.loss.get(i).copied().unwrap_or(0.0)).clamp(0.0, 1.0);
-            if loss <= 0.0 {
+            if loss <= 0.0 || Self::under_water_table(ctx, def, s.cells[i]) {
                 continue;
             }
             let share = (per_m * loss * metres(i)).min(1.0);
@@ -1164,6 +1165,19 @@ impl Population {
             }
         }
         (left, leaks)
+    }
+
+    /// Whether a sewer of `def` lies below the water table at route cell `cell` today: its invert
+    /// `depth_m` below the ground there, under the head of the aquifer's patch (research 12-11 §2:
+    /// a pipe below the water table takes groundwater in instead of letting sewage out). A world
+    /// whose aquifer keeps no heads has no water table to say so.
+    fn under_water_table(ctx: &Ctx, def: &SewerDef, cell: u32) -> bool {
+        let p = ctx.land.patches.of_cell(cell as usize, ctx.map.width);
+        let ground = f64::from(ctx.map.elevation[cell as usize]);
+        ctx.land
+            .water
+            .head(p)
+            .is_some_and(|h| h >= ground - f64::from(def.depth_m))
     }
 
     /// The metres along sewer `s`'s route from its cell `i` down to its outfall.

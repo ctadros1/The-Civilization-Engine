@@ -2133,6 +2133,13 @@ kilometre, an estimate anchored to a 2 km reach of unknown condition that leaked
 by tracer: a 2 km sewer at half wear leaks about a tenth, a village's 300 m about 1.5 %, a new one
 nothing.
 
+Content API 232 (research 12-11 §2) adds `depth_m` (0–30; absent or 0, the pipe lies at the
+ground) to the `[sewer]` table: the depth of its invert below the ground. At a route cell whose
+aquifer patch's head stands at or above the ground there less `depth_m`, the pipe lies below the
+water table, its worn walls take groundwater in rather than letting sewage out, and nothing leaks
+there that day. The core's sewer lies 2.8 m down, an estimate (the Chesapeake Bay Program's mean
+invert depth of 9.2 ft, a professional judgement).
+
 Content API 224 (backlog D; ADR-0021 §7) adds the issue `closing_unsuspected`: a closing of a
 source of water (`close_source`) is in force, and nobody of the polity's households holds any
 longer, from their own tally, that the water there sickens. A `repeal` template may answer it as

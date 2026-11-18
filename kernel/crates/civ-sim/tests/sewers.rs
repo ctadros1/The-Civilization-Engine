@@ -2053,3 +2053,94 @@ fn worn_walls_let_a_share_of_what_passes_into_the_ground_toward_a_well() {
         .sum();
     assert!(arrived > 0.0, "it reached the well");
 }
+
+/// Where the water table stands above a sewer's invert, its worn walls take groundwater in rather
+/// than letting sewage out (research 12-11 §2; content API 232): nothing leaks at a route cell
+/// whose aquifer patch's head stands at or above its ground less the invert's `depth_m`. With the
+/// water table above it all along, every dose reaches the river; with it above only some of its
+/// cells, only the others leak, each its share.
+#[test]
+fn a_sewer_below_the_water_table_leaks_nothing_there() {
+    let (mut sim, homes, _, _) = three_homes_sewered();
+    let def = sewer_def(&sim);
+    assert!((def.depth_m - 2.8).abs() < 1e-6, "the core's invert depth");
+    let d = cholera(&sim);
+    let s = sim.people().polities[0].sewers[0].clone();
+    let h = homes[0];
+    let at = entry(&sim, h).expect("its drain enters");
+    sim.people_mut_for_tests().polities[0].sewers[0].loss = vec![0.5; s.cells.len()];
+    let width = sim.map().width;
+    let patch = |sim: &Sim, c: u32| sim.land().patches.of_cell(c as usize, width);
+    let ground = |sim: &Sim, c: u32| f64::from(sim.map().elevation[c as usize]);
+    let dry = sim.land().water.heads.clone();
+    assert!(!dry.is_empty(), "the aquifer keeps heads");
+    // Which cells from the drain down lie below the water table as it stands.
+    let wet = |sim: &Sim, i: usize| {
+        let c = s.cells[i];
+        sim.land().water.heads[patch(sim, c)] >= ground(sim, c) - f64::from(def.depth_m)
+    };
+    let per_m = f64::from(def.leak_per_km) / 1000.0;
+    let expected = |sim: &Sim, shed: f64| {
+        let mut left = shed;
+        for i in at..s.cells.len() {
+            if !wet(sim, i) {
+                left -= left * (per_m * 0.5 * cell_metres(sim, i)).min(1.0);
+            }
+        }
+        left
+    };
+    let reached = |sim: &mut Sim, shed: f64| {
+        sim.people_mut_for_tests()
+            .contagion
+            .take(Node::Reach(s.reach), d, 1.0);
+        sim.with_ctx_for_tests(|pop, ctx| pop.sewer_day_for_tests(ctx, &[(h, d, shed)]));
+        sim.people().contagion.load(Node::Reach(s.reach), d)
+    };
+    let shed = 10_000.0;
+    assert!(
+        (at..s.cells.len()).all(|i| !wet(&sim, i)),
+        "dry as the world stands"
+    );
+    let all_dry = expected(&sim, shed);
+    assert!(all_dry < shed);
+    // The water table up to the ground along its whole length: nothing leaks.
+    for i in 0..s.cells.len() {
+        let (p, z) = (patch(&sim, s.cells[i]), ground(&sim, s.cells[i]));
+        let heads = &mut sim.land_mut_for_tests().water.heads;
+        heads[p] = heads[p].max(z);
+    }
+    assert!((at..s.cells.len()).all(|i| wet(&sim, i)));
+    let reach = reached(&mut sim, shed);
+    assert!(
+        (reach - shed).abs() < 1e-6,
+        "{reach} of {shed}: none leaked"
+    );
+    // Up to its invert halfway down its run from the drain: the sewer falls toward its outfall,
+    // so the cells below lie under the water table and only those above leak.
+    sim.land_mut_for_tests().water.heads = dry.clone();
+    let mid = (at + s.cells.len()) / 2;
+    let level = ground(&sim, s.cells[mid]) - f64::from(def.depth_m);
+    for i in 0..s.cells.len() {
+        let p = patch(&sim, s.cells[i]);
+        sim.land_mut_for_tests().water.heads[p] = level;
+    }
+    let under = (at..s.cells.len()).filter(|&i| wet(&sim, i)).count();
+    assert!(
+        under > 0 && under < s.cells.len() - at,
+        "{under} of {} cells under it",
+        s.cells.len() - at
+    );
+    let some = expected(&sim, shed);
+    let reach = reached(&mut sim, shed);
+    assert!((reach - some).abs() < 1e-6, "{reach} against {some}");
+    assert!(
+        some > all_dry && some < shed,
+        "less leaked with part of it under the water table"
+    );
+    eprintln!(
+        "dry: {:.1} doses leak; part under the water table: {:.1}; all under it: none",
+        shed - all_dry,
+        shed - some
+    );
+    saves_and_goes_on_alike(&mut sim, DAY);
+}

@@ -9952,7 +9952,9 @@ and M6a gives rivers a daily flow.
       household's name and are cut off once unpaid, as before); a road line's motor cart passing
       without its road line (the cart passes within the settlement, the posted runs stay the gone
       operator's, and run from its door; done 2026-11-17, see backlog D, twentieth item); a line
-      still being laid, and the wagons on it, nobody is left to finish; a line taken up told in
+      still being laid, and the wagons on it, nobody is left to finish (taken up by first use or
+      passed to an heir it would serve, done 2026-11-18, twenty-seventh and twenty-eighth items);
+      a line taken up told in
       the chronicle (done 2026-11-05, nineteenth item); and a lived world where a line
       passes or is taken up.
     - *Backlog C, ADR-0038 §6's covering (2026-11-05): a covered tip* (§9, "A covered tip";
@@ -10453,8 +10455,42 @@ and M6a gives rivers a daily flow.
       lib tests; the ten smoke seeds pass; fmt and clippy clean. No existing assertion moved.
       **Not yet:** a line still being laid passing to an heir within the settlement (it stays
       the gone household's, the eighteenth item's rule, and the heir may now take it up only
-      as anyone may, by digging at its pit and living by its end), and a lived world where one
-      is taken up.
+      as anyone may, by digging at its pit and living by its end; done 2026-11-18, see the
+      twenty-eighth item), and a lived world where one is taken up.
+    - *Backlog D, twenty-eighth item (2026-11-18): a line still being laid passes to an heir it
+      would serve* (the twenty-seventh item's "Not yet"; research 08-09's succession row: what
+      is held passes to heirs; §1.3: an investment is weighed by what is still to be spent). No
+      new ADR; a household's own weighing. **Why the eighteenth item's reason no longer holds
+      whole:** a line still being laid stayed the gone household's because "its work was
+      weighed by the gone household's pit and home"; with the twenty-seventh item a half-laid
+      line can be weighed for another household on what is left, so it can be weighed for the
+      heir. **Why it still holds in part:** a line passed to an heir it does not serve would be
+      the heir's way being made, first in its way work and ending beside a home not its own, so
+      the heir's labour would go to a line nobody uses. **The rule** (`Population::lines_pass`,
+      `heir_takes_line`): within the settlement, after the lines laid whole, each line still
+      being laid that the gone household kept alone passes to the household its people joined
+      where that household would take it up at its line review as it stands: one of it knows
+      how to make the wagon, it has no line home of its own and no wagon of its own to put on
+      its polity's line, and the line runs from the pit it digs most to beside its home with its
+      rest repaying it (`nobodys_line`, now limited to one gone household's lines where asked).
+      The wagons and engines at its ends pass with it, as for a line laid whole, the wagons
+      reckoned at what they spare the heir. Nothing is told (a passing is not, for any line).
+      Otherwise it stays the gone household's, nobody's, for whoever takes it up by first use,
+      the heir among them. No content, schema, wire or web change; saves stay 220. **Tested:**
+      rail (18, one new: a line from the heir's pit to beside its home, 60% laid, kept by another
+      household of the settlement with a made wagon at the pit end; that household's people
+      join the heir; where the rest repays the heir, though a line laid afresh would not, the
+      line and wagon pass, the wagon reckoned at the heir's figure, nothing told as taken up,
+      and the heir's way work is that line, its hours left the track's 40%; where it would not,
+      both stay the gone household's, and once the heir digs there enough it takes the line up
+      by first use, told once; each saves and loads exactly; it fails without the change, the
+      line left to the gone household), roundtrip, determinism, boats, carts, fetch, transit and
+      settlements,
+      the civ-agents unit tests and the civ-host lib tests; the ten smoke seeds pass; fmt and
+      clippy clean. No existing assertion moved (the eighteenth item's test still sees its
+      marked line and its wagon stay, the heir not digging there). **Not yet:** a line still
+      being laid passing to an heir in another settlement (a line is fixed; nothing of one
+      passes there), and a lived world where one passes.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads
@@ -12336,3 +12372,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Wire 1.113: a tip's ground in the water frame (2026-11-18):** Decided by Claude under standing owner authority (2026-11-18). A `TipInfo` table appended to `Water` (field 7), the minor bumped to 113. *Reason:* the water frame is where the observer reads what lies on the land and fouls the water (wells, springs, mills), and a tip washes and seeps toward those wells; appending a field with a new id is ADR-0001's rule, and a new field the older web cannot read is a minor bump. The Unreal BuildingAssembler's "needs kernel wire 1.112 or later for building parts" is a least version for a feature, not the current one, so it stays. Drawn under the other water features, faint, as the plans and fields are, so it neither hides the wells beside it nor reads as water.
 - **The roof-mending half promoted to `claude/claude-development` on its own long run (2026-11-18; homelab long run 77):** Decided by Claude under standing owner authority (2026-11-18). Long run 77 measured `claude/split-no-deliberation` (11be209: 48cd61b with a household's line passing on, the failures row's twelve months, help with mending and the chronicle's line taken up, but neither deliberation change nor covering a tip) with `max_minutes` 1440; its chain (115) was green. The dashboard **passed** (9 green, 2 amber, none red) in 16,614 s for its slowest world: **structural failures green, 3 in 6,934 building-years, 0.43 per 1,000** (run 67: 4.03, red; the recurring red is closed), population green (4 of 5 keep 10; world 2 fell to 4 in year 41 from 155, as run 67's world 2 did), moves green in every world (2.2 to 9.0), wealth Gini and neighbours amber as before. The notables' gate passed at run 67's margins (fixture 2 proposals +61.9 % against 105 %), as expected with no deliberation change. *Reason:* the owner (2026-11-17): "Don't accept the unmeasured long run risk"; this half is measured and acceptable, so development was fast-forwarded from 48cd61b to 11be209. Still unpromoted: the two deliberation changes (d5fb651, e0fe643; long run 76 measures them), covering a tip, and everything since e20bbac, which a long run of verification's head must measure before it goes. The verification commits of the same four changes reach development by a merge when it is promoted, their code identical to 11be209's.
 - **A line still being laid that nobody is left to finish is taken up where its rest repays (2026-11-18, backlog D's twenty-seventh item; the eighteenth item's "Not yet"; research 08-09 §1.2, §1.3):** Decided by Claude under standing owner authority (2026-11-18). **Taken up by first use, as a line laid whole is:** by a household whose line review finds it from the pit it digs most to beside its home (08-09 §1.2: what nobody holds is taken up by first use, and investment strengthens a claim). *Reason:* the eighteenth item left it standing to nobody for ever, half a line no one could finish or use; the rule for a whole line already says who may take one up and nothing about how much of it is laid decides that. **Weighed on what is left to spend:** the hours a wagon on it would spare over its life against the labour and timber of the track not yet laid, its share of the whole as its laying measures it, and of the wagon unless a made one nobody holds stands at an end; the track already laid costs the taker nothing. *Reason:* the coordinator's terms ("the same as a line laid whole is weighed"); 08-09 §1.3's investment rule weighs the cost still to be paid against what the work brings, and a line laid whole is the case where what is left is nothing, so one weighing serves both. **The rest is laid as the household's own line:** no new work; its laying is its way work, weighed by its wagon's reckoning as a line it marked out is. **A wagon taken up with a line is reckoned at what it spares its new keeper:** its `saves_h_year` set to the taker's review's figure. *Reason:* a line still being laid is weighed for its laying by its wagon's reckoning, and the one the wagon carried was what it spared a household that is no more (a wagon made for a test holds none). On a line laid whole it changes one choice: a half-made wagon taken up with it is finished, or not, by what it would spare the taker (`cart_facts` weighs a wagon being made by its figure), as a wagon the taker began itself would be; a made wagon's figure is read only for laying. **Told** as nobody left to finish it, with how much was laid. Household weighing only; no polity law, forecast, review or gathering changes (the freeze covers polities' deliberation). No content, schema, wire or web change; saves stay 220.
+- **A line still being laid passes to an heir it would serve (2026-11-18, backlog D's twenty-eighth item; the twenty-seventh item's "Not yet"; research 08-09's succession row, §1.3):** Decided by Claude under standing owner authority (2026-11-18). **Passes where the heir would take it up as it stands,** by the test its line review would apply (it can make the wagon, has no line home and no wagon on its polity's line, digs most at the pit by one end and lives by the other, and the rest of the track repays it), at the passing, with the wagons and engines at its ends, the wagons reckoned at the heir's figure. *Reason:* the eighteenth item kept it from the heir because its work was weighed by the gone household's pit and home; the twenty-seventh item weighs a half-laid line for any household on what is left, so the heir can be weighed first, as 08-09's succession row puts heirs first. **Not passed otherwise:** it stays the gone household's, open to first use, the heir included. *Reason:* passed to an heir it does not serve, it would become the heir's way being made, first in its way work, and draw its labour to a line ending beside another home. Rejected: passing every half-laid line as whole lines pass (that burden), and leaving every one to first use (the heir's claim would wait on its review day and could go to another). Nothing told, as for any passing. Household weighing only; no polity law, forecast, review or gathering changes. No content, schema, wire or web change; saves stay 220.

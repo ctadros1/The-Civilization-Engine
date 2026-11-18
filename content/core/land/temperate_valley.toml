@@ -161,9 +161,11 @@ link_radius_m = 30.0             # 03-02 §1.6's 15-30 m setbacks: how far a lin
 capture_share = 0.1              # what of the soaked load reaches its receptors before decay
 min_gradient = 0.005             # the water table's least slope (03-02 §1.6's example: 0.01)
 drink_l_per_day = 3.0            # of the household's water each person drinks a day
-food_share = 0.1                 # of an hour's shedding, what goes onto food its maker makes
-                                 # (ADR-0045; a design prior, calibrated in its fourth slice
-                                 # against research 05-07 §2's 5.8 % luncheon attack rate)
+food_share = 0.55                # of an hour's shedding, what goes onto food its maker makes
+                                 # (ADR-0045 slice 4): calibrated so that a silent carrier of the
+                                 # core's heaviest silent shedder (dysentery, 200 doses a day)
+                                 # baking four hours for a meal 310 eat gives research 05-07 §2's
+                                 # 5.8 % luncheon attack rate (a NUDGE, plan §9)
 
 [groundwater]
 recharge_share = 0.5             # tuning: the research gives no partition for this landscape

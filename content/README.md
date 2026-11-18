@@ -2144,7 +2144,9 @@ Content API 233 (ADR-0045) adds `food_share` (0–1; absent or 0, none) to a lan
 `[contamination]` table: the share of what someone shedding a disease that passes by water sheds
 over a session of making food for a workshop that goes onto the food made, taken ahead from their
 next day's shedding. The food carries it when it is sold or given, and whoever eats from it takes
-the share of its load they ate as a dose. The core's land puts 0.1, a design prior.
+the share of its load they ate as a dose. The core's land puts 0.55, calibrated (ADR-0045
+slice 4) so that a silent dysentery carrier baking four hours for a meal 310 eat gives research
+05-07 §2's 5.8 % luncheon attack rate.
 
 Content API 224 (backlog D; ADR-0021 §7) adds the issue `closing_unsuspected`: a closing of a
 source of water (`close_source`) is in force, and nobody of the polity's households holds any

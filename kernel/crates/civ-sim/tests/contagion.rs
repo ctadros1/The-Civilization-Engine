@@ -2145,3 +2145,232 @@ fn bread_a_carrier_baked_reaches_the_relieved_through_the_common_store() {
     let loaded = reloaded(&mut sim);
     assert_eq!(loaded.people().contagion, sim.people().contagion);
 }
+
+/// What is left of a disease with a settlement counts the food someone shedding made that its
+/// people, workshops and store hold (ADR-0045), got or made here, so an outbreak there does not
+/// close while loaded food remains; food held elsewhere is not counted with it.
+#[test]
+fn loaded_food_counts_toward_what_is_left_of_a_disease_where_it_is_held() {
+    let mut sim = village(6);
+    let d = cholera(&sim);
+    let bread = sim
+        .rules()
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/bread")
+        .expect("bread") as u16;
+    let h = households(&sim)[0];
+    let settlement = sim
+        .people()
+        .household(h)
+        .expect("home")
+        .settlement
+        .expect("a settlement");
+    food_only(&mut sim, h, &[(usize::from(bread), 10.0)]);
+    let left = |sim: &mut Sim, s: Option<PermanentId>| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.disease_left_for_tests(ctx, d, s))
+    };
+    let before = left(&mut sim, Some(settlement));
+    for (node, amount) in [
+        (
+            Node::Food {
+                holder: h,
+                good: bread,
+            },
+            30.0,
+        ),
+        (
+            Node::MadeFood {
+                holder: h,
+                good: bread,
+            },
+            12.0,
+        ),
+    ] {
+        sim.people_mut_for_tests()
+            .contagion
+            .food_add(node, d, amount, 10.0);
+    }
+    let after = left(&mut sim, Some(settlement));
+    assert!((after - before - 42.0).abs() < 1e-9, "{before} -> {after}");
+    assert!((left(&mut sim, None) - after).abs() < 1e-9 || left(&mut sim, None) >= after);
+    // Held by nobody of the settlement (an id that is no holder), it counts only in the total.
+    let nobody = sim.allocate_id_for_tests();
+    sim.people_mut_for_tests().contagion.food_add(
+        Node::Food {
+            holder: nobody,
+            good: bread,
+        },
+        d,
+        5.0,
+        1.0,
+    );
+    assert!((left(&mut sim, Some(settlement)) - after).abs() < 1e-9);
+}
+
+/// The calibration of `food_share` (ADR-0045 slice 4; research 05-07 §2): one carrier prepares a
+/// meal for a crowd, after the Michigan luncheon (a carrier who helped prepare most of the food,
+/// 310 who ate, 18 who took typhoid: 5.8 %). Typhoid is not in the core content; its silent
+/// carrier is stood for by bacillary dysentery's (200 doses a day), the core's heaviest silent
+/// shedder, and the preparing by four hours' baking for a workshop (an estimate: 05-07 gives no
+/// hours). Each of 310 people outside the carrier's household eats an even share of the bread,
+/// and the night's draw is counted. The expected attack rate, 1 − e^(−dose) averaged over those
+/// who ate, lands within half a point of 5.8 %, and the realized one within the binomial spread of
+/// 310 draws (5.8 % ± 2.7 points, two standard errors).
+#[test]
+fn a_carrier_s_meal_for_a_crowd_of_310_gives_about_the_luncheon_s_attack_rate() {
+    let root = civ_content::find_content_root(Path::new(env!("CARGO_MANIFEST_DIR")))
+        .expect("content/ is above the crate");
+    let mut content = civ_content::load(&root)
+        .registry
+        .expect("the core content loads");
+    let band = &mut content.people.params.band;
+    band.max_size = band.max_size.max(340);
+    let mut sim = Sim::create_for_tests(
+        &NewWorld {
+            name: "Luncheon".to_owned(),
+            seed: 6,
+            preset_id: PRESET.to_owned(),
+            size_cells: 768,
+            band_size: 340,
+            neighbours: Vec::new(),
+            neighbours_known: true,
+            regime_id: String::new(),
+        },
+        &content,
+        [7; 16],
+    )
+    .expect("generates");
+    let rules = sim.rules().clone();
+    let d = rules
+        .catalog
+        .diseases
+        .iter()
+        .position(|x| x.id == "core:disease/bacillary_dysentery")
+        .expect("dysentery") as u16;
+    let good = |id: &str| {
+        rules
+            .catalog
+            .goods
+            .iter()
+            .position(|g| g.id == id)
+            .expect(id)
+    };
+    let (bread, flour, firewood) = (
+        good("core:good/bread"),
+        good("core:good/flour"),
+        good("core:good/firewood"),
+    );
+    let bake = rules
+        .catalog
+        .activities
+        .iter()
+        .position(|a| a.id == "core:activity/bake_bread")
+        .expect("baking");
+    let hh = households(&sim);
+    let home = hh[0];
+    let (_, members) = household(&sim, home);
+    let carrier = members[0];
+    let day = sim.now().day_index();
+    sim.people_mut_for_tests().sickness.add(
+        carrier,
+        Some(home),
+        d,
+        day,
+        Acquired::Observer { influence: 0 },
+        civ_agents::sickness::Course {
+            shed_from: day,
+            shed_until: day + 60,
+            ill_from: day,
+            ill_until: day,
+            severe: false,
+            immune_until: day + 365,
+        },
+    );
+    let firm = sim
+        .with_ctx_for_tests(|pop, ctx| pop.found_firm_for_tests(ctx, home, carrier, bread))
+        .expect("a bakery");
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == home {
+            x.stores.resize(rules.catalog.goods.len(), 0.0);
+            x.stores[flour] = 50.0;
+            x.stores[firewood] = 50.0;
+        }
+    }
+    // Four hours' baking, in two sessions.
+    for _ in 0..2 {
+        sim.with_ctx_for_tests(|pop, ctx| pop.firm_make_for_tests(ctx, carrier, bake, 120, firm));
+    }
+    let made = sim.people().firm(firm).expect("open").stores[bread];
+    let share = rules.land.contamination.food_share;
+    let shed = rules.catalog.diseases[usize::from(d)].shed_silent_per_day;
+    let load: f64 = sim
+        .people()
+        .contagion
+        .loads
+        .iter()
+        .filter(|((n, dd), _)| *dd == d && matches!(n, Node::Food { .. } | Node::MadeFood { .. }))
+        .map(|(_, &l)| l)
+        .sum();
+    assert!((load - shed * 4.0 / 24.0 * share).abs() < 1e-9, "{load}");
+    // 310 people of other households each eat an even share of it.
+    let crowd: Vec<(PermanentId, PermanentId)> = hh
+        .iter()
+        .filter(|&&h| h != home)
+        .flat_map(|&h| household(&sim, h).1.into_iter().map(move |p| (h, p)))
+        .take(310)
+        .collect();
+    assert_eq!(crowd.len(), 310, "a crowd of 310");
+    let portion = made / 310.0;
+    for &(h, p) in &crowd {
+        food_only(&mut sim, h, &[]);
+        assert!(
+            sim.with_ctx_for_tests(|pop, ctx| pop.transfer_for_tests(ctx, firm, h, bread, portion))
+        );
+        sim.with_ctx_for_tests(|pop, ctx| pop.eat_for_tests(ctx, p));
+    }
+    let doses: Vec<f64> = crowd
+        .iter()
+        .map(|&(_, p)| {
+            sim.people()
+                .contagion
+                .eaten
+                .iter()
+                .filter(|e| e.0 == p && e.1 == d)
+                .map(|e| e.2)
+                .sum()
+        })
+        .collect();
+    let expected = doses.iter().map(|x| 1.0 - (-x).exp()).sum::<f64>() / 310.0;
+    to_morning(&mut sim, 60);
+    let took = crowd
+        .iter()
+        .filter(|&&(_, p)| {
+            sim.people().sickness.episodes().iter().any(|e| {
+                e.person == p && e.disease == d && matches!(e.acquired, Acquired::Food { .. })
+            })
+        })
+        .count();
+    let realized = took as f64 / 310.0;
+    eprintln!(
+        "food_share {share}: {load:.2} doses on {made:.1} kg of bread; expected attack rate \
+         {:.2} %, realized {took} of 310 ({:.2} %), against the luncheon's 5.8 %",
+        100.0 * expected,
+        100.0 * realized
+    );
+    assert!((expected - 0.058).abs() < 0.005, "expected {expected}");
+    assert!((realized - 0.058).abs() < 0.027, "realized {realized}");
+    // The observer words a case taken this way by the food and the stock it was eaten from (no
+    // further back: ADR-0045 keeps no provenance beyond the holder).
+    if let Some(&(_, p)) = crowd.iter().find(|&&(_, p)| {
+        sim.people()
+            .sickness
+            .episodes()
+            .iter()
+            .any(|e| e.person == p && matches!(e.acquired, Acquired::Food { .. }))
+    }) {
+        let words = civ_sim::frames::sickness::sickness_words(&sim, p).join(" ");
+        assert!(words.contains("took it eating bread held by"), "{words}");
+    }
+}

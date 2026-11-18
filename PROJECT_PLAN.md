@@ -10748,7 +10748,33 @@ and M6a gives rivers a daily flow.
       unit and civ-host lib; the ten smoke seeds pass; fmt and clippy clean. **Not yet:** slice 4, the
       calibration of `food_share` against 05-07 §2's luncheon and the observer's view; a food
       load counted toward an outbreak's disease left (`disease_left` reads heaps, wells, stores
-      and ground, not food).
+      and ground, not food). Both done 2026-11-18, the next entry.
+    - *ADR-0045, slice 4 (2026-11-18): food counted while it lasts, the observer, and the
+      calibration.* **An outbreak's disease left counts loaded food** (`disease_left`): food got
+      or made here held by a settlement's households (by their homes' settlement), its
+      workshops (by the settlement each keeps to) and its polity's store (by the settlements it
+      holds); food held by any other holder counts only in the total for every settlement. So an
+      outbreak does not close while loaded food remains with its settlement. **The observer:** a
+      case taken by food reads "took it eating bread held by Nevin's household" (the stock it was
+      eaten from: ADR-0045 keeps no provenance beyond the holder), and the incidents panel's
+      chains name a food load as the food and its holder, "made there" for a household's own.
+      **The calibration:** `food_share` 0.1 → 0.55 (a NUDGE, §9). The scene: one silent carrier
+      bakes four hours for a workshop; each of 310 people of other households eats an even share
+      of the bread; the night's draw is counted. Typhoid is not in the core content, so its
+      silent carrier is stood for by bacillary dysentery's (200 doses a day), the core's heaviest
+      silent shedder; the four hours are an estimate (05-07 gives none). At 0.55 the 18.3 doses on
+      11.6 kg of bread give an expected attack rate of 5.74 % and a realized 20 of 310 (6.45 %),
+      against the luncheon's 5.8 % (18 of 310). A cholera carrier sheds a tenth as much silent,
+      so the same meal from one gives about 0.6 %. **Tested:** contagion (20, two new: food
+      held by a settlement's household, got or made here, adds exactly its load to what is left
+      of the disease there, and food held by no holder of it does not; it fails without the
+      change; and the luncheon scene, its expected attack rate within half a point of 5.8 % and
+      its realized one within two binomial standard errors, its case worded by the bread it was
+      eaten from), with sickness, sewers, wells, roundtrip and determinism, civ-agents unit and
+      civ-host lib; the ten smoke seeds pass; fmt, clippy and content validate clean. No hot path
+      changed (disease left and the words are read only where a disease runs), so no digest
+      check was needed; the content's digest changes with the value. No existing assertion
+      moved.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads
@@ -12643,3 +12669,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Shedding where people work, slice 4: another's home to its heap, another settlement by its hearth, tending unchanged (2026-11-18, backlog E; ADR-0021 §4):** Decided by Claude under standing owner authority (2026-11-18). **At another household's home, its heap:** *Reason:* the heap beside a home is the node the kernel keeps for that home's ground, where its own people's shedding goes "when at or near home" (ADR-0021 §4); a visitor's goes there too, down its sewer if it is sewered; a ground node on the same cell would be a second yard for one home. **Another settlement:** no change of rule; its ground counts with the settlement whose hearth lies nearest (slice 2), now tested. **Tending:** unchanged and keeping no hours; the carer's exposure is its own route (M10c slice DZ). Personal and physical behaviour only. Saves 220 (one vector appended to the sickness section, absent while empty); no content, wire or web change.
 - **No co-worker or co-visitor exposure for enteric disease; a food route instead, later (2026-11-18, backlog E; research 05-07):** Decided by Claude under standing owner authority (2026-11-18). **Not built:** a contact hazard between those who share a workplace or a home's company. *Reason:* 05-07 found no measured or estimated rate for it among adults; workplace outbreaks of these diseases are common-source (food and water), and the household rate the kernel's `household_hazard` stands for is, by the best estimate found, mostly shared food and water, so a contact hazard scaled from it would count those twice; 05-03 §1 warns against an outdoor radius standing for a household. **Recorded for later:** a food route (a shedder preparing food others eat passes a load to it), when goods carry batch identity (ADR-0021's "Revisit when"). The research note only; no code, content, save, wire or web change.
 - **ADR-0045 accepted: food that carries what its maker shed, as a load on a holder's stock (2026-11-18; research 05-07):** Decided by Claude under standing owner authority (2026-11-18). **Option B** of the ADR: a load on a holder's stock of a prepared food, mixed through it as stored water's load is, with no batches. *Reason:* it is the smallest design that covers what 05-07 grounds (common-source food from a carrier), costs nothing where nobody sheds, and only appends codes to saves 220, where full per-batch provenance (option A) would rewrite every store path and grow every save for provenance nothing yet needs, and a per-meal event (option C) fits neither food that keeps and is sold nor the household rate it would count twice. **Slice 1, as built:** a workshop's prepared food (§7). **Its design priors:** `food_share` 0.1 of a session's shedding onto the food made (to be calibrated in slice 4 against 05-07 §2's luncheon); taken ahead from the next day's shedding so the total shed is unchanged; doses for any eater in slice 1, the "made here" exception waiting for slice 2. Content API 233; saves 220 appended; no wire or web change.
+- **NUDGE: `food_share` calibrated to the luncheon, 0.1 → 0.55 (2026-11-18; ADR-0045 slice 4; research 05-07 §2):** Decided by Claude under standing owner authority (2026-11-18). A tuning to a target, so logged as a nudge: the share of a session's shedding that goes onto the food its maker makes is set so that one silent carrier baking four hours for a meal 310 eat gives the Michigan luncheon's 5.8 % attack rate (18 of 310, measured). **Stand-ins, recorded:** typhoid is not in the core content, so the carrier is a silent one of bacillary dysentery (200 doses a day, itself a tuning value), the core's heaviest silent shedder; the four hours' preparing is an estimate, as 05-07 gives none. **Landed:** expected attack rate 5.74 %, realized 20 of 310 (6.45 %) in the scene. **Consequences:** a cholera carrier's meal gives about a tenth of that (its silent shedding is a tenth of dysentery's); the value is one number for every disease, so it is re-fitted if a food-borne disease is authored (ADR-0045's "Revisit when"). Content API unchanged (a value); no code change for the value.

@@ -246,3 +246,12 @@ Anyone who eats that day from a store that a maker's work went into takes a haza
 A test only. Food paid into a polity's store and handed out as relief moves by the same
 `transfer` hook, so a carrier's bread reaches those relieved and doses them. The levy takes
 threshed grain, which carries no load (only recipe outputs do).
+
+## Slice 4 as built (2026-11-18)
+
+- **Counting:** an outbreak's disease left counts loaded food held by a settlement's households,
+  workshops and polity store.
+- **Wording:** a case taken by food names the stock it was eaten from.
+- **Calibration:** `food_share` is calibrated to 0.55 against the luncheon (§9's nudge).
+  - The stand-ins are dysentery's silent carrier for typhoid's, and four hours of preparation.
+  - In the scene the expected attack rate is 5.74 % and the realized one 6.45 %, against 5.8 %.

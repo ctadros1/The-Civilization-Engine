@@ -319,7 +319,8 @@ impl Population {
     /// What is left of `disease` with settlement `settlement`'s households (anyone's for `None`),
     /// doses: in their heaps and stored water, in their wells and their polity's and its tips, on
     /// their sewage farms and the fields they work, in the ground nearer their hearth than any
-    /// other where someone shedding worked, and on its way through the ground to any of those. What reaches a river is carried off by the next day.
+    /// other where someone shedding worked, on food someone shedding made that they, their
+    /// workshops or their polity's store hold, and on its way through the ground to any of those. What reaches a river is carried off by the next day.
     /// What is left of `disease` with settlement `settlement`'s households, as
     /// [`Population::disease_left`] reckons it: for tests.
     #[doc(hidden)]
@@ -353,6 +354,23 @@ impl Population {
                 .iter()
                 .find(|x| x.id == f)
                 .is_some_and(|x| ours(x.household)),
+            // Food someone shedding made (ADR-0045), got or made here, by its holder: a
+            // household's by its home's settlement, a workshop's or a polity's store by the
+            // settlement it keeps to; any other holder only in a count for every settlement.
+            Node::Food { holder, .. } | Node::MadeFood { holder, .. } => {
+                (ours(holder) && self.household(holder).is_some())
+                    || self
+                        .firm(holder)
+                        .is_some_and(|f| settlement.is_none_or(|s| f.settlement == Some(s)))
+                    || self
+                        .polities
+                        .iter()
+                        .any(|q| q.id == holder && settlement.is_none_or(|s| q.holds(Some(s))))
+                    || (settlement.is_none()
+                        && self.household(holder).is_none()
+                        && self.firm(holder).is_none()
+                        && self.polities.iter().all(|q| q.id != holder))
+            }
             // Ground someone shedding worked (ADR-0021 §4), by the settlement whose hearth lies
             // nearest it.
             Node::Ground(c) => settlement.is_none_or(|s| {

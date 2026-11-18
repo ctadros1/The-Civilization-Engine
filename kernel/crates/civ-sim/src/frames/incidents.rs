@@ -1537,6 +1537,12 @@ fn node_words(sim: &Sim, node: Node) -> String {
         }
         // Ground someone shedding worked (ADR-0021 §4).
         Node::Ground(_) => "ground where someone worked".to_owned(),
+        // Food someone shedding made (ADR-0045): got from elsewhere, or made at home.
+        Node::Food { .. } => super::sickness::food_words(sim, node),
+        Node::MadeFood { holder, good } => {
+            let got = super::sickness::food_words(sim, Node::Food { holder, good });
+            format!("{got}, made there")
+        }
         other => source_words(sim, other),
     }
 }

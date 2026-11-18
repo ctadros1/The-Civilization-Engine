@@ -10334,8 +10334,12 @@ and M6a gives rivers a daily flow.
       assertion, asked at the right time), rounds, destructor, salvage, homes, deposits, wells,
       roundtrip and determinism, civ-land's unit tests (one new), the civ-agents and civ-sim unit
       tests, the civ-host lib tests; the ten smoke seeds pass; fmt, clippy and gen-schema --check
-      clean. **Not yet:** capacity (a tip's ground filling, and what a full tip does); burning
-      tips; the observer drawing a tip's ground.
+      clean. **The smoke worlds' layouts did not move:** a probe (not kept) found no law passed
+      and no tip opened in any of the ten in their 30 days, so nothing in them keeps off a tip's
+      ground; in longer lives, homes, fields and pits that would have stood where a tip opens
+      now stand off it, and a tip opens where its whole footprint is clear, an expected change.
+      **Not yet:** capacity (a tip's ground filling, and what a full tip does); burning tips; the
+      observer drawing a tip's ground.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads

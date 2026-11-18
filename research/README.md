@@ -1,6 +1,6 @@
 # Research topics
 
-174 deep-research topics across 16 domains, from the simulation engine to how each part of a society works. 165 are needed before v1 (M0–M8); the rest come after. Priorities: 100 High, 67 Medium, 7 Low.
+175 deep-research topics across 16 domains, from the simulation engine to how each part of a society works. 166 are needed before v1 (M0–M8); the rest come after. Priorities: 100 High, 68 Medium, 7 Low.
 
 ## Research files
 
@@ -174,12 +174,13 @@ When a report changes a decision, update `PROJECT_PLAN.md` and its decisions log
 | 11-11 | [Fortifications: forms, costs and effectiveness](11-architecture-construction/11-fortifications.md) | Architecture and construction | Medium |
 | 06-06 | [Visual culture: emblems, flags, heraldry, clothing and ornament](06-culture-society/06-visual-culture.md) | Culture and society | Low |
 
-### M6: Towns & their troubles (20)
+### M6: Towns & their troubles (21)
 
 | ID | Topic | Domain | Priority |
 |---|---|---|---|
 | 05-03 | [Epidemiology of historical diseases](05-demography-health/03-disease-epidemiology.md) | Demography and health | High |
 | 05-04 | [The urban mortality penalty and sanitation history](05-demography-health/04-urban-penalty-sanitation.md) | Demography and health | High |
+| 05-07 | [Enteric disease between people who work or keep company together: hands, tools and shared food](05-demography-health/07-enteric-contact-transmission.md) | Demography and health | Medium |
 | 12-01 | [Water supply systems through history](12-services-infrastructure/01-water-supply.md) | City services and infrastructure | High |
 | 12-02 | [Sanitation and waste management history](12-services-infrastructure/02-sanitation-waste.md) | City services and infrastructure | High |
 | 12-03 | [Urban fires and firefighting](12-services-infrastructure/03-urban-fire.md) | City services and infrastructure | High |
@@ -316,7 +317,7 @@ When a report changes a decision, update `PROJECT_PLAN.md` and its decisions log
 | 04-12 | [Gender, age and the division of labor](04-people/12-gender-age-labor.md) | M1 | Medium | Simulation |
 | 04-13 | [Inheritance systems and their consequences](04-people/13-inheritance.md) | M3 | Medium | Simulation |
 
-### 05. Demography and health (6)
+### 05. Demography and health (7)
 
 | ID | Topic | Needed by | Priority | Type |
 |---|---|---|---|---|
@@ -326,6 +327,7 @@ When a report changes a decision, update `PROJECT_PLAN.md` and its decisions log
 | 05-04 | [The urban mortality penalty and sanitation history](05-demography-health/04-urban-penalty-sanitation.md) | M6 | High | Simulation |
 | 05-05 | [Healing, medicine and health institutions](05-demography-health/05-medicine-healing.md) | M6 → M10 | Medium | Simulation |
 | 05-06 | [Migration: why and how people move](05-demography-health/06-migration.md) | M5 | High | Simulation |
+| 05-07 | [Enteric disease between people who work or keep company together: hands, tools and shared food](05-demography-health/07-enteric-contact-transmission.md) | M6 | Medium | Simulation |
 
 ### 06. Culture and society (10)
 

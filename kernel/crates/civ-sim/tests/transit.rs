@@ -578,3 +578,192 @@ fn a_road_line_passes_with_its_motor_cart_and_runs_no_more_where_it_cannot() {
     assert!(sim.land().runs.roads.is_empty());
     saved(&mut sim);
 }
+
+/// The chronicle's entries telling road lines, oldest first.
+fn road_entries(sim: &Sim) -> Vec<civ_agents::ChronicleEvent> {
+    sim.people()
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == civ_agents::ChronicleKind::RoadLine)
+        .cloned()
+        .collect()
+}
+
+/// A road line is told when it is posted, when it passes with its motor cart, and when it ends
+/// (backlog D, twenty-second item): posted, naming its keeper's elder, its market, its runs and
+/// fare, at its door in its settlement; passed, naming the heir's elder, at the heir's door;
+/// ended where nobody could run it, naming nobody; ended by its keeper where nobody rode it in a
+/// year or its cart is gone, saying which; and ended at midnight where its keeper is no more.
+/// Each once, and the entries save and load.
+#[test]
+fn a_road_line_is_told_when_posted_passed_and_ended() {
+    use civ_agents::RoadStep;
+    let (mut sim, keeper, heir, home, market, cells, short) = two_doors_and_a_hearth();
+    let map = sim.map().clone();
+    let centre = |c: u32| civ_agents::population::cell_centre(&map, c as usize);
+    let name = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|s| s.id == market)
+        .expect("the market")
+        .name
+        .clone();
+    let elder_of = |sim: &Sim, e: &civ_agents::ChronicleEvent| sim.people().name_of(e.people[0]);
+    posted(&mut sim, keeper, home, market, cells[0]);
+    let fare = sim.land().runs.roads[0].fare_kcal;
+    let told = road_entries(&sim);
+    assert_eq!(told.len(), 1, "{told:?}");
+    let t = &told[0];
+    assert_eq!(t.number, f64::from(RoadStep::Posted as u8));
+    assert_eq!(t.people.len(), 1);
+    assert!(
+        sim.people()
+            .household(keeper)
+            .expect("keeper")
+            .members
+            .contains(&t.people[0])
+    );
+    assert_eq!(
+        (t.settlement, t.place),
+        (Some(home), Some(centre(cells[0])))
+    );
+    assert_eq!(
+        t.name,
+        format!(
+            "{}'s household began running its motor cart from its door to {name} and back, a \
+             run a day, for {fare:.0} kcal of food a ride.",
+            elder_of(&sim, t)
+        )
+    );
+    // Passed with the cart to the heir: told once, at its door.
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, keeper, heir));
+    let told = road_entries(&sim);
+    assert_eq!(told.len(), 2);
+    let t = &told[1];
+    assert_eq!(t.number, f64::from(RoadStep::Passed as u8));
+    assert!(
+        sim.people()
+            .household(heir)
+            .expect("heir")
+            .members
+            .contains(&t.people[0])
+    );
+    assert_eq!(
+        (t.settlement, t.place),
+        (Some(home), Some(centre(short[0])))
+    );
+    assert_eq!(
+        t.name,
+        format!(
+            "{}'s household took over the motor cart's runs to {name} with the cart, a run a day \
+             from its door.",
+            elder_of(&sim, t)
+        )
+    );
+    // Its people join a household of the other settlement: ended, nobody named.
+    let away = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .find(|h| h.settlement == Some(market) && !h.members.is_empty())
+        .map(|h| h.id)
+        .expect("a household of the other settlement");
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, heir, away));
+    let told = road_entries(&sim);
+    assert_eq!(told.len(), 3);
+    let t = &told[2];
+    assert_eq!(t.number, f64::from(RoadStep::Ended as u8));
+    assert!(t.people.is_empty());
+    assert_eq!(t.place, Some(centre(short[0])));
+    assert!(t.settlement.is_some());
+    assert_eq!(
+        t.name,
+        format!("The motor cart's runs to {name} stopped: nobody was left who could run them.")
+    );
+    // A keeper whose line nobody rode in a year stops it, and says so; posted again, it stops
+    // it once its cart is gone; a line whose keeper is no more ends at midnight.
+    let (mut sim, keeper, _, home, market, cells, _) = two_doors_and_a_hearth();
+    posted(&mut sim, keeper, home, market, cells[0]);
+    let day = sim.now().day_index();
+    sim.land_mut_for_tests().runs.roads[0].since = day - civ_core::time::DAYS_PER_YEAR;
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_road_line_for_tests(ctx, keeper));
+    assert!(sim.land().runs.roads.is_empty());
+    let ended = |sim: &Sim| road_entries(sim).last().cloned().expect("told");
+    let name = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|s| s.id == market)
+        .expect("the market")
+        .name
+        .clone();
+    let t = ended(&sim);
+    assert_eq!(t.number, f64::from(RoadStep::Ended as u8));
+    assert_eq!(
+        t.name,
+        format!(
+            "{}'s household stopped running its motor cart to {name}: nobody rode it in a year.",
+            elder_of(&sim, &t)
+        )
+    );
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_road_line_for_tests(ctx, keeper));
+    assert_eq!(sim.land().runs.roads.len(), 1, "posted again");
+    sim.land_mut_for_tests().carts.list.clear();
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_road_line_for_tests(ctx, keeper));
+    let t = ended(&sim);
+    assert!(
+        t.name.ends_with(&format!("to {name}: its cart was gone.")),
+        "{}",
+        t.name
+    );
+    assert_eq!(road_entries(&sim).len(), 4, "posted, ended, posted, ended");
+    // A line whose keeper is no more.
+    let line = civ_land::trains::RoadLine {
+        operator: sim.allocate_id_for_tests(),
+        ..posted_like(&sim, keeper, market, cells.clone())
+    };
+    sim.land_mut_for_tests().runs.roads.push(line);
+    sim.with_ctx_for_tests(|pop, ctx| pop.transit_reviews_for_tests(ctx, day));
+    assert!(sim.land().runs.roads.is_empty());
+    let t = ended(&sim);
+    assert!(t.people.is_empty());
+    assert_eq!(t.settlement, Some(home), "the hearth nearest its door");
+    assert_eq!(road_entries(&sim).len(), 5);
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(
+        &mut sim,
+        &saves,
+        commons_persist::SaveKind::Manual,
+        "transit",
+    )
+    .expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(road_entries(&loaded), road_entries(&sim));
+}
+
+/// A road line of `keeper`'s to `market` along `cells`, as posted, for scenes.
+fn posted_like(
+    sim: &Sim,
+    keeper: PermanentId,
+    market: PermanentId,
+    cells: Vec<u32>,
+) -> civ_land::trains::RoadLine {
+    let minutes = (0..cells.len()).map(|i| i as f32).collect();
+    civ_land::trains::RoadLine {
+        id: PermanentId::from_raw(u64::MAX).expect("an id"),
+        operator: keeper,
+        cart: PermanentId::from_raw(u64::MAX - 1).expect("an id"),
+        market,
+        cells,
+        minutes,
+        runs_a_day: 1,
+        fare_kcal: 10.0,
+        riders: 0,
+        since: sim.now().day_index(),
+        last_run: -1,
+    }
+}

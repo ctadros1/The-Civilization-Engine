@@ -971,6 +971,26 @@ pub enum ChronicleKind {
     /// the household's, `place` the line's end beside its home, `number` how many wagons and
     /// engines it took up with the line, and `name` the sentence.
     LineTakenUp,
+    /// A road line's runs were posted, passed with its motor cart to the household its keeper's
+    /// people joined, or ended (backlog D, twenty-second item): `people` is the elder of the
+    /// household that posts or took over its runs, or that stopped them (none where nobody was
+    /// left to run them), `settlement` that household's or, with none, the settlement whose hearth
+    /// lies nearest its door, `place` the door its runs leave from, `number` the step
+    /// ([`RoadStep`]), and `name` the sentence.
+    RoadLine,
+}
+
+/// What happened to a road line, in a [`ChronicleKind::RoadLine`] entry. Numeric in saves: append
+/// only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RoadStep {
+    /// Its keeper posted its runs.
+    Posted = 0,
+    /// Its runs passed with its motor cart to the household its keeper's people joined.
+    Passed = 1,
+    /// Its runs stopped: nobody rode them in a year, its cart was gone, or nobody was left to run
+    /// them.
+    Ended = 2,
 }
 
 /// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
@@ -1711,7 +1731,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::Way
         | ChronicleKind::ConveyanceLaid
         | ChronicleKind::VehicleTakenUp
-        | ChronicleKind::LineTakenUp => {
+        | ChronicleKind::LineTakenUp
+        | ChronicleKind::RoadLine => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

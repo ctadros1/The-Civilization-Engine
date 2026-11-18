@@ -7728,6 +7728,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::ConveyanceLaid => 71,
         ChronicleKind::VehicleTakenUp => 72,
         ChronicleKind::LineTakenUp => 73,
+        ChronicleKind::RoadLine => 74,
     }
 }
 
@@ -7806,6 +7807,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         71 => Some(ChronicleKind::ConveyanceLaid),
         72 => Some(ChronicleKind::VehicleTakenUp),
         73 => Some(ChronicleKind::LineTakenUp),
+        74 => Some(ChronicleKind::RoadLine),
         _ => None,
     }
 }

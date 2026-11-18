@@ -10044,7 +10044,7 @@ and M6a gives rivers a daily flow.
       civ-host lib tests (82); the ten smoke seeds pass; fmt and clippy clean. No existing
       assertion moved. **Not yet:** a keeper that moves to another settlement whole keeps its
       line from its old door (a move is not a merge); a road line told in the chronicle when it
-      passes or ends; and a lived world where a keeper's household ends.
+      passes or ends (done 2026-11-18, twenty-second item); and a lived world where a keeper's household ends.
     - *Backlog D, twenty-first item (2026-11-18): homes below a break connect while a sewer is
       broken* (backlog C's fourth slice's "Not yet": new connections below a break while it is
       broken; ADR-0044 §5). No new ADR. **Before:** a broken sewer took no new connection at all,
@@ -10059,6 +10059,35 @@ and M6a gives rivers a daily flow.
       and loads exactly; mended, the one above connects too; it fails with the old rule), tips,
       contagion, roundtrip and determinism, the civ-agents and civ-sim unit tests, the civ-host lib
       tests; the ten smoke seeds pass; fmt and clippy clean. No existing assertion moved.
+    - *Backlog D, twenty-second item (2026-11-18): a road line told in the chronicle when it is
+      posted, passes or ends* (the twentieth item's "Not yet": a road line told when it passes
+      or ends). No new ADR. **Told,** all three: nothing told a road line before, though a rail
+      line's opening is (`StationsOpened`), and a passing or an ending told without the posting
+      would tell of a line the chronicle never named. **The kind:** `ChronicleKind::RoadLine`
+      (appended, saved as code 74), its `number` the step (`RoadStep`: `Posted` 0, `Passed` 1,
+      `Ended` 2, append only), one kind as for a sewer's collapse and relining (`Sewer`).
+      **When:** at the posting (`review_road_line`), at a passing with its motor cart
+      (`road_lines_pass`), and at each ending: by its keeper at its review (nobody rode it in a
+      year, or its cart is gone), at a merge where nobody could run it, and at the midnight that
+      takes off a line whose keeper is no more. **Words:** the household's elder (the keeper, or
+      the heir that took it over), the market, its runs a day and, posted, its fare in food
+      ("Runa's household began running its motor cart from its door to Elmhollow and back, a run
+      a day, for 412 kcal of food a ride."; "…took over the motor cart's runs to Elmhollow with
+      the cart, a run a day from its door."; "…stopped running its motor cart to Elmhollow:
+      nobody rode it in a year." or "…: its cart was gone."; "The motor cart's runs to Elmhollow
+      stopped: nobody was left who could run them."), placed at the door its runs leave from, in
+      the household's settlement or, with none, the settlement whose hearth is nearest that door.
+      Its runs and fare changed at a yearly review are not told (a timetable's change, as a rail
+      line's is not). No content, schema, wire or web change; saves stay 220 (the code is
+      appended). **Tested:** transit (3, one new: posted, told once with its elder, settlement,
+      place and words exactly; passed to the heir, told at the heir's door; its people joining a
+      household of the other settlement, told as ended with nobody named; a line nobody rode in
+      a year ended by its keeper, saying so; posted again and ended once its cart is gone; a line
+      whose keeper is no more ended at midnight in the settlement nearest its door; five entries
+      in all, saved and loaded; it fails without the change), carts, roundtrip and determinism,
+      the civ-agents and civ-sim unit tests, the civ-host lib tests; the ten smoke seeds pass;
+      fmt and clippy clean. No existing assertion moved. **Not yet:** a lived world where a road
+      line is posted.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads
@@ -11929,3 +11958,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Verification is promoted only on a measured long run; the changes since 48cd61b are measured in two halves (2026-11-17; homelab long run 71):** The owner, 2026-11-17: "Don't accept the unmeasured long run risk." Long run 71 on e20bbac (everything since 48cd61b) hit its 720-minute limit with world 3 of the sanity dashboard still running, so the dashboard graded nothing, structural failures included. What it did show: the notables' gate passed at +103.9 % against 105 % on fixture 2's proposals (run 67, without the two deliberation changes, +61.9 %), and of the four worlds that finished, world 2 fell to 0 in year 42 and world 5 to 2 in year 43 (run 67: world 2 to 7 in year 50, world 5 kept 104). So e20bbac is not promoted, and claude/claude-development stays at 48cd61b. Decided by Claude under standing owner authority (2026-11-17): the changes are measured in two halves, each with `max_minutes` 1440 so the dashboard can finish. (A) 7d6f09b: the two deliberation changes (d5fb651, e0fe643) and a household's line passing on. (B) The scratch branch `claude/split-no-deliberation` (11be209): 48cd61b with the line passing on, the failures row's twelve months, help with mending and the chronicle's line taken up, but neither deliberation change nor covering a tip. Its code differs from e20bbac only in the files those three touch, and fmt, clippy, mending (3) and rail (15) pass on it. *Reason:* one run of everything cannot say which change, if any, moved the margin or the two worlds' end; two halves can, and whichever half is acceptable is promoted on its own measurement.
 - **A road line passes with its motor cart (2026-11-17, backlog D's twentieth item; the eighteenth item's "Not yet"; ADR-0036 §7; research 08-09 §1.2):** Decided by Claude under standing owner authority (2026-11-17). **Chosen** of the two candidates the coordinator named (a line still being laid nobody is left to finish; a road line's motor cart passing without its road line) as the more self-contained: the other needs a weighing of a half-laid line's remaining work and timber, close to the line review's reckoning, and the deliberation changes' long run is being measured. **The line passes with the cart.** *Reason:* a road line is a motor cart's runs (ADR-0036 §7: its keeper's cart, posted), so the household that holds the cart is the only one that could run it, as a rail line's wagons go with its line (the eighteenth item); its riders' habit and timetable are a going concern (08-09's succession row: what is held passes to heirs). **Only where the heir keeps no line of its own and the cart's way reaches the same hearth from its door.** *Reason:* one road line a keeper (`review_road_line` weighs the first), and runs leave from the keeper's door, where its cart stands. **The fare scaled to the new run's minutes, not recomputed.** *Reason:* the fuel a run burns is in proportion to its minutes; the heir's own cost of fuel is weighed at its review, as every keeper's is. **Otherwise it runs no more, and a line whose keeper is no more is taken off at the next midnight.** *Reason:* nobody posts its runs, and before this a dead line stood in the record for ever. No content, schema, wire or web change; saves stay 220.
 - **Homes below a break connect while a sewer is broken (2026-11-18, backlog D's twenty-first item; backlog C's fourth slice's "Not yet"; ADR-0044 §5):** Decided by Claude under standing owner authority (2026-11-18). A broken sewer takes a new connection only from a home whose drain would enter below the break. *Reason:* a sewer broken at a cell still carries everything that enters below it to the outfall (ADR-0044 §5, as built), so refusing those homes was a simplification, not a property of a break; homes above it would only back up, so they still wait for the mending. No household's weighing of a connection, and no polity's review, changes. Chosen as a self-contained item that touches no deliberation while its long run is measured. No content, schema, wire or web change; saves stay 220.
+- **A road line in the chronicle: posted, passed and ended (2026-11-18, backlog D's twenty-second item; the twentieth item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-18). **All three told,** not only the passing and ending. *Reason:* the chronicle tells a rail line's opening (`StationsOpened`) and a household's line laid, so a motor cart's runs between settlements are of the same size, and a passing or ending of a line it never named would read as news from nowhere. **One kind with a step,** `RoadLine` (code 74) with `RoadStep` (`Posted`, `Passed`, `Ended`). *Reason:* one moment in a line's life each, as `Sewer` tells a collapse and its relining under one kind. **An ending names its keeper's elder where its keeper stopped it, and nobody where nobody was left to run it,** placed in the settlement whose hearth is nearest its door. *Reason:* the household that is no more cannot be named without keeping who it was (the seventeenth item's reason). **A change of runs or fare at a review is not told.** *Reason:* it is a timetable's adjustment, which the chronicle leaves out for rail lines too. Chosen of the coordinator's candidates as the most self-contained: naming whose a boat, cart or line had been needs new saved state beside each vehicle, and a sewer's inspection needs a polity's review to weigh it. No content, schema, wire or web change; saves stay 220.

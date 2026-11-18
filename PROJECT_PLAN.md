@@ -10294,6 +10294,23 @@ and M6a gives rivers a daily flow.
       was already pinned by the resolution tests. **Tested:** firms (8), the civ-agents unit tests
       (308), the civ-sim unit tests, the civ-host lib tests; the ten smoke seeds pass; fmt and
       clippy clean.
+    - *Backlog E, coverage, sixth pass (2026-11-18): the common store's lending.* A test only;
+      no code changed and no fault found. The store's loans were already pinned asked, granted
+      and repaid into the store (slice CC's test), refused by a lender that believes the loan
+      lost, defaulted, heard under debts heard, given time and told both ways, its word the
+      keeper's and none where nobody keeps the store (the credit tests). Two of its terms no test
+      reached: the store lends no more than the law's share of its food however much the
+      borrower asks (of 10 kg of grain, a quarter, 2.5 kg, owed with the law's tenth, 7.5 left),
+      and a household none of whose people knows the law borrows not from the store, which keeps
+      all it holds (credit, `the_store_lends_its_laws_share_and_only_to_those_who_know_the_law`).
+      A first draft read 2.47 kg lent: the store, under no roof, had spoiled since it was last
+      brought up to date, and the share is of what it holds once settled, as built; the test now
+      brings it up to date first. **The posted terms' payment order** stays unpinned: a scene
+      would have to set a seller's wants, which its holding works out from its stores, needs and
+      tools each review, so that no setting of stores alone fixes the order of more than one
+      payment good without the review's own reckoning in the test; left for a pass that can
+      afford that scene. **Tested:** credit (24), the civ-agents and civ-sim unit tests, the
+      civ-host lib tests; the ten smoke seeds pass; fmt and clippy clean.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads

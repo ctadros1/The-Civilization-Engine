@@ -10362,6 +10362,41 @@ and M6a gives rivers a daily flow.
       `npm test` (223, two new: a tip found anywhere on its rectangle and the smaller of two, and
       drawn stronger open than covered; the water decode test now with a tip). `npm run test:e2e`
       not run: no Playwright browsers in this container.
+    - *Backlog E, coverage, seventh pass (2026-11-18): the model deliberator's budget, and the
+      offices' and forums' terms.* Tests only; no code changed, by the coordinator's order, even
+      where a fault was found (two are reported, below, for the owner's decision). **The model
+      deliberator** (M12a) had the deadline, a spent hourly budget, copies sharing it and nobody
+      listening pinned; now also (civ-host's deliberator tests, three new): the hourly budget is
+      a window an hour wide, a request sent an hour or more ago no longer counting, one a second
+      short of an hour still counting, only the oldest let go, and a budget of none sending
+      nothing; a copy asking while another's request is in flight is unanswered at once, sends
+      nothing and spends none of the budget; a request that is sent spends it whatever comes
+      back (past the deadline, a reply naming no option, nobody listening); and the reply limit:
+      a body of 65,535 bytes is read and one of 65,536 is no answer. **Found:** `REPLY_LIMIT` is
+      documented as the longest reply read (64 KiB), but `ureq`'s limit refuses a body of exactly
+      that many bytes, so the longest read is 64 KiB less one; harmless (a reply is one number),
+      pinned as built. **Offices and forums held for a term** (M7a slice BN, backlog D's eighth
+      and thirteenth items) had the lot's draw from those who stood, the watch excluded, the
+      last holder barred, nobody to draw, a term's end told, a waiting case and a petition
+      pinned; now also (polity, two new; forum, one new): an office the gathering names for a
+      year keeps the one named whoever stood for it, draws and tells no lot, counts nobody in,
+      runs 360 days from the day it passed, is in force on the day before its end and lapses at
+      the midnight its end day begins, told as their term ending; a template with no tenure holds
+      no term; a lot counts in and draws only those who stood who are still anyone (of three who
+      stood, one no longer in the world, the pool is two in eight draws of eight); where the office
+      asks a technique (the register, given a tenure by lot in the test), only one who knows it
+      is counted in, and with none the law lapses; and a hearer by lot passed with nobody who
+      stood for it lapses, holding nobody and no term, told "Nobody put their name in for the
+      office of hearer by lot at …: the lot drew no one.", a case brought then waiting for the
+      gathering. **Found:** the bar on the last holder of a template that does not renew holds
+      only once their term has ended (`term_barred` reads `until <= day`); while it runs, a second
+      lot under the same template, as a petition for another holder would be, may draw the one
+      holding it again: with them and one other standing, 3 draws of 8 fell to the sitting
+      holder, and 0 of 8 once their term had ended. Its reach is small (a petition's lot draws
+      from those who stood for it, and the one it would replace seldom does), and it is pinned as
+      built for the owner to decide. **Tested:** the civ-host lib tests (with the deliberator's
+      seven), polity, forum, council and faction, the civ-agents unit tests; the ten smoke seeds
+      pass; fmt and clippy clean. No existing assertion moved.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads

@@ -1307,3 +1307,39 @@ fn a_forum_in_place_of_one_in_force_is_weighed_against_what_that_one_did() {
     assert!(stake(hh[1].0) < 0.0, "{l:?} {:?}", g.stakes);
     assert_eq!(stake(hh[3].0), 0.0, "{:?}", g.stakes);
 }
+
+/// A hearer by lot whose law passes with nobody who stood for it (backlog D's eighth item, by
+/// the office tenure of M7a slice BN): the lot draws no one, the forum's law lapses, holding
+/// nobody and no term, the chronicle tells it in those words, and a case brought then waits for
+/// the gathering.
+#[test]
+fn a_hearer_by_lot_with_nobody_to_draw_lapses_and_its_cases_go_to_the_gathering() {
+    use civ_agents::ChronicleKind;
+    let mut sim = world(3);
+    let hh = households(&sim);
+    assert!(hh.len() >= 2, "two households: {hh:?}");
+    let pi = 0;
+    let id = law(&mut sim, "core:policy/zestfully_draw_a_hearer_by_lot", None);
+    let before = sim.people().chronicle.len();
+    sim.with_ctx_for_tests(|pop, ctx| pop.fill_term_for_tests(ctx, pi, id));
+    let p = &sim.people().polities[pi];
+    let l = p.laws.iter().find(|l| l.id == id).expect("kept");
+    assert_eq!((l.status, l.holder), (LawStatus::Lapsed, None));
+    assert_eq!(p.term_of(id), None);
+    let told: Vec<_> = sim.people().chronicle[before..].iter().collect();
+    assert_eq!(told.len(), 1, "{told:?}");
+    assert_eq!(told[0].kind, ChronicleKind::LawLapsed);
+    assert!(told[0].people.is_empty());
+    assert!(
+        told[0]
+            .name
+            .starts_with("Nobody put their name in for the office of hearer by lot at ")
+            && told[0].name.ends_with(": the lot drew no one."),
+        "{}",
+        told[0].name
+    );
+    let case_id = case(&mut sim, &hh[0], &hh[1]);
+    sim.advance_minutes(DAY).expect("advances");
+    assert_eq!(find(&sim, case_id).forum, None);
+    assert!(before_the_gathering(&sim, case_id));
+}

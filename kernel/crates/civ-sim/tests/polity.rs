@@ -938,3 +938,320 @@ fn a_watch_kept_by_turns_is_drawn_by_lot_for_a_season() {
         "the chronicle tells the term's end"
     );
 }
+
+/// What an office-term test needs (M7a slice BN): a world a day on with its keeper laws set
+/// aside, its adults in id order, and a maker of laws in force under a template.
+struct Offices {
+    sim: Sim,
+    adults: Vec<(civ_core::PermanentId, civ_core::PermanentId)>,
+    next: u64,
+}
+
+impl Offices {
+    fn new() -> Offices {
+        let mut sim = world_with(content(), 3);
+        sim.advance_minutes(DAY).expect("advances");
+        let now = sim.now();
+        let adult = sim.rules().people.family.independent_age;
+        let mut adults: Vec<(civ_core::PermanentId, civ_core::PermanentId)> = sim
+            .people()
+            .people
+            .iter()
+            .map(|(_, p)| p)
+            .filter(|p| p.age_years(now) >= adult)
+            .map(|p| (p.id, p.household))
+            .collect();
+        adults.sort_unstable();
+        assert!(adults.len() >= 4);
+        for l in &mut sim.people_mut_for_tests().polities[0].laws {
+            if l.status == LawStatus::InForce
+                && matches!(l.kind, PolicyKind::KeepStore | PolicyKind::KeepRegister)
+            {
+                l.status = LawStatus::Lapsed;
+            }
+        }
+        let next = sim.ids().peek_next();
+        Offices { sim, adults, next }
+    }
+
+    fn at(&self, id: &str) -> u16 {
+        let policies = &self.sim.rules().catalog.policies;
+        policies.iter().position(|p| p.id == id).expect("in core") as u16
+    }
+
+    /// Law number `k` under `policy`, in force, naming `holder`, with `support` standing for it;
+    /// its term not yet filled.
+    fn push(
+        &mut self,
+        k: u64,
+        policy: u16,
+        holder: Option<civ_core::PermanentId>,
+        support: &[(civ_core::PermanentId, civ_core::PermanentId)],
+    ) -> civ_core::PermanentId {
+        use civ_agents::polity::{IssueKind, StanceRecord};
+        let now = self.sim.now();
+        let kind = self.sim.rules().catalog.policies[usize::from(policy)].kind;
+        let id = civ_core::PermanentId::from_raw(self.next + 1_000_000 + k).expect("non-zero");
+        let stances = support
+            .iter()
+            .map(|&(person, household)| StanceRecord {
+                person,
+                household,
+                stance: Stance::Support,
+                gain: 0.0,
+                regard: 0.0,
+                opinion: 0.0,
+                values: 0.0,
+                view: 0.0,
+                owed: 0.0,
+            })
+            .collect();
+        let law = Law {
+            id,
+            policy,
+            kind,
+            levy_share: 0.0,
+            holder,
+            relief_days: 5.0,
+            sanction: Default::default(),
+            hours: (0, 0),
+            status: LawStatus::InForce,
+            sponsor: self.adults[0].0,
+            proposed: now,
+            issue: IssueKind::StoreUnkept,
+            meets_day: now.day_index(),
+            decided: Some(now),
+            outcome: Some(Outcome::Passed),
+            eligible: self.adults.len() as u32,
+            stances,
+            known: Vec::new(),
+            compliance: Default::default(),
+            watch: Default::default(),
+            body: None,
+            ends: None,
+            agreement: None,
+            target: None,
+        };
+        self.sim.people_mut_for_tests().polities[0].laws.push(law);
+        id
+    }
+
+    fn fill(&mut self, id: civ_core::PermanentId) -> &Law {
+        self.sim
+            .with_ctx_for_tests(|pop, ctx| pop.fill_term_for_tests(ctx, 0, id));
+        self.law(id)
+    }
+
+    fn law(&self, id: civ_core::PermanentId) -> &Law {
+        let laws = &self.sim.people().polities[0].laws;
+        laws.iter().find(|l| l.id == id).expect("kept")
+    }
+
+    /// Law `id` and its term taken away again.
+    fn undo(&mut self, id: civ_core::PermanentId) {
+        let p = &mut self.sim.people_mut_for_tests().polities[0];
+        p.laws.retain(|l| l.id != id);
+        p.terms.retain(|t| t.0 != id);
+    }
+
+    fn told(&self, kind: ChronicleKind) -> usize {
+        let chronicle = &self.sim.people().chronicle;
+        chronicle.iter().filter(|e| e.kind == kind).count()
+    }
+}
+
+/// An office the gathering names for a term (M7a slice BN; the core's storekeeper for a year):
+/// filling its term keeps the one named, draws no lot and tells none, and counts nobody in; the
+/// term runs the template's days from the day it passed; the office is in force on the term's
+/// last day before its end and lapses at the midnight its end day begins, told as their term
+/// ending. An office whose template takes no tenure is held for no term.
+#[test]
+fn an_office_named_for_a_term_holds_until_the_midnight_its_term_ends() {
+    let mut o = Offices::new();
+    let year = o.at("core:policy/your_year_keeping_the_store");
+    let plain = o.at("core:policy/keep_store");
+    let tenure = o.sim.rules().catalog.policies[usize::from(year)]
+        .tenure
+        .expect("held for a year");
+    assert_eq!(
+        (tenure.term_days, tenure.renewable, tenure.by_lot),
+        (360, true, false)
+    );
+    assert!(
+        o.sim.rules().catalog.policies[usize::from(plain)]
+            .tenure
+            .is_none()
+    );
+    let today = o.sim.now().day_index();
+    let keeper = o.adults[1].0;
+    // A template with no tenure: no term.
+    let stood = o.adults[..3].to_vec();
+    let untimed = o.push(0, plain, Some(keeper), &stood);
+    let l = o.fill(untimed);
+    assert_eq!((l.status, l.holder), (LawStatus::InForce, Some(keeper)));
+    assert_eq!(o.sim.people().polities[0].term_of(untimed), None);
+    o.undo(untimed);
+    // Named for a year: the one named keeps it, whoever stood for it, and no lot is told.
+    let lots = o.told(ChronicleKind::LotDrawn);
+    let stood = o.adults[2..4].to_vec();
+    let id = o.push(1, year, Some(keeper), &stood);
+    let l = o.fill(id);
+    assert_eq!((l.status, l.holder), (LawStatus::InForce, Some(keeper)));
+    let term = o.sim.people().polities[0].term_of(id).expect("a term");
+    assert_eq!((term.until, term.pool), (today + 360, 0));
+    assert_eq!(o.told(ChronicleKind::LotDrawn), lots, "no lot is told");
+    saves_and_goes_on_alike(&mut o.sim, content(), DAY);
+    // Its end brought near: in force the day before, lapsed from the midnight of its end day.
+    let today = o.sim.now().day_index();
+    o.sim.people_mut_for_tests().polities[0].set_term(
+        id,
+        civ_agents::polity::Term {
+            until: today + 2,
+            pool: 0,
+        },
+    );
+    o.sim.advance_minutes(DAY).expect("advances");
+    assert_eq!(o.sim.now().day_index(), today + 1);
+    assert_eq!(o.law(id).status, LawStatus::InForce, "its last day");
+    let lapses = o.told(ChronicleKind::LawLapsed);
+    o.sim.advance_minutes(DAY).expect("advances");
+    assert_eq!(o.sim.now().day_index(), today + 2);
+    assert_eq!(o.law(id).status, LawStatus::Lapsed, "its end day");
+    assert_eq!(
+        o.law(id).holder,
+        Some(keeper),
+        "the law still names who held it"
+    );
+    assert_eq!(o.told(ChronicleKind::LawLapsed), lapses + 1);
+    let told = o
+        .sim
+        .people()
+        .chronicle
+        .iter()
+        .rev()
+        .find(|e| e.kind == ChronicleKind::LawLapsed);
+    let told = told.expect("told");
+    assert_eq!(told.people, vec![keeper]);
+    assert!(
+        told.name.contains(" no longer keeps the common store at ")
+            && told.name.ends_with(": their term ended."),
+        "{}",
+        told.name
+    );
+    assert!(o.sim.people().polities[0].keeper().is_none());
+}
+
+/// A lot's pool (M7a slice BN): only those who stood for it who are still in the world are
+/// counted in and drawn; one who stood and is no longer anyone is neither. The bar on a holder
+/// whose template does not renew holds only once their term has ended: while it runs, a lot under
+/// the same template (a second law, as a petition's would be) may draw the one holding it again.
+/// And where the office asks for a technique, only those who know it are counted in and drawn,
+/// and with none who do, the law lapses.
+#[test]
+fn a_lot_draws_only_the_living_who_stood_and_a_term_still_running_bars_no_one() {
+    let mut o = Offices::new();
+    let turns = o.at("core:policy/your_turn_keeping_the_store");
+    let tenure = o.sim.rules().catalog.policies[usize::from(turns)]
+        .tenure
+        .expect("held by turns");
+    assert!(tenure.by_lot && !tenure.renewable);
+    let (a, b, c) = (o.adults[0], o.adults[1], o.adults[2]);
+    // One who stood is no longer anyone (their id belongs to nobody in the world).
+    let gone = civ_core::PermanentId::from_raw(o.next + 2_000_000).expect("non-zero");
+    assert!(o.sim.people().person(gone).is_none());
+    for k in 0..8 {
+        let id = o.push(k, turns, None, &[a, (gone, a.1), b]);
+        let l = o.fill(id);
+        let holder = l.holder.expect("drawn");
+        assert!(holder == a.0 || holder == b.0, "draw {k}: {holder:?}");
+        let term = o.sim.people().polities[0].term_of(id).expect("a term");
+        assert_eq!(term.pool, 2, "draw {k}: the one gone is not counted in");
+        o.undo(id);
+    }
+    // `a` holds it by turns, their term running.
+    let first = o.push(10, turns, None, &[a]);
+    assert_eq!(o.fill(first).holder, Some(a.0));
+    let today = o.sim.now().day_index();
+    assert_eq!(
+        o.sim.people().polities[0].term_of(first).map(|t| t.until),
+        Some(today + i64::from(tenure.term_days))
+    );
+    let draws = |o: &mut Offices| {
+        (11..19)
+            .map(|k| {
+                let id = o.push(k, turns, None, &[a, b]);
+                let holder = o.fill(id).holder.expect("drawn");
+                o.undo(id);
+                holder
+            })
+            .collect::<Vec<_>>()
+    };
+    let running = draws(&mut o);
+    assert!(running.iter().all(|&h| h == a.0 || h == b.0));
+    let again = running.iter().filter(|&&h| h == a.0).count();
+    assert_eq!(
+        again, 3,
+        "while the term runs, the one holding it is drawn again: {running:?}"
+    );
+    // Once their term has ended, never.
+    o.sim.people_mut_for_tests().polities[0].set_term(
+        first,
+        civ_agents::polity::Term {
+            until: today,
+            pool: 1,
+        },
+    );
+    assert!(draws(&mut o).iter().all(|&h| h == b.0));
+    o.undo(first);
+    // An office that asks for writing, drawn by lot: only one who knows it is counted in.
+    let register = o.at("core:policy/yourselves_write_down_the_sick");
+    let writing = o
+        .sim
+        .rules()
+        .catalog
+        .techniques
+        .iter()
+        .position(|t| t.id == "core:technique/writing")
+        .expect("writing");
+    assert_eq!(
+        o.sim.rules().catalog.policies[usize::from(register)].holder_needs,
+        Some(writing)
+    );
+    o.sim
+        .rules_mut_for_tests()
+        .expect("rules not yet shared")
+        .catalog
+        .policies[usize::from(register)]
+    .tenure = Some(civ_agents::polity::Tenure {
+        term_days: 360,
+        renewable: true,
+        by_lot: true,
+    });
+    let now = o.sim.now();
+    for (_, p) in o.sim.people_mut_for_tests().people.iter_mut() {
+        if [a.0, b.0, c.0].contains(&p.id) {
+            p.knows.retain(|t| usize::from(t.technique) != writing);
+            if p.id == c.0 {
+                p.come_to_know(writing, civ_agents::person::KnowSource::Observer, now);
+            }
+        }
+    }
+    for k in 20..28 {
+        let id = o.push(k, register, None, &[a, b, c]);
+        let l = o.fill(id);
+        assert_eq!(
+            (l.status, l.holder),
+            (LawStatus::InForce, Some(c.0)),
+            "draw {k}"
+        );
+        assert_eq!(
+            o.sim.people().polities[0].term_of(id).map(|t| t.pool),
+            Some(1)
+        );
+        o.undo(id);
+    }
+    let id = o.push(30, register, None, &[a, b]);
+    let l = o.fill(id);
+    assert_eq!((l.status, l.holder), (LawStatus::Lapsed, None));
+    assert_eq!(o.sim.people().polities[0].term_of(id), None);
+}

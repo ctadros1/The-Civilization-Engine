@@ -1060,7 +1060,8 @@ impl Forecasts {
     }
 
     /// What putting move `m` in place of law `old` in force, of the same kind and another
-    /// template, would bring household `h`, gain units (research 09-05 §1.5: an alternative is
+    /// template, or of the same template and another holder (a petition's), would bring
+    /// household `h`, gain units (research 09-05 §1.5: an alternative is
     /// weighed against the policy that inaction leaves; 09-02 §3.7: institutional change for an
     /// expected benefit): what `m` would bring less what `old` brings, `old` forecast as the move
     /// `kept` it would be were it proposed now (as a petition weighs another holder, M4c slice

@@ -1343,3 +1343,83 @@ fn a_hearer_by_lot_with_nobody_to_draw_lapses_and_its_cases_go_to_the_gathering(
     assert_eq!(find(&sim, case_id).forum, None);
     assert!(before_the_gathering(&sim, case_id));
 }
+
+/// The seventh coverage pass's deliberation entries, "recorded, not chased" (backlog D; research
+/// 09-05 §1.5: a proposal is weighed against the policy inaction leaves): a faction's petition
+/// for another hearer in place of the one in force weighs each case that hearer heard at what
+/// they found, as the record has it, not at what their stance would make of it. A lone hearer
+/// who abstained found nothing, which the stance read as even odds: so the household whose case
+/// they did not find stood to gain nothing by another hearer, and the household it accused to
+/// lose nothing.
+#[test]
+fn a_petition_for_another_hearer_weighs_the_one_in_force_by_what_they_found() {
+    use civ_agents::crime::CaseStance;
+    use civ_agents::faction::{Faction, Member, Why};
+    use civ_agents::word::Blamed;
+    let mut sim = world(3);
+    let hh = households(&sim);
+    assert!(hh.len() >= 4, "four households: {hh:?}");
+    let hearer = hh[3].1[0];
+    let forum = law(&mut sim, "core:policy/name_a_hearer", Some(hearer));
+    // The hearer heard household 0's case against household 1 today, and took no side: alone,
+    // they found nothing.
+    let id = case(&mut sim, &hh[0], &hh[1]);
+    let now = sim.now();
+    let pop = sim.people_mut_for_tests();
+    let household = pop.person(hearer).expect("alive").household;
+    let c = pop
+        .order
+        .cases
+        .iter_mut()
+        .find(|c| c.id == id)
+        .expect("the case");
+    c.stage = CaseStage::NotFound;
+    c.heard = Some(now);
+    c.forum = Some(forum);
+    c.stances = vec![CaseStance {
+        person: hearer,
+        household,
+        stance: Stance::Abstain,
+        stake: 0.0,
+        belief: 0.0,
+        regard: 0.0,
+        precedent: 0.0,
+    }];
+    // Household 2's first adult, party to no case, founds a faction against the forum; they
+    // would name themselves.
+    let organizer = hh[2].1[0];
+    let faction = sim.allocate_id_for_tests();
+    let pop = sim.people_mut_for_tests();
+    let settlement = pop.polities[0].settlement;
+    pop.factions.list.push(Faction::found(
+        faction,
+        settlement,
+        Blamed::Forum(forum),
+        organizer,
+        now,
+    ));
+    pop.factions.join(Member {
+        person: organizer,
+        faction,
+        since: now.day_index(),
+        why: Why::default(),
+    });
+    let (m, stakes) = sim
+        .with_ctx_for_tests(|pop, ctx| pop.petition_demand_for_tests(ctx, 0, faction))
+        .expect("another hearer in place of the one in force");
+    assert_eq!(m.ends, Some(forum));
+    let nominee = m.nominee.expect("someone named");
+    assert_ne!(nominee, hearer);
+    // The one named sat on no case: they would hear it at even odds, where the hearer in force
+    // found nothing.
+    let stake = |h: PermanentId| {
+        stakes
+            .iter()
+            .find(|s| s.0 == h)
+            .map_or(0.0, |s| f64::from(s.1))
+    };
+    assert!(stake(hh[0].0) > 0.0, "{m:?} {stakes:?}");
+    assert!(stake(hh[1].0) < 0.0, "{m:?} {stakes:?}");
+    assert_eq!(stake(hh[2].0), 0.0, "{stakes:?}");
+    assert_eq!(stake(hh[3].0), 0.0, "{stakes:?}");
+}

@@ -970,10 +970,14 @@ impl Population {
                 nominee: (!by_lot).then_some(nominee),
                 ..blank
             };
+            // Weighed against the one in it as any law put in place of another is: for a forum,
+            // each case the hearer in force heard at what they found, as the record has it, not
+            // at what their stance would make of it (backlog D: the two part where they
+            // abstained, which finds nothing).
             let stakes = households
                 .iter()
                 .map(|&h| {
-                    let gain = fc.gain(&m, h, policies, params) - held(h);
+                    let gain = fc.replacing(&m, &blank, law.id, h, policies, params);
                     (h, (w * gain) as f32)
                 })
                 .collect();
@@ -1822,6 +1826,17 @@ impl Population {
             < fp.free_ride_share;
         let grievance = self.keenness(ctx, person, f.against);
         attend_points(grievance, member, regard, expect, rider, fp)
+    }
+
+    /// [`Population::petition_demand`] for faction `faction` of polity `pi`: for tests.
+    #[doc(hidden)]
+    pub fn petition_demand_for_tests(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        faction: PermanentId,
+    ) -> Option<(MoveOption, Vec<(PermanentId, f32)>)> {
+        self.petition_demand(ctx, pi, faction, None)
     }
 
     /// The refusal of law `law`'s levy at `settlement` that `person`, threshing now, has heard of

@@ -25,7 +25,8 @@ pub const KEY_VAR: &str = "TCE_LLM_KEY";
 pub const DEADLINE: Duration = Duration::from_secs(10);
 /// Requests sent in a real hour at most (ADR-0039 §3).
 pub const PER_HOUR: usize = 60;
-/// The longest reply read.
+/// The reply body's size limit: replies of up to 65,535 bytes are read, and one of 65,536 bytes
+/// or more is no answer (`ureq` refuses a body that reaches the limit).
 const REPLY_LIMIT: u64 = 64 * 1024;
 
 /// The fixed instruction (ADR-0039 §5): everything after it is data.
@@ -497,11 +498,29 @@ mod tests {
 
     /// The hourly budget is a window an hour wide, not a count by the clock's hour: a request
     /// sent an hour ago or more no longer counts, one sent less than an hour ago still does, and
-    /// only the oldest are let go.
+    /// only the oldest are let go. The provider reads the clock itself, so the old requests are
+    /// set an hour back from now; where the clock cannot go back that far (on Windows an
+    /// `Instant` counts from boot, so on a machine up for less than an hour), those cases are
+    /// skipped and say so.
     #[test]
     fn the_hourly_budget_is_a_window_an_hour_wide() {
         let req = request();
+        // A budget of none sends nothing.
+        let s = stub("1", Duration::ZERO);
+        let mut p = provider(&s.url, DEADLINE, 0);
+        assert_eq!(p.answer(&req), ModelAnswer::Unanswered);
+        assert_eq!(s.count.load(Ordering::SeqCst), 0);
         let hour = Duration::from_secs(3600);
+        if Instant::now()
+            .checked_sub(hour + Duration::from_secs(120))
+            .is_none()
+        {
+            eprintln!(
+                "skipped the hourly window's cases: they set requests more than an hour back, \
+                 and this machine's clock cannot go back that far (up for less than an hour?)"
+            );
+            return;
+        }
         let back = |d: Duration| Instant::now().checked_sub(d).expect("the clock goes back");
         // One sent an hour ago: let go, so the budget of one is free.
         let s = stub("1", Duration::ZERO);
@@ -534,11 +553,6 @@ mod tests {
         assert_eq!(p.answer(&req), ModelAnswer::Move(0));
         assert_eq!(p.answer(&req), ModelAnswer::Unanswered);
         assert_eq!(s.count.load(Ordering::SeqCst), 1);
-        // A budget of none sends nothing.
-        let s = stub("1", Duration::ZERO);
-        let mut p = provider(&s.url, DEADLINE, 0);
-        assert_eq!(p.answer(&req), ModelAnswer::Unanswered);
-        assert_eq!(s.count.load(Ordering::SeqCst), 0);
     }
 
     /// One request in flight: a copy asking while another's request is out is unanswered at
@@ -596,7 +610,7 @@ mod tests {
 
     /// The reply's body is read while it is shorter than [`REPLY_LIMIT`]: a body one byte short of
     /// it is read, and one of exactly that many is no answer (and spends the budget, as any sent
-    /// request does). As built, the longest reply read is 64 KiB less one byte, not 64 KiB.
+    /// request does): the longest reply read is 64 KiB less one byte, as [`REPLY_LIMIT`] says.
     #[test]
     fn a_reply_longer_than_the_limit_is_no_answer() {
         let req = request();

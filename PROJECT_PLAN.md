@@ -10375,7 +10375,10 @@ and M6a gives rivers a daily flow.
       a body of 65,535 bytes is read and one of 65,536 is no answer. **Found:** `REPLY_LIMIT` is
       documented as the longest reply read (64 KiB), but `ureq`'s limit refuses a body of exactly
       that many bytes, so the longest read is 64 KiB less one; harmless (a reply is one number),
-      pinned as built. **Offices and forums held for a term** (M7a slice BN, backlog D's eighth
+      pinned as built, and the comment now says so (a comment only; no behaviour changed). The
+      provider reads the clock itself, so the window's cases set requests an hour back from now;
+      on a clock that cannot go back that far (Windows counts an `Instant` from boot) they are
+      skipped with a message, the budget of none still checked. **Offices and forums held for a term** (M7a slice BN, backlog D's eighth
       and thirteenth items) had the lot's draw from those who stood, the watch excluded, the
       last holder barred, nobody to draw, a term's end told, a waiting case and a petition
       pinned; now also (polity, two new; forum, one new): an office the gathering names for a

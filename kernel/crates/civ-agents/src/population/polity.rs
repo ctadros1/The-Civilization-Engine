@@ -5080,7 +5080,7 @@ impl Population {
                 };
                 // What they saw (research 09-05 §1.2: a sponsor weighs expected success): one who
                 // came to a gathering that decided the same proposal, within memory, expects no
-                // more support for it than it got there.
+                // more support for it than it got there, and none from one that could not decide.
                 let seen = self.polities[pi]
                     .laws
                     .iter()
@@ -5117,11 +5117,8 @@ impl Population {
                             .is_some_and(|t| day - t.day_index() <= i64::from(pp.vote_memory_days))
                     })
                     .find(|l| l.stances.iter().any(|r| r.person == d));
-                if let Some(l) = seen {
-                    let (_, s, o) = l.counts();
-                    if s + o > 0 {
-                        m.support = m.support.min(f64::from(s) / f64::from(s + o));
-                    }
+                if let Some(cap) = seen.and_then(Law::support_seen) {
+                    m.support = m.support.min(cap);
                 }
             }
             // An amendment is weighed only by one it would have served (research 09-02 §3.7:

@@ -2194,6 +2194,19 @@ impl Law {
             n(Stance::Oppose),
         )
     }
+
+    /// The most support one who came to the sitting that decided it expects for the same
+    /// proposal again (research 09-05 §1.2: a sponsor weighs expected success): none where it
+    /// could not be decided for want of a quorum, a nondecision that brought it no nearer to
+    /// passing whoever stood for it; else the share for of those who took a side; nothing where
+    /// nobody did.
+    pub fn support_seen(&self) -> Option<f64> {
+        if self.outcome == Some(Outcome::NoQuorum) {
+            return Some(0.0);
+        }
+        let (_, s, o) = self.counts();
+        (s + o > 0).then(|| f64::from(s) / f64::from(s + o))
+    }
 }
 
 /// A gathering called on a proposal or a case: the law before it, the day it meets, what each
@@ -4469,6 +4482,62 @@ pub(crate) mod tests {
         assert!(backed > opposed && backed > pressed && backed > unbound);
         assert!(cannot_pay(100.0, 60.0, 200.0, &p));
         assert!(!cannot_pay(200.0, 60.0, 200.0, &p));
+    }
+
+    /// The notables' fixture 1 diagnosis (F3): a sponsor who came to a sitting that could not
+    /// decide their proposal, one for and none against among the few who came, read it as full
+    /// support and proposed it again; a nondecision is no support (research 09-05 §1.2).
+    #[test]
+    fn a_sitting_that_could_not_decide_is_no_support_seen() {
+        let mut law = Law {
+            id: pid(1),
+            policy: 0,
+            kind: PolicyKind::CommonStore,
+            levy_share: 0.1,
+            holder: None,
+            relief_days: 5.0,
+            sanction: Default::default(),
+            hours: (0, 0),
+            status: LawStatus::Rejected,
+            sponsor: pid(7),
+            proposed: SimTime::ZERO,
+            issue: IssueKind::FoodShort,
+            meets_day: 1,
+            decided: Some(SimTime::ZERO),
+            outcome: Some(Outcome::NoQuorum),
+            eligible: 9,
+            stances: Vec::new(),
+            known: Vec::new(),
+            compliance: Compliance::default(),
+            watch: WatchRecord::default(),
+            body: None,
+            ends: None,
+            agreement: None,
+            target: None,
+        };
+        let stance = |person: u64, stance: Stance| StanceRecord {
+            person: pid(person),
+            household: pid(person),
+            stance,
+            gain: 0.0,
+            regard: 0.0,
+            opinion: 0.0,
+            values: 0.0,
+            view: 0.0,
+            owed: 0.0,
+        };
+        law.stances = vec![stance(7, Stance::Support)];
+        assert_eq!(law.support_seen(), Some(0.0));
+        // Decided, it is the share for of those who took a side.
+        law.outcome = Some(Outcome::Failed);
+        law.stances = vec![
+            stance(3, Stance::Oppose),
+            stance(5, Stance::Abstain),
+            stance(7, Stance::Support),
+        ];
+        assert_eq!(law.support_seen(), Some(0.5));
+        law.stances = vec![stance(5, Stance::Abstain)];
+        assert_eq!(law.support_seen(), None);
     }
 
     #[test]

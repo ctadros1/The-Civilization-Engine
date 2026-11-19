@@ -1673,8 +1673,22 @@ fn a_household_short_of_hands_at_the_harvest_hires_reapers() {
     let wages = sim.people().transfers.get(civ_agents::Channel::Wage, grain);
     let margins = sim.people().margins;
     let mut hired = false;
+    let mut told: Option<String> = None;
     for _ in 0..3 * 24 {
         sim.advance_minutes(60).expect("advances");
+        // What the observer says of a reaper out for hire (§8 18, fourth).
+        if told.is_none() {
+            told = sim
+                .people()
+                .people
+                .iter()
+                .find(|(_, p)| {
+                    usize::from(p.act.def) == hire
+                        && matches!(p.act.target, civ_agents::person::Target::Field(f)
+                            if fields.contains(&f))
+                })
+                .map(|(_, p)| civ_sim::frames::people::doing(&sim, p));
+        }
         hired = sim
             .people()
             .people
@@ -1692,6 +1706,11 @@ fn a_household_short_of_hands_at_the_harvest_hires_reapers() {
         }
     }
     assert!(hired, "a neighbour set out to reap the field for hire");
+    // The observer says it is reaping, and whose field it is, not working for wages at their own.
+    let told = told.expect("a reaper was seen out for hire");
+    let whose = civ_sim::frames::people::household_name(&sim, employer);
+    assert!(told.contains("reaping for wages"), "{told}");
+    assert!(told.contains(&format!("the field of {whose}")), "{told}");
     assert!(worked(&sim) > 0.0, "the field was reaped");
     assert!(
         sim.people().transfers.get(civ_agents::Channel::Wage, grain) > wages,

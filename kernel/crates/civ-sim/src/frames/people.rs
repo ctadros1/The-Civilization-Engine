@@ -837,7 +837,14 @@ pub fn describe_target(
             let at = population::cell_centre(&sim.map, cell as usize);
             format!("water {} of home", bearing(home, at))
         }
+        // Another household's field is named by its household (§8 18, fourth): a reaper hired
+        // there is not working their own.
         Target::Field(id) => match sim.land.fields.iter().find(|f| f.id == id) {
+            Some(f) if f.household != household => format!(
+                "the field of {} {} of home",
+                household_name(sim, f.household),
+                bearing(home, f.rect.centre_m())
+            ),
             Some(f) => format!("the field {} of home", bearing(home, f.rect.centre_m())),
             None => "a field".to_owned(),
         },
@@ -1146,7 +1153,14 @@ pub fn household_name(sim: &Sim, id: PermanentId) -> String {
 /// What a living person is doing now, in words.
 pub fn doing(sim: &Sim, p: &Person) -> String {
     let def = sim.rules.catalog.activities.get(usize::from(p.act.def));
-    let what = def.map_or("busy", |d| d.doing.as_str());
+    // Work for hire on a field is reaping another household's crop (§8 17, fourth; §8 18,
+    // fourth): said as such, not as a workshop's hand.
+    let what = match (def, p.act.target) {
+        (Some(d), Target::Field(_)) if d.behavior == civ_agents::Behavior::Hire => {
+            "reaping for wages"
+        }
+        _ => def.map_or("busy", |d| d.doing.as_str()),
+    };
     let home = sim.people.household(p.household).map(|h| h.home);
     let place = home.map_or_else(String::new, |h| {
         describe_target(sim, h, p.household, p.act.target)

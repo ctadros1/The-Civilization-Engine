@@ -591,6 +591,21 @@ impl Population {
             .map_or_else(Vec::new, |hh| self.own_costs_of(ctx, hh))
     }
 
+    /// The good and units of the best purchase household `household` could make from its
+    /// neighbours now, and the hours it saves, as [`Self::find_deal`] weighs it with every walk
+    /// taken as none: for tests.
+    #[doc(hidden)]
+    pub fn neighbours_deal_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+    ) -> Option<(usize, f64, f64)> {
+        let hh = self.household(household)?;
+        let stores = stores_now(hh, ctx.now, ctx.params, &ctx.catalog.goods);
+        self.find_deal(ctx, hh, &stores, &|_| Some(0.0), None, None)
+            .map(|d| (d.good, d.units, d.saving_h))
+    }
+
     /// What household `household` keeps of each good from its stores now ([`Self::holding_of`]),
     /// for tests; nothing for a household that is not there.
     pub fn keep_for_tests(&self, ctx: &Ctx, household: PermanentId) -> Vec<f64> {
@@ -1173,6 +1188,10 @@ impl Population {
             - crate::person::fuel_kg(stores, goods))
         .max(0.0);
         let knows = |t: usize| self.household_knows(&hh.members, t);
+        // Whether its food waits on a fire (it holds no fuel and nothing it eats as it is, but
+        // food a fire makes a meal of), asked only of a fuel offer (§8 18, sixth).
+        let waits_on_fire = std::cell::OnceCell::new();
+        let waits = || *waits_on_fire.get_or_init(|| self.fire_wanted_kg(ctx, hh, stores) > 0.0);
         // How much of each tool it needs, reckoned at its first offer: many sellers offer the same.
         let mut tool_needs: Vec<Option<f64>> = vec![None; goods.len()];
         let mut best: Option<Deal> = None;
@@ -1248,7 +1267,29 @@ impl Population {
                     if units < 1.0 {
                         continue;
                     }
-                    let own = costs()[g].unwrap_or(f64::INFINITY) * units;
+                    let mut own = costs()[g].unwrap_or(f64::INFINITY) * units;
+                    // Short of both, it weighs fuel by the meals it makes possible (§8 18, sixth;
+                    // research 08-23 §4, §6): a day of its hearth's burning cooks a day of its
+                    // food, so the fuel is worth the food it lets it eat, at what getting food
+                    // would cost it otherwise, more the shorter it is, as food bought is; no
+                    // more than the food it holds that waits on the fire.
+                    if waits() {
+                        let fuel_day =
+                            fuel_per_day(params, hh.members.len().max(1), ctx.now.day_index());
+                        let kcal_day =
+                            hh.members.len().max(1) as f64 * params.household.daily_kcal_per_person;
+                        let kcal = (units * ratio / fuel_day.max(1e-9) * kcal_day)
+                            .min(crate::person::stock_kcal(stores, goods));
+                        let per_kcal = goods
+                            .iter()
+                            .enumerate()
+                            .filter(|(_, f)| f.purpose == GoodUse::Food && f.kcal_per_kg > 0.0)
+                            .filter_map(|(f, d)| costs()[f].map(|c| c / d.kcal_per_kg))
+                            .fold(f64::INFINITY, f64::min);
+                        if per_kcal.is_finite() {
+                            own = own.max(kcal * per_kcal * (1.0 + lean));
+                        }
+                    }
                     (units, TradeWorth::Goods { hours: 0.0 }, own)
                 } else {
                     continue;

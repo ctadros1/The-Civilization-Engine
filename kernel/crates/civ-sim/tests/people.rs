@@ -1729,6 +1729,88 @@ fn a_household_short_of_hands_at_the_harvest_hires_reapers() {
     );
 }
 
+/// Fuel weighed with hunger (§8 18, sixth; research 08-23 §4, §6): a household short of both
+/// fuel and food it can eat as it is, whose grain waits on a fire, weighs firewood by the meals it
+/// makes possible, not only by the hours of gathering it saves. A grown woman alone, able to
+/// gather her own wood and so saving little by buying it, holds grain beyond her year but no fuel
+/// and nothing ready to eat; her neighbours hold firewood to spare. Before, the firewood was worth
+/// only the gathering it saved, too little for what they ask; now it is worth the bread it bakes,
+/// and she buys it.
+#[test]
+fn one_whose_grain_waits_on_a_fire_weighs_firewood_by_the_meals_it_makes() {
+    let mut sim = new_world(3, 0);
+    sim.advance_minutes(200 * 24 * 60).expect("advances");
+    let (hh, woman) = lone_elder(&mut sim, 38.0, 450.0);
+    let params = sim.rules().people.clone();
+    let goods = sim.rules().catalog.goods.clone();
+    let wood = goods
+        .iter()
+        .position(|g| g.id == "core:good/firewood")
+        .expect("firewood");
+    let now = sim.now();
+    {
+        let pop = sim.people_mut_for_tests();
+        for (_, p) in pop.people.iter_mut().filter(|(_, p)| p.id == woman) {
+            let reserve = population::reserve_kcal(p, now, &params);
+            p.energy_kcal = (-0.4 * reserve) as f32;
+            p.needs_at = now;
+        }
+        for (_, x) in pop.households.iter_mut() {
+            let held = population::stores_now(x, now, &params, &goods);
+            x.stores = held;
+            x.stores_at = now;
+            for (g, d) in goods.iter().enumerate() {
+                if d.purpose == civ_agents::params::GoodUse::Fuel {
+                    x.stores[g] = 0.0;
+                }
+                // Nothing she can eat as it is: only the grain, which waits on a fire.
+                if x.id == hh
+                    && d.purpose == civ_agents::params::GoodUse::Food
+                    && d.id != "core:good/grain"
+                {
+                    x.stores[g] = 0.0;
+                }
+            }
+            if x.id != hh {
+                let keep = params.household.fuel_target_days
+                    * population::fuel_per_day(&params, x.members.len(), now.day_index());
+                x.stores[wood] = 1.5 * keep;
+            }
+        }
+    }
+    // Her neighbours review their offers, and post the firewood they hold to spare.
+    sim.advance_minutes(24 * 60).expect("lives");
+    {
+        let now = sim.now();
+        let pop = sim.people_mut_for_tests();
+        for (_, x) in pop.households.iter_mut() {
+            let held = population::stores_now(x, now, &params, &goods);
+            x.stores = held;
+            x.stores_at = now;
+            for (g, d) in goods.iter().enumerate() {
+                if x.id == hh
+                    && (d.purpose == civ_agents::params::GoodUse::Fuel
+                        || (d.purpose == civ_agents::params::GoodUse::Food
+                            && d.id != "core:good/grain"))
+                {
+                    x.stores[g] = 0.0;
+                }
+            }
+        }
+    }
+    let offered = sim
+        .people()
+        .households
+        .iter()
+        .any(|(_, x)| x.id != hh && x.offers.iter().any(|o| usize::from(o.good) == wood));
+    assert!(offered, "a neighbour offers firewood");
+    let deal = sim.with_ctx_for_tests(|pop, ctx| pop.neighbours_deal_for_tests(ctx, hh));
+    assert!(
+        deal.is_some_and(|(g, units, _)| g == wood && units >= 1.0),
+        "she would buy firewood for the bread it bakes: {deal:?}"
+    );
+}
+
 /// Fuel offered at market (§8 17, fifth; research 08-16 §1.4: fuel is a household necessity and an
 /// input; the lone-elders entry's "Not yet"): an elder of 72, alone, past gathering firewood, holds
 /// more grain than their year needs and a quern, but no fuel; the neighbours hold firewood

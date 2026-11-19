@@ -10384,6 +10384,29 @@ and M6a gives rivers a daily flow.
       without them), polity, determinism, roundtrip (110), the civ-sim unit tests; smoke; fmt
       and clippy clean; the web shell builds, its unit tests pass (223), and its browser tests
       pass on the container's own Chromium (31 passed, 16 skipped, none failed).
+    - *Fuel weighed with hunger (2026-11-19): one whose grain waits on a fire weighs fuel by the
+      meals it makes* (§9, "Fuel weighed with hunger"; §8 18, sixth; research 08-23 §4, §6; the
+      fuel item's "Not yet"). Fuel bought was worth only the hours of gathering it saved, so one
+      able to gather, holding grain and no fuel and nothing to eat as it is, valued firewood at
+      a few hours however hungry. **Built:** in the buyer's weighing (`best_deal`), when its food
+      waits on a fire (`fire_wanted_kg`: no fuel, nothing eaten as it is, food a fire makes a
+      meal of by a way it knows), a fuel's worth is at least the food it lets it eat: a day of
+      its hearth's burning cooks a day of its food, valued at what getting food costs it
+      otherwise (its cheapest own cost of food by energy), more the shorter it is as food bought
+      is, and no more than the food it holds. **Not built:** cooking fewer and quicker meals
+      when fuel is short: a hearth burns `fuel_kg_per_person_day` whatever is cooked, and no
+      mechanism ties a meal to its fuel, so lowering the burn when stocks run low would change
+      every household's fuel accounting (a new mechanism, not this slice). **Tested:** people (29,
+      one new: a woman of 38 alone, able to gather, with grain beyond her year, no fuel and
+      nothing ready, among neighbours offering firewood: her best purchase is firewood; without
+      the change it is a tool, the firewood's gathering saved being worth less than its price),
+      fetch, market, firms, coal, credit, money, relations, determinism, roundtrip (110) and the
+      civ-agents unit tests (309); smoke; fmt and clippy clean. **The notables' gate**, locally,
+      against 57f9130 (its figures those of 620f8b6, whose code people act on is the same):
+      passes, 0 of 40 runs changed, before and after alike: fixture 1 proposals +25.9 %,
+      enacted +14.8 %, offices −30.0 %, moved −57.5 %; fixture 2 proposals +17.1 %, enacted
+      +38.7 %, offices +7.7 %, moved +72.8 %. **Not yet:** cooking adapted before hunger (above);
+      fuel weighed with hunger when a household holds some fuel but too little for its food.
     - *Backlog D, eighteenth item (2026-11-04): a household's line, wagons and trains pass on,
       and a line nobody holds is taken up* (the third and fourth items' "Not yet": a household's
       line, wagons and trains passing on; ADR-0034 §2, §3, §6; research 08-09 §1.2 and the
@@ -11530,7 +11553,8 @@ and M6a gives rivers a daily flow.
        hinterlands, 03-06 about foraging). A research gap, so gate-neutral. *Written
        2026-11-19* (research 08-23).
     6. *Fuel weighed with hunger when food waits on a fire* (the fuel item's "Not yet"; after 5):
-       an economy change, with smoke and gate risk.
+       an economy change, with smoke and gate risk. *Built 2026-11-19*, gate-neutral (§7, "Fuel
+       weighed with hunger"); cooking adapted before hunger left as a new mechanism.
     7. *The stubble bar's limits and its breach* (slice 2's "Not yet"; research 08-22 §1, §4):
        the bar limited to the harvest weeks and the polity's own fields, the employers' gain in
        hands in the forecast, and a breach heard as a case. Deliberation, gated, against the
@@ -13306,3 +13330,5 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Research 08-23 (2026-11-19; §8 18, fifth; backlog E: gaps in the research index):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** fuel weighed with hunger (§8 18, sixth) and fuel sold to works (eighth) were next in line with no report to design against; 08-16 is about cities and 03-06 about the woodland. A short note in 08-22's form, every figure marked by how it was reached (most by search summary, none load-bearing) and what is uncertain, so that the next slice is designed against a source. It proposes that a household short of fuel and food weighs fuel by the meals it makes possible and cooks fewer, quicker meals before going hungry, both design priors.
 
 - **The observer's states of the 2026-11-19 slices (2026-11-19; backlog E: the observer's empty and error states):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** ten slices landed in a day, and the observer is how they are seen. The web shell shows the words the kernel renders, so the faults were in the kernel's words: the stubble law levies nothing and read as a levy, and a written finding was nowhere in its case's words. Both are fixed as strings, so no wire change. What the kernel does not keep is not shown (a reading aloud by case, a breach of the stubble law); the first would need a saved record and the second is §8 18's seventh item. The words reach the chronicle too, but no decision reads them.
+- **Fuel weighed with hunger (2026-11-19; §8 18, sixth; research 08-23 §4, §6):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** 08-23 finds that households short of fuel give up other things before meals, and that fuel is weighed by what it makes possible. The engine's buyer valued fuel only by the gathering it saves, the opportunity-cost rule. The existing worth of food bought (own cost, more the shorter) is the mechanism: fuel that unlocks food a household holds is worth that food, through no new weight. It applies only where food waits on a fire, which no fixture world reaches, so the notables' gate did not move (0 of 40 runs). The second rule, cooking fewer and quicker meals before hunger, has no mechanism to work through: the hearth's burn is a fixed daily rate, so a stock-dependent burn is a new mechanism and is left. No save, wire or content change, and no ADR.
+- **NUDGE: fuel weighed with hunger's priors (2026-11-19; the entry above; time-boxed):** a day of the hearth's burning is taken to cook a day of the household's food (`fuel_kg_per_person_day` against `daily_kcal_per_person`); the food it unlocks is valued at the household's cheapest own cost of any food by energy, raised by how short it is as food bought is; and it is weighed only when nothing is eaten as it is and no fuel is held. Each is a design prior; revisit if lived worlds show households buying firewood with grain they need, or still going hungry beside grain with firewood on offer.

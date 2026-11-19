@@ -879,17 +879,11 @@ impl Population {
                     && matches!(l.kind, PolicyKind::KeepStore | PolicyKind::KeepWatch)
                     && l.holder.is_some()
             })?,
-            // A forum of one holder (backlog D): the hearer is an office named by a law, as a
-            // keeper is; a panel or the elders have nobody to replace.
+            // A forum (backlog D): one of one holder may have another hearer in place of the one
+            // in it, as a keeper may; any forum may be recalled, ended with none in its place, so
+            // that the gathering hears cases again (§8 17, third).
             Blamed::Forum(forum) => polity.laws.iter().find(|l| {
-                l.id == forum
-                    && l.status == LawStatus::InForce
-                    && l.kind == PolicyKind::HearCases
-                    && l.holder.is_some()
-                    && policies
-                        .get(usize::from(l.policy))
-                        .and_then(|d| d.forum.as_ref())
-                        .is_some_and(|d| d.seat == crate::forum::ForumSeat::Holder)
+                l.id == forum && l.status == LawStatus::InForce && l.kind == PolicyKind::HearCases
             })?,
             _ => return None,
         };
@@ -931,7 +925,7 @@ impl Population {
         let held = |h: PermanentId| fc.gain(&blank, h, policies, params);
         let w = params.polity.w_gain;
         // Another holder for the office (M4c slice AH).
-        if law.kind != PolicyKind::CommonStore {
+        let replace = |asked: Option<&Petition>| -> Option<(MoveOption, Vec<(PermanentId, f32)>)> {
             let incumbent = law.holder?;
             // An office filled by lot names nobody: the lot draws another among those who put
             // their names in once it passes (M7a slice BN), as any proposal of it does.
@@ -981,7 +975,62 @@ impl Population {
                     (h, (w * gain) as f32)
                 })
                 .collect();
-            return Some((m, stakes));
+            Some((m, stakes))
+        };
+        // A forum: recalled, ended with none in its place, so that the gathering hears cases again
+        // (§8 17, third; research 09-02 §3.6: removal; ADR-0025 §1: a case before no forum goes
+        // to the gathering), weighed by each household as an end to a law is, what it brings
+        // turned about; or, for one of one holder, another hearer in place of the one in it. The
+        // faction asks for whichever brings its members more, an end only if it brings them any.
+        if law.kind == PolicyKind::HearCases {
+            let one_holder = law.holder.is_some()
+                && def
+                    .forum
+                    .as_ref()
+                    .is_some_and(|d| d.seat == crate::forum::ForumSeat::Holder);
+            let end = policies
+                .iter()
+                .position(|d| d.kind == PolicyKind::Repeal)
+                .map(|r| MoveOption {
+                    policy: r as u16,
+                    levy_share: 0.0,
+                    nominee: None,
+                    ..blank
+                });
+            let ended = |m: MoveOption| {
+                let stakes: Vec<(PermanentId, f32)> = households
+                    .iter()
+                    .map(|&h| (h, (-w * held(h)) as f32))
+                    .collect();
+                (m, stakes)
+            };
+            if let Some(p) = asked {
+                return match end {
+                    Some(m) if p.policy == m.policy => Some(ended(m)),
+                    _ if one_holder => replace(asked),
+                    _ => None,
+                };
+            }
+            let mean = |st: &[(PermanentId, f32)]| {
+                theirs
+                    .iter()
+                    .map(|h| {
+                        st.iter()
+                            .find(|s| s.0 == *h)
+                            .map_or(0.0, |s| f64::from(s.1))
+                    })
+                    .sum::<f64>()
+                    / theirs.len() as f64
+            };
+            let instead = if one_holder { replace(None) } else { None };
+            let recall = end.map(ended).filter(|(_, st)| mean(st) > 1e-9);
+            return match (recall, instead) {
+                (Some(r), Some(i)) => Some(if mean(&r.1) > mean(&i.1) { r } else { i }),
+                (r, i) => r.or(i),
+            };
+        }
+        if law.kind != PolicyKind::CommonStore {
+            return replace(asked);
         }
         let gain = |share: f64, h: PermanentId| {
             let m = MoveOption {

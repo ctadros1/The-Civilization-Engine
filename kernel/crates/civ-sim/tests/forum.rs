@@ -2215,3 +2215,84 @@ fn a_decision_kept_written_stays_seen_past_memory_for_its_keeper() {
         "seen by its keeper alone"
     );
 }
+
+/// A recall (§8 17, third; research 09-02 §3.6: removal; ADR-0025 §1: a case before no forum goes
+/// to the gathering): a faction against a forum with nobody to replace, the elders, petitions to
+/// end it, a repeal naming it, when ending it brings its members more than keeping it: here the
+/// evenings its elders give sitting on the cases within memory.
+#[test]
+fn a_faction_against_the_elders_petitions_to_end_their_forum() {
+    use civ_agents::crime::CaseStance;
+    use civ_agents::faction::{Faction, Member, Why};
+    use civ_agents::polity::PolicyKind;
+    use civ_agents::word::Blamed;
+    let mut sim = world(3);
+    let hh = households(&sim);
+    assert!(hh.len() >= 4, "four households: {hh:?}");
+    let forum = law(&mut sim, "core:policy/hear_by_elders", None);
+    // Two cases between households 0 and 1, heard by the elders on two evenings; household 2's
+    // elder sat on both.
+    let elder = hh[2].1[0];
+    for k in 0..2 {
+        let id = case(&mut sim, &hh[0], &hh[1]);
+        let now = sim.now();
+        let c = sim
+            .people_mut_for_tests()
+            .order
+            .cases
+            .iter_mut()
+            .find(|c| c.id == id)
+            .expect("the case");
+        (c.stage, c.heard, c.forum, c.opened) =
+            (CaseStage::NotFound, Some(now), Some(forum), c.opened - k);
+        c.stances = vec![CaseStance {
+            person: elder,
+            household: hh[2].0,
+            stance: Stance::Abstain,
+            stake: 0.0,
+            belief: 0.0,
+            regard: 0.0,
+            precedent: 0.0,
+        }];
+    }
+    // Household 2's first adult founds a faction against the forum.
+    let organizer = hh[2].1[0];
+    let faction = sim.allocate_id_for_tests();
+    let now = sim.now();
+    let pop = sim.people_mut_for_tests();
+    let settlement = pop.polities[0].settlement;
+    pop.factions.list.push(Faction::found(
+        faction,
+        settlement,
+        Blamed::Forum(forum),
+        organizer,
+        now,
+    ));
+    pop.factions.join(Member {
+        person: organizer,
+        faction,
+        since: now.day_index(),
+        why: Why::default(),
+    });
+    let (m, stakes) = sim
+        .with_ctx_for_tests(|pop, ctx| pop.petition_demand_for_tests(ctx, 0, faction))
+        .expect("a recall of the forum");
+    let policies = &sim.rules().catalog.policies;
+    assert_eq!(
+        policies[usize::from(m.policy)].kind,
+        PolicyKind::Repeal,
+        "{m:?}"
+    );
+    assert_eq!(m.ends, Some(forum));
+    assert_eq!(m.nominee, None);
+    let stake = |h: PermanentId| {
+        stakes
+            .iter()
+            .find(|s| s.0 == h)
+            .map_or(0.0, |s| f64::from(s.1))
+    };
+    assert!(
+        stake(hh[2].0) > 0.0,
+        "its elder is spared their evenings: {stakes:?}"
+    );
+}

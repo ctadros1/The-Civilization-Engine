@@ -436,6 +436,34 @@ half_rate_stock_per_ha = 10.0
 # new body takes a permanent id after the founders' and would move every later id in every world.
 stock_per_ha = [0.0, 30.0, 3.0, 0.0, 0.0]
 
+# What reaping leaves on a field (research 08-22, gleaning): the ears and grain dropped as the crop
+# is cut, bound and carried, laid down on the field's patch as it is reaped (`reaped`), and
+# gathered by anyone in reach who finds it worth the stooping, as the poor of a place gleaned.
+[[resource]]
+id = "gleanings"
+name = "Gleanings"
+good = "core:good/grain"
+unit_kg = 1.0
+discrete = false
+in_water = false
+range_patches = 1
+reaped = true
+# NUDGE (2026-11-19): about 1 kg an hour on fresh stubble (research 08-22 §3: derived from one
+# parish's 1787 estimate, highly uncertain), and half that once a patch holds 5 kg a hectare: a
+# field gleaned over leaves little worth stooping for. Design priors.
+max_rate_per_hour = 1.0
+half_rate_stock_per_ha = 5.0
+
+[resource.plant]
+# Nothing grows: its stock is only what reaping leaves.
+production_per_ha_yr = [0.0, 0.0, 0.0, 0.0, 0.0]
+# NUDGE (2026-11-19): what nobody gleans goes to birds, mice and sprouting in about a month, as
+# wild plant food left standing does (research 08-22 §2: the gleaning season ran from the carrying
+# until the stubble was grazed or ploughed, a few weeks at most). A design prior.
+loss_per_day = 0.03
+season = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+follows_water = false
+
 # Deposits: bodies in the ground, placed once from the seed and never renewed (ADR-0010 §1;
 # content API 18), beside the loose stone and flint above. The research says where they lie only
 # in words (03-05 §1.1-1.2): clay in floodplains and old channels, often under cover; stone where

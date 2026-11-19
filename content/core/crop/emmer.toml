@@ -15,6 +15,10 @@ sow_until_day = 125              # 5 May: a 45-day window (tuning)
 late_sowing_loss_per_day = 0.005 # tuning: sown at the end of the window, a crop loses about a fifth
 grow_days = 120                  # tuning: ripe from mid-July to early September
 standing_loss_per_day = 0.02     # tuning: reap before the crop lodges or sheds (07-04 §1.3)
+# NUDGE (2026-11-19): what reaping drops as the crop is cut, bound and carried, left on the field
+# for gleaning (research 08-22 §3: half a bushel an acre gleaned in a 1787 parish, about 2-3 % of
+# the crop, derived and uncertain; the Mishnah's corner left for the poor, 1/60). A design prior.
+left_share = 0.02
 untended_loss = 0.4              # tuning: what weeds take from a crop nobody tends
 break_h_per_ha = 1000.0          # 08-02 §3.1: hand preparation 500-1,000 h/ha; new ground at the top
 # Re-working ground cropped before is lighter than breaking it: 08-02 §3.2 budgets 90 days/ha

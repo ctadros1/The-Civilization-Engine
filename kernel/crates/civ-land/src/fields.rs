@@ -54,6 +54,9 @@ pub struct CropParams {
     pub grow_days: u16,
     /// Share of the ripe crop lost for each day it stands unreaped.
     pub standing_loss_per_day: f64,
+    /// Share of the crop reaping leaves on the field: the ears and grain dropped as it is cut,
+    /// bound and carried, which gleaning can recover (research 08-22 §3; a design prior).
+    pub left_share: f64,
     /// Share of the yield lost when the crop gets no tending at all (weeds).
     pub untended_loss: f64,
     /// Work to break new ground for its first crop, person-hours per hectare.
@@ -345,6 +348,8 @@ pub struct WorkDone {
     pub grain_kg: f64,
     /// The stage was finished.
     pub finished: bool,
+    /// Grain reaping left on the field, kilograms (research 08-22): for gleaning.
+    pub left_kg: f64,
 }
 
 impl Field {
@@ -559,7 +564,7 @@ impl Field {
             self.sheaves_kg = left.max(0.0) as f32;
             if left <= 1e-6 {
                 done.finished = true;
-                self.finish_stage(crop, day, allow, now);
+                done.left_kg = self.finish_stage(crop, day, allow, now);
             }
             return done;
         }
@@ -576,12 +581,14 @@ impl Field {
         self.work_h = after as f32;
         if after + 1e-6 >= needed {
             done.finished = true;
-            self.finish_stage(crop, day, allow, now);
+            done.left_kg = self.finish_stage(crop, day, allow, now);
         }
         done
     }
 
-    fn finish_stage(&mut self, crop: &CropParams, day: i64, allow: Allowance, now: SimTime) {
+    /// Finishes the stage under way; returns the grain reaping left on the field, kilograms.
+    fn finish_stage(&mut self, crop: &CropParams, day: i64, allow: Allowance, now: SimTime) -> f64 {
+        let mut left = 0.0;
         self.work_h = 0.0;
         self.stage_since = now;
         self.stage = match self.stage {
@@ -604,7 +611,9 @@ impl Field {
             }
             FieldStage::Sown => {
                 let (grown, taken, limit) = self.harvest_kg(crop, day, allow);
-                self.sheaves_kg = taken as f32;
+                // What reaping drops stays on the field (research 08-22 §3).
+                left = taken * crop.left_share.clamp(0.0, 1.0);
+                self.sheaves_kg = (taken - left) as f32;
                 self.harvests = self.harvests.saturating_add(1);
                 let ha = self.area_ha();
                 if ha > 0.0 {
@@ -619,6 +628,7 @@ impl Field {
                 FieldStage::Fallow
             }
         };
+        left
     }
 
     /// At the turn of calendar year `year`: broken ground that has lain unsown `years` whole
@@ -681,6 +691,7 @@ pub(crate) mod tests {
             late_sowing_loss_per_day: 0.01,
             grow_days: 120,
             standing_loss_per_day: 0.02,
+            left_share: 0.0,
             untended_loss: 0.4,
             break_h_per_ha: 800.0,
             prepare_h_per_ha: 400.0,

@@ -156,6 +156,9 @@ pub struct ResourceParams {
     /// Standing stock at which harvesting runs at half its maximum rate, units per hectare of
     /// the resource's area.
     pub half_rate_stock_per_ha: f64,
+    /// What reaping leaves of a crop whose good this is: its stock is laid down on the field's
+    /// patch as the crop is reaped (research 08-22: gleanings), beside any it grows.
+    pub reaped: bool,
 }
 
 /// How land is classified and how its resources grow. Authored in content.
@@ -2159,6 +2162,7 @@ mod tests {
                     },
                     max_rate_per_hour: 1000.0,
                     half_rate_stock_per_ha: 100.0,
+                    reaped: false,
                 },
                 ResourceParams {
                     id: "deer".into(),
@@ -2175,6 +2179,7 @@ mod tests {
                     },
                     max_rate_per_hour: 2.0,
                     half_rate_stock_per_ha: 50.0,
+                    reaped: false,
                 },
                 ResourceParams {
                     id: "fish".into(),
@@ -2191,6 +2196,7 @@ mod tests {
                     },
                     max_rate_per_hour: 2.0,
                     half_rate_stock_per_ha: 100.0,
+                    reaped: false,
                 },
             ],
             weather: weather::tests::params(),
@@ -2406,6 +2412,7 @@ mod tests {
             },
             max_rate_per_hour: 6.0,
             half_rate_stock_per_ha: 3000.0,
+            reaped: false,
         });
         let r = p.resources.len() - 1;
         let mut land = create(&p, 1, 400);
@@ -2512,6 +2519,7 @@ mod tests {
             },
             max_rate_per_hour: 6.0,
             half_rate_stock_per_ha: 3000.0,
+            reaped: false,
         });
         let r = p.resources.len() - 1;
         let mut land = create(&p, 1, 400);

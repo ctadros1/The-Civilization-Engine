@@ -28,6 +28,10 @@ pub(crate) struct CropFile {
     pub late_sowing_loss_per_day: f64,
     pub grow_days: u16,
     pub standing_loss_per_day: f64,
+    /// Share of the crop reaping leaves on the field, for gleaning (research 08-22 §3, §6);
+    /// absent, none.
+    #[serde(default)]
+    pub left_share: f64,
     pub untended_loss: f64,
     pub break_h_per_ha: f64,
     pub prepare_h_per_ha: f64,
@@ -74,6 +78,7 @@ impl CropFile {
             late_sowing_loss_per_day: self.late_sowing_loss_per_day,
             grow_days: self.grow_days,
             standing_loss_per_day: self.standing_loss_per_day,
+            left_share: self.left_share,
             untended_loss: self.untended_loss,
             break_h_per_ha: self.break_h_per_ha,
             prepare_h_per_ha: self.prepare_h_per_ha,
@@ -122,6 +127,7 @@ impl CropFile {
             ("late_sowing_loss_per_day", self.late_sowing_loss_per_day),
             ("standing_loss_per_day", self.standing_loss_per_day),
             ("untended_loss", self.untended_loss),
+            ("left_share", self.left_share),
         ] {
             share(name, v, &mut p);
         }

@@ -10084,6 +10084,26 @@ and M6a gives rivers a daily flow.
       gate-neutral (all 40 runs identical; nobody in the fixtures knows reading). **Not yet:**
       a finding kept by the forum or the polity rather than a household; copies made for others;
       a written finding in the review or a sponsor's "seen".
+    - *Gleaning, slice 1 (2026-11-19): reaping leaves grain on the stubble, and people glean it*
+      (§9, "Gleaning, slice 1"; §8 16, fifth; research 08-22). **Built:** a crop's `left_share`
+      (core emmer 0.02, a NUDGE) of what reaping takes stays on the field as the stock of a land
+      resource marked `reaped` whose good is the crop's (`gleanings` in the core landscape: nothing
+      grows it, and what nobody gleans is lost at `loss_per_day`). Those who reaped know the stubble
+      as if they had gleaned it an hour, and the settlement's households share it at the hearth as
+      any place's yield; a reaped resource is judged by what was seen of it alone, since no habitat
+      grows it. Gleaning is a gathering activity (`core:activity/glean`, by daylight, from age 7), so
+      it is chosen as any gathering of food is, by what it brings a household's food: a household
+      with its harvest in has little reason to; one short of food, with nothing better to gather,
+      gleans. Content API 234. **Tested:** people (24, one new: the first harvest leaves gleanings
+      on the reaped field's patch, and a household whose harvest failed, with no wild food to be
+      had, gleans it; it fails without the share left), and the soil, settlements, bottlenecks,
+      regimes, market, polity, forum, faction, crime, credit, ditches, weather, resolution, modes,
+      roundtrip and determinism targets; the civ-agents, civ-land, civ-content and civ-host unit
+      tests and the content tests; smoke; fmt, clippy and the schema check clean. **The notables'
+      gate**, locally: passes, 32 of 40 runs changed (every harvest leaves its share): fixture 1 proposals +51.9 % to +28.0 % (105 %), enacted +42.3 % to +16.0 % (55 %), offices +20.0 % to −20.0 % (85 %), moved +38.6 % to −34.7 % (95 %); fixture 2 proposals +52.7 % to +7.8 %, enacted +42.1 % to +19.4 %, offices +25.0 % to +21.4 %, moved −9.5 % to +44.2 %. **Not yet:** who may glean as custom (a polity's law or a landholder's
+      claim: the bylaws' wage test, outsiders barred; research 08-22 §1, §4); the corner left
+      deliberately; raking and stubble grazing; the dashboard counting what was gleaned (the
+      people's days now include gleaning in lean times).
     - *Backlog D, eighteenth item (2026-11-04): a household's line, wagons and trains pass on,
       and a line nobody holds is taken up* (the third and fourth items' "Not yet": a household's
       line, wagons and trains passing on; ADR-0034 §2, §3, §6; research 08-09 §1.2 and the
@@ -11160,7 +11180,10 @@ and M6a gives rivers a daily flow.
        slices 2 (the dashboard's count) and 3 (read aloud at a sitting) landed the same day.
     5. *Gleaning a crop a household that went left standing* (the 2026-11-04 recurring-red
        follow-ups; 05-06 §1.4, §5.3): changes people's days, helps the dying-worlds red; not
-       deliberation, smoke risk.
+       deliberation, smoke risk. Slice 1 **landed** 2026-11-19 as gleaning proper
+       (research 08-22; §9, "Gleaning, slice 1"): what reaping leaves on the stubble, gleaned by
+       those short of food; a crop left standing by a household that went is not gleaning and stays
+       open.
 
 ---
 
@@ -12906,3 +12929,5 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Written findings, slice 1 (2026-11-18; ADR-0025's "Revisit when": "Writing arrives (record reach and persistence change, not authority)"; research 09-07 §1.5, §6.4; M10c slice EC):** Decided by Claude under standing owner authority (2026-11-18). 09-07 §1.5 makes written coverage and record reach their own dimensions, apart from precedent's authority, and §6.4 says oral transmission keeps a small, selective set of remembered decisions while writing expands persistence and reach; it gives no figure for either. **What a written finding is:** a record of a forum's finding, of the case, kept by a household, with who wrote it and the day. **Who writes it:** the first of those who sat on it (in id order) who knows writing, at the sitting; design prior: the hearing's own record takes no hours beyond the sitting (09-07 gives none). **How long it lasts:** as a technique's record does (M10c slice EC): held by the household, passing when it joins another, left when it is no more; not let go after `remember_days`, which bounds the word alone. **How far it reaches:** in slice 1, to its household's readers only: one who knows reading recalls what their household keeps, beside the word they hold. **What reads it:** precedent recall at a hearing, which ADR-0025's authority (informative, persuasive, binding) still weighs; authority is unchanged, as the ADR's revisit line asks. A gathering's findings are not written in slice 1 (a gathering has no one office to write them), nor challenges; the review and a sponsor's "seen" do not read them yet.
 - **Written findings, slice 2 (2026-11-18; the entry above; plan §4.7's dashboard rows):** Decided by Claude under standing owner authority (2026-11-18). The measure of writing lengthening precedent is a hearing at which someone recalled a finding they could only have recalled from the page: their household keeps it written and they hold no word of it. That is counted where the hearing happens and saved as one number in the order, since the word of it is gone by the time a dashboard looks; findings written and still kept are read from the order as they stand. Both join the justice row's words; the row is reported, not graded, as before.
 - **Written findings, slice 3: read aloud at a sitting (2026-11-18; research 09-05 §2.1, 09-07 §6.4):** Decided by Claude under standing owner authority (2026-11-18). Of the three ways past the household (read aloud, kept by the forum, copied), reading aloud is the best grounded: 09-05 §2.1 records Iceland's lawspeaker publishing the law by reciting it at the assembly, a recorded way law reached those who could not read, and 09-07 §6.4 says writing expands reach; keeping by the forum would invent an office's archive the engine has no holder for, and copying a finding has no source beyond the copying of technique records, which is for kin living apart. What is read is what the reader recalls for the case (recall's tag match and `recall_k`), not every finding the household keeps; it is told as news made that day, so its word is held for `remember_days` from then and spreads as a fresh finding's does. It is read at any hearing, a gathering's as a forum's, since a gathering too is a sitting at the hearth. No new weight.
+- **Gleaning, slice 1 (2026-11-19; research 08-22; 08-02 §2.2):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** 08-22 grounds gleaning well as a custom (who, when, under what leave, how policed) and thinly as a quantity (one 1787 parish estimate, half a bushel an acre), and 08-02 §2.2 separates what a crop grows from what is collected. So reaping leaves a crop's `left_share` on the field (a design prior near the derived 2-3 % and the Mishnah's 1/60), and gleaning reuses gathering whole: the left grain is the stock of a land resource whose good is the crop's, gathered at a rate falling with the stock like any wild food, chosen by what it brings a household's food, so the poor of a place glean and those with a harvest in mostly do not, as 08-22 §1 has it, without any rule that says who is poor. Two choices make it findable. Those who reaped know what they left, as one who gathered an hour there would; the settlement shares it as any place's yield. And a resource only reaping lays down is judged by what was seen of it alone: the prior a habitat's typical yield gives is zero for it, and would drown any sight. Nothing is scripted; custom allowing or barring it is the next slice. Content API 234 (a crop's `left_share`, a resource's `reaped`, the activity); saves are unchanged, as stocks are matched by resource id and a new one starts at its equilibrium, empty.
+- **NUDGE: gleaning's figures (2026-11-19; research 08-22 §3; time-boxed design priors):** a crop's `left_share` 0.02 (derived 2-3 % from one parish estimate); gleanings' `max_rate_per_hour` 1.0 kg (derived from that estimate over assumed hours, highly uncertain) and `half_rate_stock_per_ha` 5.0 kg (a gleaned-over field leaves little worth stooping for); `loss_per_day` 0.03 (gone in about a month, as wild plant food; the season ran a few weeks at most). To be read against a homelab long run's lean years.

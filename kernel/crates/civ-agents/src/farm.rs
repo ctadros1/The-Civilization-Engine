@@ -886,6 +886,7 @@ mod tests {
             late_sowing_loss_per_day: 0.005,
             grow_days: 120,
             standing_loss_per_day: 0.02,
+            left_share: 0.0,
             untended_loss: 0.4,
             break_h_per_ha: 1000.0,
             prepare_h_per_ha: 600.0,

@@ -617,6 +617,10 @@ pub(crate) struct Resource {
     pub range_patches: u32,
     pub max_rate_per_hour: f64,
     pub half_rate_stock_per_ha: f64,
+    /// Its stock is what reaping leaves of a crop whose good it is (research 08-22); absent,
+    /// not.
+    #[serde(default)]
+    pub reaped: bool,
     /// Exactly one of `plant`, `animal` and `deposit`.
     pub plant: Option<Plant>,
     pub animal: Option<Animal>,
@@ -688,6 +692,7 @@ impl LandFile {
                 growth: r.growth()?,
                 max_rate_per_hour: r.max_rate_per_hour,
                 half_rate_stock_per_ha: r.half_rate_stock_per_ha,
+                reaped: r.reaped,
             });
         }
         Some(LandParams {

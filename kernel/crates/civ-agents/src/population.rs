@@ -5022,8 +5022,10 @@ impl Population {
                 let prior = prior_yield
                     .get(patch as usize)
                     .map_or(0.0, |&y| f64::from(y) / hours.max(1e-6));
-                // What they have seen there, weighed against what they would expect.
+                // What they have seen there, weighed against what they would expect; of what reaping
+                // leaves, which no habitat grows, only what they have seen (research 08-22).
                 let rate = match memory.get(&(r as u16, patch)) {
+                    Some(k) if res.reaped => f64::from(k.rate),
                     Some(k) => k.belief(prior, today, res.memory_days()),
                     None => prior,
                 };
@@ -7885,6 +7887,38 @@ impl Population {
             .land
             .allowance(ctx.land_params, &ctx.land.fields[fi], crop);
         let done = ctx.land.fields[fi].work(crop, task, hours, now.day_index(), allow, seed, now);
+        let mut stubble = None;
+        // What reaping left lies on the field for gleaning (research 08-22), as the stock of the
+        // resource that is what reaping leaves of the crop's good, if the land has one.
+        if done.left_kg > 0.0
+            && let Some(r) = ctx
+                .land_params
+                .resources
+                .iter()
+                .position(|res| res.reaped && res.good == crop.good)
+        {
+            let at = ctx.land.fields[fi].rect.centre_m();
+            let p = ctx.land.patches.of_point(at.0, at.1);
+            let unit = ctx.land_params.resources[r].unit_kg.max(1e-9);
+            if let Some(stock) = ctx.land.stocks.get_mut(r).and_then(|s| s.get_mut(p)) {
+                *stock += (done.left_kg / unit) as f32;
+            }
+            // Those who reaped saw what they left, and say so at the hearth: they know the stubble
+            // as if they had gleaned it an hour (the settlement's households share what one
+            // learns, as of any place).
+            // Places are known by the centre of the block of patches a trip ranges over.
+            let patches = &ctx.land.patches;
+            let side = 2 * ctx.land_params.resources[r].range_patches + 1;
+            let (px, py) = (p as u32 % patches.cols, p as u32 / patches.cols);
+            let cpx = ((px / side) * side + side / 2).min(patches.cols - 1);
+            let cpy = ((py / side) * side + side / 2).min(patches.rows - 1);
+            let centre = cpy * patches.cols + cpx;
+            let units = ctx
+                .land
+                .yield_around(ctx.land_params, r, centre as usize, 1.0, 1.0);
+            let memory = ctx.land_params.resources[r].memory_days();
+            stubble = Some(((r as u16, centre, units, 1.0, now.day_index()), memory));
+        }
         // A crop come back for from another settlement is in: the field is left as before.
         let brought_in = done.finished && land::crop_brought_in(&mut ctx.land.fields[fi]);
         if let Some(s) = x.stores.get_mut(crop.seed_good) {
@@ -7914,6 +7948,9 @@ impl Population {
             }
         }
         let settlement = x.settlement;
+        if let Some((seen, memory)) = stubble {
+            self.remember_patch(household, seen, None, memory);
+        }
         if brought_in {
             self.fields_moved();
         }

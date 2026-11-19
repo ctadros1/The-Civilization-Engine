@@ -1258,3 +1258,135 @@ fn a_lone_elder_with_grain_and_a_quern_but_no_firewood_asks_for_fuel_and_eats() 
         "they ate less than they burned: {before:.2} of her reserve drawn, then {after:.2}"
     );
 }
+
+/// Gleaning (research 08-22): reaping leaves a share of the crop on the field, laid down as the
+/// gleanings of the field's patch; nothing grows it, and people gather it as they gather any
+/// food, by what it brings for the stooping. The band's first harvest leaves grain on the
+/// stubble, and someone gleans it in the weeks after.
+#[test]
+fn reaping_leaves_grain_on_the_stubble_and_people_glean_it() {
+    let mut sim = new_world(3, 0);
+    let rules = sim.rules().clone();
+    let crop = &rules.catalog.crops[rules.people.farm.crop];
+    assert!(crop.left_share > 0.0, "reaping leaves some of the crop");
+    let r = rules
+        .land
+        .resources
+        .iter()
+        .position(|x| x.id == "gleanings")
+        .expect("the land has gleanings");
+    assert!(rules.land.resources[r].reaped);
+    assert_eq!(rules.land.resources[r].good, crop.good);
+    let glean = rules
+        .catalog
+        .index_of("core:activity/glean")
+        .expect("gleaning is an activity");
+    let total = |sim: &Sim| {
+        sim.land().stocks[r]
+            .iter()
+            .map(|&s| f64::from(s))
+            .sum::<f64>()
+    };
+    assert_eq!(
+        total(&sim),
+        0.0,
+        "nothing lies on the ground before a harvest"
+    );
+    // Live day by day until the first field is reaped.
+    let mut reaped = None;
+    for _ in 0..300 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        if let Some(f) = sim.land().fields.iter().find(|f| f.harvests > 0) {
+            reaped = Some(f.id);
+            break;
+        }
+    }
+    let field = reaped.expect("a field is reaped in the first season");
+    let at = {
+        let f = sim
+            .land()
+            .fields
+            .iter()
+            .find(|f| f.id == field)
+            .expect("kept");
+        let c = f.rect.centre_m();
+        sim.land().patches.of_point(c.0, c.1)
+    };
+    assert!(
+        sim.land().stocks[r][at] > 0.0,
+        "the reaped field's patch holds gleanings"
+    );
+    // A household whose harvest is lost and whose food is gone (as the poor of a place, research
+    // 08-22 §1) gleans in the days after; one with its harvest in has little reason to.
+    let holder = sim
+        .land()
+        .fields
+        .iter()
+        .find(|f| f.id == field)
+        .and_then(|f| f.holder.household())
+        .expect("a household's field");
+    let wild: Vec<usize> = rules
+        .land
+        .resources
+        .iter()
+        .enumerate()
+        .filter(|(i, x)| *i != r && rules.catalog.goods[x.good].kcal_per_kg > 0.0)
+        .map(|(i, _)| i)
+        .collect();
+    let food: Vec<usize> = rules
+        .catalog
+        .goods
+        .iter()
+        .enumerate()
+        .filter(|(_, g)| g.kcal_per_kg > 0.0)
+        .map(|(i, _)| i)
+        .collect();
+    // Its harvest failed outright: nothing in store, nothing in sheaves, each day of the window
+    // (gifts from neighbours and its other fields do not refill it).
+    let empty = |sim: &mut Sim| {
+        let pop = sim.people_mut_for_tests();
+        let x = pop
+            .households
+            .iter_mut()
+            .find(|(_, x)| x.id == holder)
+            .expect("the household")
+            .1;
+        for &g in &food {
+            if let Some(kg) = x.stores.get_mut(g) {
+                *kg = 0.0;
+            }
+        }
+        let members = x.members.clone();
+        let land = sim.land_mut_for_tests();
+        for f in land.fields.iter_mut() {
+            if f.holder.household() == Some(holder) {
+                f.sheaves_kg = 0.0;
+            }
+        }
+        // And nothing wild is to be had: the stubble is what is left to gather.
+        for &w in &wild {
+            land.stocks[w].iter_mut().for_each(|s| *s = 0.0);
+        }
+        members
+    };
+    let poor = empty(&mut sim);
+    let mut gleaned = false;
+    for _ in 0..20 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        empty(&mut sim);
+        gleaned = sim
+            .people()
+            .people
+            .iter()
+            .filter(|(_, p)| poor.contains(&p.id))
+            .any(|(_, p)| {
+                p.receipts
+                    .iter()
+                    .any(|x| usize::from(x.chosen.def) == glean)
+            });
+        if gleaned {
+            break;
+        }
+    }
+    assert!(gleaned, "the household short of food gleaned the stubble");
+}

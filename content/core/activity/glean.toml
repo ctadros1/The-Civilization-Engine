@@ -1,0 +1,19 @@
+# Gleaning (research 08-22): gathering what reaping left on a field, after the crop is carried and
+# by daylight, as the poor of a place gleaned the stubble. Anyone in reach may; who may is a
+# custom a later slice gives the polity (research 08-22 §1, §4: bylaws, the gleaning bell).
+kind = "activity"
+id = "core:activity/glean"
+name = "Glean"
+doing = "gleaning"
+behavior = "gather"
+resource = "gleanings"
+par = 3.0                        # stooping and picking, as gathering wild plants (a tuning value)
+min_age_years = 7.0              # research 08-22 §1: mostly women and children gleaned
+max_age_years = 80.0
+min_minutes = 60
+max_minutes = 240
+daylight_only = true             # research 08-22 §2: by daylight, between the bells
+max_walk_minutes = 60
+technique = ""
+tools = []
+rate = 1.0

@@ -10489,6 +10489,23 @@ and M6a gives rivers a daily flow.
       fixture 2 proposals +17.1 %, enacted +38.7 %, offices +7.7 %, moved +72.8 %, before and
       after). **Not yet:** sludge sold or given to other households' fields; a polity's store
       keeping a tank spreads nothing.
+    - *Ground looked over on errands (2026-11-19): the ground any walk crosses is looked over*
+      (§9, "Ground looked over on errands"; §8 19, eleventh; ADR-0043 §2 and M11d's twelfth
+      part's "Not yet"). Every walk finds the bodies showing beside it (`look_for_deposits`),
+      but only a walk out to look for one marked its ground looked over, so a prospector could be
+      drawn to ground its settlement's people crossed every day. **Built:** every walk's land
+      cells mark their blocks looked over for its settlement (or a lone household), each block
+      once a walk (`look_over`). Prospectors' hope (`ProspectWalk::fresh`) and their draws then
+      count only ground nobody has crossed. No save, wire or content change (the record was
+      saved already; it holds more). **Tested:** telegraph (17, one new: a settlement whose
+      people go about three days, nobody out looking, has looked over more blocks than before; it
+      fails with only prospecting walks counted, and the office short of copper still stops
+      looking); the whole civ-sim suite (88 targets) and the civ-agents unit tests; smoke, with
+      the same figures; fmt and clippy clean. **The notables' gate**, locally, against 7e9a5c8:
+      passes, 0 of 40 runs changed (as before). **Not yet:** word of barren ground between
+      settlements (a claim of its own, a slice of the word); deadwood (14 years to renew)
+      remembered by what is left, as stocks that only fall are, not built: it renews, and its
+      fading over the renewal time stands until a lived world shows it misleading.
       **Tested:** forum (27), faction (9), the civ-agents unit tests; fmt and clippy clean.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
@@ -13512,3 +13529,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **A faction with no stake asking for another hearer: recorded as "Not yet" (2026-11-19; the forum recall's choice, pinned):** Decided by Claude under standing owner authority (2026-11-19). The pinning scene showed a faction of a household with no stake weighing an end of a forum of one holder at 0 and another hearer at −0.25, its own evenings, and still asking for the other hearer: "an end only if it brings any" binds the end but not the replacement. Whether a replacement too must bring a gain is a behaviour change to how factions petition, so it waits for its own gated slice. Not built now.
 - **Sludge spread as dung (2026-11-19; §8 19, twelfth; ADR-0044 §7's deferral; research 12-10 §1.7):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** of the tips' and sewers' smaller deferrals, this one touches only households keeping a settling tank (a technique only the observer brings), so it is the least risk to anyone's days. 12-10 §1.7 names spreading among sludge's fates, and the manuring a household already does is the mechanism, so no new ADR: it narrows ADR-0044 §7's deferral list, recorded here. Compaction and burning tips wait on a roller and a fire model. Selling sewage waits on someone wanting it, now possible. A sewer rate needs a channel, and inspection waits on ADR-0044's own "Revisit when" (a demo showing sewers failing unseen). The keeper's books were missing the sludge they got, a latent accounting fault fixed here. Gate: 0 of 40 runs changed.
 - **NUDGE: sludge spread as dung's prior (2026-11-19; the entry above; time-boxed):** sludge is taken to carry the heap's nitrogen a kilogram (`midden.n_per_kg`) and to be spread at the heap's hours a kilogram. Sewage sludge is richer in nitrogen than a mixed heap by most accounts, and wetter; revisit if lived tank keepers' fields outgrow their neighbours' by more than dung explains.
+- **Ground looked over on errands (2026-11-19; §8 19, eleventh; ADR-0043 §2):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** ADR-0043 §2 keeps where a settlement's prospectors have looked so that they stop walking barren ground, while every walk already finds the bodies showing beside it. Counting only walks out to look left ground crossed daily, and so already known barren, as fresh hope. Marking every walk's ground is the same rule applied to what people already see: it narrows the "Not yet" of M11d's twelfth part, needs no ADR, and changes only where prospectors are drawn. The notables' gate did not move (0 of 40 runs), the whole suite passes, and smoke's figures are unchanged. Left: word of barren ground between settlements (a new kind of claim, its own slice), and deadwood judged by what is left (it renews, so ADR-0043 §1 keeps it fading over its renewal time until a world shows that misleads).

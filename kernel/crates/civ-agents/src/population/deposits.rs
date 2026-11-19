@@ -57,7 +57,7 @@ pub fn looked_block(map: &WorldMap, cell: usize) -> u32 {
     ((y / b) * cols + x / b) as u32
 }
 
-/// The ground each settlement's prospectors have walked over (ADR-0043 §2), by blocks of
+/// The ground each settlement's people have walked over (ADR-0043 §2; any walk since §8 19), by blocks of
 /// [`looked_block`], with the day each was first looked over. A household of no settlement keeps
 /// its own, under its own id. Nothing fades: a body showing at the surface does not appear later.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -245,9 +245,14 @@ impl Population {
         };
         let key = hh.settlement.unwrap_or(household);
         let day = i32::try_from(day).unwrap_or(i32::MAX);
+        // Each block once a walk, the walk's cells running through a block together.
+        let mut last = None;
         for &c in cells {
-            self.ground_looked
-                .mark(key, looked_block(map, c as usize), day);
+            let block = looked_block(map, c as usize);
+            if last != Some(block) {
+                self.ground_looked.mark(key, block, day);
+                last = Some(block);
+            }
         }
     }
 

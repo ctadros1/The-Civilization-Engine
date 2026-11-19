@@ -6650,12 +6650,10 @@ impl Population {
                         .ways
                         .walked(&cells, now.day_index(), civ_land::ways::WALK);
                     self.look_for_deposits(ctx, who, household, &trip.points);
-                    // A walk out to look for a body: the ground it crossed has been looked over
-                    // (ADR-0043 §2).
-                    if act_target == Target::None && def.as_ref().is_some_and(|d| d.digs.is_some())
-                    {
-                        self.look_over(map, household, &cells, now.day_index());
-                    }
+                    // The ground any walk crossed has been looked over (ADR-0043 §2; §8 19,
+                    // eleventh: every walk finds the bodies showing beside it, so an errand looks
+                    // over its ground as a walk out to look for one does).
+                    self.look_over(map, household, &cells, now.day_index());
                 }
             }
             Some(Step::Work { minutes }) => match def.as_ref().map(|d| d.behavior) {

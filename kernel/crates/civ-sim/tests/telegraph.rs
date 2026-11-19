@@ -1448,6 +1448,40 @@ fn a_household_that_cuts_a_patch_of_bog_ore_down_judges_it_by_what_is_left() {
     assert!(cut >= 5.0, "it cut {cut:.1} units of the ore further out");
 }
 
+/// The ground any walk crosses is looked over (§8 19, eleventh; ADR-0043 §2's "Not yet": ground
+/// looked over on errands): every walk finds the bodies showing beside it, so a settlement whose
+/// people go about their days, nobody out looking for a body, has looked over the ground they
+/// crossed, and its prospectors will not walk it again for hope of one. Before, only a walk out to
+/// look for a body counted.
+#[test]
+fn the_ground_an_errand_crosses_is_looked_over() {
+    let mut sim = world();
+    let [(_, sa, _), _] = pair(&sim);
+    let dig = sim
+        .rules()
+        .catalog
+        .activities
+        .iter()
+        .position(|x| x.id == "core:activity/dig_ore")
+        .expect("digging ore") as u16;
+    let before = sim.people().ground_looked.blocks(sa);
+    let mut prospected = false;
+    for _ in 0..3 * 144 {
+        sim.advance_minutes(10).expect("advances");
+        prospected |= sim
+            .people()
+            .people
+            .iter()
+            .any(|(_, p)| p.act.def == dig && p.act.target == civ_agents::Target::None);
+    }
+    assert!(!prospected, "nobody went out to look for a body");
+    let after = sim.people().ground_looked.blocks(sa);
+    assert!(
+        after > before,
+        "their days' walks looked over ground: {before} blocks to {after}"
+    );
+}
+
 /// Prospecting remembers where people have looked (ADR-0043 §2-§3): an office to be short of its
 /// instrument's copper, where no copper ore lies anywhere (no body, nothing to pick from the
 /// surface), looks over the ground of the kind within its reach, its hope falling as the ground is

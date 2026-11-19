@@ -1,6 +1,6 @@
 # Research topics
 
-177 deep-research topics across 16 domains, from the simulation engine to how each part of a society works. 168 are needed before v1 (M0–M8); the rest come after. Priorities: 100 High, 70 Medium, 7 Low.
+178 deep-research topics across 16 domains, from the simulation engine to how each part of a society works. 168 are needed before v1 (M0–M8); the rest come after. Priorities: 100 High, 71 Medium, 7 Low.
 
 ## Research files
 
@@ -239,7 +239,7 @@ When a report changes a decision, update `PROJECT_PLAN.md` and its decisions log
 |---|---|---|---|
 | 07-12 | [Preconditions and cluster of the Industrial Revolution](07-technology/12-industrialization.md) | Technology and knowledge | Low |
 
-### M11: Modern content (6)
+### M11: Modern content (7)
 
 | ID | Topic | Domain | Priority |
 |---|---|---|---|
@@ -249,6 +249,7 @@ When a report changes a decision, update `PROJECT_PLAN.md` and its decisions log
 | 12-10 | [Modern waste: refuse, collection, disposal, sewage treatment and industrial residues](12-services-infrastructure/10-modern-waste.md) | City services and infrastructure | Medium |
 | 03-08 | [Judging a failing source and searching for ore: depletion, giving up and prospecting](03-world/08-depletion-and-prospecting.md) | World and environment | Medium |
 | 12-11 | [What leaks out of a worn sewer: exfiltration, how far it reaches and what it depends on](12-services-infrastructure/11-sewer-exfiltration.md) | City services and infrastructure | Medium |
+| 12-12 | [What a sewage farm's produce and its workers carry: crops, handling and the guidance](12-services-infrastructure/12-sewage-farm-exposure.md) | City services and infrastructure | Medium |
 
 ### M12: LLM notables, multi-viewer, close-up fidelity (1)
 
@@ -447,7 +448,7 @@ When a report changes a decision, update `PROJECT_PLAN.md` and its decisions log
 | 11-13 | [Interior layouts and room use](11-architecture-construction/13-interior-programs.md) | M6 | Low | Simulation |
 | 11-14 | [Modern construction: iron and steel frames, reinforced concrete, glass, elevators and the tall building](11-architecture-construction/14-modern-construction.md) | M11 | Medium | Simulation |
 
-### 12. City services and infrastructure (11)
+### 12. City services and infrastructure (12)
 
 | ID | Topic | Needed by | Priority | Type |
 |---|---|---|---|---|
@@ -462,6 +463,7 @@ When a report changes a decision, update `PROJECT_PLAN.md` and its decisions log
 | 12-09 | [Electric power, gas and modern utilities](12-services-infrastructure/09-modern-utilities.md) | M11 | Low | Simulation |
 | 12-10 | [Modern waste: refuse, collection, disposal, sewage treatment and industrial residues](12-services-infrastructure/10-modern-waste.md) | M11 | Medium | Simulation |
 | 12-11 | [What leaks out of a worn sewer: exfiltration, how far it reaches and what it depends on](12-services-infrastructure/11-sewer-exfiltration.md) | M11 | Medium | Simulation |
+| 12-12 | [What a sewage farm's produce and its workers carry: crops, handling and the guidance](12-services-infrastructure/12-sewage-farm-exposure.md) | M11 | Medium | Simulation |
 
 ### 13. Diplomacy and war (9)
 

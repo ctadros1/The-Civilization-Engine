@@ -10470,6 +10470,17 @@ and M6a gives rivers a daily flow.
       another hearer: "an end only if it brings any" holds the end to a gain but not the
       replacement. Recorded for a later look; a behaviour change, so not in a tests-only slice.
       **Tested:** forum (27), faction (9), the civ-agents unit tests; fmt and clippy clean.
+    - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
+      "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
+      Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
+      Beddington, as a practice with no reliable health record of its own; modern evidence that
+      consumers of raw-eaten crops irrigated with untreated wastewater carry more Ascaris, and
+      farm households far more (the Mezquital Valley: about 5.7 times the odds for children, 13
+      for older people), cut by storage in series; and WHO 2006's shape (10⁻⁶ DALY, at most 1
+      helminth egg a litre, treatment with barriers). For TCE's crops, all grain eaten cooked,
+      the eater's route is small and the worker's (hands, soil) is the larger, and TCE has no
+      handling route. Every figure is marked by how it was reached, most by search summary. No
+      code.
     - *Backlog D, eighteenth item (2026-11-04): a household's line, wagons and trains pass on,
       and a line nobody holds is taken up* (the third and fourth items' "Not yet": a household's
       line, wagons and trains passing on; ADR-0034 §2, §3, §6; research 08-09 §1.2 and the
@@ -11672,7 +11683,9 @@ and M6a gives rivers a daily flow.
        whether any of it earns a threshold. Report-only.
     5. *Research: what a sewage farm's produce and its pickers carry* (ADR-0044's revisit, now
        met): 05-07 and 12-10 cover food-borne disease and sewage farming apart, but not produce
-       grown on sewage, nor handling at a heap or tip. A research gap, gate-neutral.
+       grown on sewage, nor handling at a heap or tip. A research gap, gate-neutral. *Written
+       2026-11-19* (research 12-12): item 6's workers' route is a new route of a disease (an
+       ADR-0021 decision), and its produce route is small for cooked grain.
     6. *A sewage farm's produce and pickers' exposure through the food route* (ADR-0044 §7, after
        5): a field watered from a sewer loads what it grows, as ADR-0045 loads prepared food, and
        a picker handles what a heap holds. Disease, so smoke risk. It is gate-risky only where a
@@ -13472,3 +13485,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **A reading aloud kept by case (2026-11-19; §8 19, first; ADR-0025's "Writing arrives"):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** the observer is to show what a world did, and the reading aloud of a written finding at a hearing (ADR-0025's "Writing arrives") was kept only as a count, so no case could say it was read to those who sat. A record appended within the unreleased saves 220 (as written findings and gleaners were) is the least that lets the case's words say it. Nothing reads it but the frames, so the notables' gate did not move (0 of 40 runs). Not expensive to reverse, so no ADR.
 - **The tenth coverage pass (2026-11-19; §8 19, second; backlog E: test coverage):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** fuel weighed with hunger and a works' fuel landed today through filters (no fuel held, a way known, a works open) that their scenes did not reach. Each is now pinned by a test that fails without it. The first pins a limit recorded as "Not yet", so that building it is seen. Tests only, so nothing people do changes and the gate is not needed. The forum recall's choice is left: the only test hook returns the move picked, not both weighings, and adding one for a tie between two built weighings is a slice of its own, not a gap in what is tested.
 - **The forum recall's choice, pinned (2026-11-19; backlog E: test coverage; §8 17, third):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** the faction's choice between ending a forum of one holder and naming another hearer was the one branch of the recall that no test reached, because the hook gave only the move picked. A small hook, giving both weighings through a `Cell` that only tests pass, pins it, each side winning once, without changing what any faction asks. It showed that a faction with no stake may ask for a replacement that costs its members (−0.25 against an end at 0). That is recorded and not changed here: whether a replacement must also bring a gain is a behaviour change, to be gated.
+- **Research 12-12 (2026-11-19; §8 19, fifth; backlog E: gaps in the research index; ADR-0044 §7):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** ADR-0044's revisit condition for a farm's produce and pickers' exposure (a food or handling route) is met by ADR-0045's food route, so item 6 needed grounding before design. The note finds the larger risk is to those who work the farm, by hands and soil, which no existing route carries. The produce route matters little for TCE's crops, which are all eaten cooked. So item 6 is not buildable from existing mechanisms alone: the workers' half needs a new disease route (a model decision under ADR-0021, likely an amendment), and the produce half would add a field-to-harvest load that cooking all but removes.

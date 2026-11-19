@@ -188,6 +188,9 @@ pub struct WorldRun {
     pub floods: FloodsSeen,
     /// The observer's shakings and what they did (M8d slice DA).
     pub shaking: ShakingSeen,
+    /// The harvest's margins over the run: reaping hired, grain gleaned, fuel traded and the
+    /// stubble laws (§8 18, first).
+    pub margins: MarginsSeen,
 }
 
 /// A world's infections over a run, and each outbreak's cases against the source most of its
@@ -942,6 +945,117 @@ impl CrimeSeen {
     }
 }
 
+/// A world's harvest margins over a run (§8 18, first): what a long run measures of the
+/// newest livelihoods, which the notables' gate cannot (gleaning, research 08-22; reaping hired at
+/// the harvest, research 08-10 §1.3; fuel at market, research 08-16 §1.4). Reported, never graded:
+/// no tolerance until a run is seen.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+pub struct MarginsSeen {
+    /// Sessions of reaping hired, their hours and their pay, kilograms of grain.
+    pub reapings: u32,
+    pub reaped_h: f64,
+    pub reaped_paid_kg: f64,
+    /// Grain gleaned, kilograms, by those who could earn the harvest wage and by the others.
+    pub gleaned_able_kg: f64,
+    pub gleaned_other_kg: f64,
+    /// Fuel that changed hands for money and in barter, kilograms.
+    pub fuel_sold_kg: f64,
+    pub fuel_bartered_kg: f64,
+    /// Laws keeping the stubble for those who cannot earn: proposed, passed, and in force at the
+    /// end, as the polities' records hold them.
+    pub stubble_proposed: u32,
+    pub stubble_passed: u32,
+    pub stubble_in_force: u32,
+}
+
+impl MarginsSeen {
+    /// The margins of `sim` since its counters began.
+    pub fn of(sim: &Sim) -> MarginsSeen {
+        use civ_agents::ledger::Channel;
+        use civ_agents::params::GoodUse;
+        use civ_agents::polity::{LawStatus, Outcome, PolicyKind};
+        let people = sim.people();
+        let m = people.margins;
+        let mut seen = MarginsSeen {
+            reapings: m.reapings,
+            reaped_h: m.reaped_h,
+            reaped_paid_kg: m.reaped_paid_kg,
+            gleaned_able_kg: m.gleaned_able_kg,
+            gleaned_other_kg: m.gleaned_other_kg,
+            ..MarginsSeen::default()
+        };
+        for (g, d) in sim.rules().catalog.goods.iter().enumerate() {
+            if d.purpose == GoodUse::Fuel {
+                seen.fuel_sold_kg += people.transfers.get(Channel::Sale, g);
+                seen.fuel_bartered_kg += people.transfers.get(Channel::Barter, g);
+            }
+        }
+        for law in people.polities.iter().flat_map(|p| p.laws.iter()) {
+            if law.kind != PolicyKind::KeepStubble {
+                continue;
+            }
+            seen.stubble_proposed += 1;
+            seen.stubble_passed += u32::from(law.outcome == Some(Outcome::Passed));
+            seen.stubble_in_force += u32::from(law.status == LawStatus::InForce);
+        }
+        seen
+    }
+
+    /// In words: "12 sessions of reaping hired, 30 h, paid 45 kg of grain; 120 kg gleaned, 20 kg
+    /// of it by those who could earn the harvest wage; 60 kg of fuel sold, 15 kg bartered; 2 laws
+    /// keeping the stubble proposed, 1 passed, 1 in force".
+    pub fn words(&self) -> String {
+        let reaping = if self.reapings == 0 {
+            "no reaping hired".to_owned()
+        } else {
+            format!(
+                "{} {} of reaping hired, {:.0} h, paid {:.0} kg of grain",
+                self.reapings,
+                if self.reapings == 1 {
+                    "session"
+                } else {
+                    "sessions"
+                },
+                self.reaped_h,
+                self.reaped_paid_kg
+            )
+        };
+        let gleaned = self.gleaned_able_kg + self.gleaned_other_kg;
+        let gleaning = if gleaned > 0.0 {
+            format!(
+                "{gleaned:.0} kg gleaned, {:.0} kg of it by those who could earn the harvest wage",
+                self.gleaned_able_kg
+            )
+        } else {
+            "nothing gleaned".to_owned()
+        };
+        let fuel = if self.fuel_sold_kg + self.fuel_bartered_kg > 0.0 {
+            format!(
+                "{:.0} kg of fuel sold, {:.0} kg bartered",
+                self.fuel_sold_kg, self.fuel_bartered_kg
+            )
+        } else {
+            "no fuel traded".to_owned()
+        };
+        let stubble = if self.stubble_proposed == 0 {
+            "no law keeping the stubble proposed".to_owned()
+        } else {
+            format!(
+                "{} {} keeping the stubble proposed, {} passed, {} in force",
+                self.stubble_proposed,
+                if self.stubble_proposed == 1 {
+                    "law"
+                } else {
+                    "laws"
+                },
+                self.stubble_passed,
+                self.stubble_in_force
+            )
+        };
+        format!("{reaping}; {gleaning}; {fuel}; {stubble}")
+    }
+}
+
 /// A world's land at the end of a run (M8c slice CX, ADR-0030 §7), by research 10-08 §1.1's
 /// quantities with their denominators: each settlement's residents against its footprint (the
 /// least rectangle about every plot of its households, streets and open ground within) and
@@ -1582,6 +1696,7 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
     world.between = Between::of(sim);
     world.travel = TravelSeen::of(&sim.people().travel);
     world.land = LandSeen::of(sim);
+    world.margins = MarginsSeen::of(sim);
     let name = |id| {
         sim.land()
             .settlements
@@ -1646,7 +1761,30 @@ pub fn grade(worlds: &[WorldRun], years: u32) -> Vec<Row> {
         regimes(worlds),
         travel(worlds),
         land(worlds),
+        margins(worlds),
     ]
+}
+
+/// Reaping hired, grain gleaned by who could earn and who could not, fuel traded and the laws
+/// keeping the stubble (§8 18, first), each world: reported, never graded, with no tolerance
+/// until a long run is seen. What the notables' gate cannot measure of the newest livelihoods.
+fn margins(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Harvest margins",
+        "reaping hired, gleaning by who could earn, fuel sold and bartered, stubble laws",
+        "reported",
+    )
+    .source("research 08-10 §1.3, 08-16 §1.4, 08-22 §1, §4");
+    let parts: Vec<String> = worlds
+        .iter()
+        .map(|w| format!("world {}: {}", w.seed, w.margins.words()))
+        .collect();
+    let text = if parts.is_empty() {
+        "no world was lived".to_owned()
+    } else {
+        format!("reported, not graded: {}", parts.join("; "))
+    };
+    row.graded(Grade::Gray, text)
 }
 
 /// Densities, what was paid for ground, plans' shares and reckoned values (M8c slice CX,
@@ -3047,6 +3185,34 @@ mod tests {
     }
 
     #[test]
+    fn the_harvest_margins_row_reports_each_world_and_is_never_graded() {
+        let mut worlds = vec![world(1, &[40]), world(2, &[40])];
+        worlds[0].margins = MarginsSeen {
+            reapings: 12,
+            reaped_h: 30.4,
+            reaped_paid_kg: 45.0,
+            gleaned_able_kg: 20.0,
+            gleaned_other_kg: 100.0,
+            fuel_sold_kg: 60.0,
+            fuel_bartered_kg: 15.0,
+            stubble_proposed: 2,
+            stubble_passed: 1,
+            stubble_in_force: 1,
+        };
+        let row = margins(&worlds);
+        assert_eq!(row.grade, Grade::Gray);
+        assert_eq!(
+            row.text,
+            "reported, not graded: world 1: 12 sessions of reaping hired, 30 h, paid 45 kg of \
+             grain; 120 kg gleaned, 20 kg of it by those who could earn the harvest wage; 60 kg \
+             of fuel sold, 15 kg bartered; 2 laws keeping the stubble proposed, 1 passed, 1 in \
+             force; world 2: no reaping hired; nothing gleaned; no fuel traded; no law keeping \
+             the stubble proposed"
+        );
+        assert_eq!(margins(&[]).text, "no world was lived");
+    }
+
+    #[test]
     fn the_land_row_reports_densities_ground_paid_for_plans_and_reckoned_worth() {
         // M8c slice CX (ADR-0030 §7): reported, never graded; grey with nothing to say.
         assert_eq!(land(&[world(1, &[30])]).grade, Grade::Gray);
@@ -3179,6 +3345,7 @@ mod tests {
             "Floods and storms",
             "Regimes",
             "Land",
+            "Harvest margins",
         ] {
             assert!(grey.contains(&name), "{name} grey: {grey:?}");
         }
@@ -3201,7 +3368,7 @@ mod tests {
         // Only population and the accounts are graded, both worlds keep their bands and no
         // settlement's accounts failed: a pass, but no grey row counts as one.
         assert!(dashboard.passed());
-        assert_eq!(dashboard.summary(), "2 passed, 19 not yet applicable");
+        assert_eq!(dashboard.summary(), "2 passed, 20 not yet applicable");
     }
 
     #[test]

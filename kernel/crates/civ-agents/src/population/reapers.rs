@@ -240,6 +240,10 @@ impl Population {
             amount: kg_per_hour * hours,
         }];
         if self.transfer(now, params, goods, &leg, Channel::Wage) {
+            // For the record (§8 18, first): it changes nothing.
+            self.margins.reapings += 1;
+            self.margins.reaped_h += hours;
+            self.margins.reaped_paid_kg += kg_per_hour * hours;
             // The worker saw the wages paid; the field's household saw the work done (ADR-0014
             // §2).
             let (wages, work) = (crate::ties::Act::WagesPaid, crate::ties::Act::WorkSeen);

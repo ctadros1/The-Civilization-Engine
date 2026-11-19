@@ -10277,6 +10277,26 @@ and M6a gives rivers a daily flow.
       (bought fuel is worth hours saved, not the meal it makes possible); charcoal and coal sold to
       smithies and works as an input; fuel fetched from another settlement, or bought at a door
       there.
+    - *Backlog E, a reported measure (2026-11-19): the harvest's margins on the dashboard* (§9,
+      "The harvest's margins, reported"; §8 18, first). Gleaning, hired reaping and fuel at market
+      changed people's days on 2026-11-19, and no long run had measured them: the notables' gate
+      lives three years of two fixtures. **Built:** a twenty-second row, *Harvest margins*,
+      reported for each world and never graded, as Land and Travel are. For the whole run it gives
+      the sessions of reaping hired, their hours and the grain paid; the grain gleaned, and how
+      much of it by those who could earn the harvest wage; the fuel that changed hands by sale and
+      by barter; and the laws keeping the stubble proposed, passed and in force at the end. Reaping
+      and gleaning are counted where they are paid and gathered (`Population::margins`, counters
+      for reports that no decision reads and nothing saves, as `transfers` is). Fuel is read from
+      what moved by sale and barter, and the laws from the polities' records. No save, wire or
+      content change. **Tested:** the civ-host unit tests (one new: the row's words for a world
+      with every margin and one with none, grey either way); people (27: the hired reapers' scene
+      now checks each session paid, its hours and a pay that is part of the grain wages; the
+      gleaning scene checks that the counters hold every kilogram gleaned once; the fuel scene
+      checks that the firewood bought is among the fuel traded; the first two fail with the
+      counting taken out), and the polity, fetch and firms targets; the civ-agents unit tests;
+      smoke; fmt and clippy clean. **The notables' gate**, locally, against be0a6e9: passes, 0 of 40 runs changed (every run's aggregates and offices as they were), fixture 1 proposals +25.9 %, enacted +14.8 %, offices −30.0 %, moved −57.5 %; fixture 2 proposals +17.1 %, enacted +38.7 %, offices +7.7 %, moved +72.8 %.
+      **Not yet:** a tolerance for any of it, until a long run has been read; what each reaper
+      earned against a workshop's hand.
     - *Backlog D, eighteenth item (2026-11-04): a household's line, wagons and trains pass on,
       and a line nobody holds is taken up* (the third and fourth items' "Not yet": a household's
       line, wagons and trains passing on; ADR-0034 §2, §3, §6; research 08-09 §1.2 and the
@@ -11394,7 +11414,7 @@ and M6a gives rivers a daily flow.
        hired (hours and grain paid), fuel sold and bartered, and stubble laws enacted and in
        force, for each world and never graded, so the next long run measures what the notables'
        gate cannot. They are counters that no decision reads, so the item is gate-neutral and
-       exact.
+       exact. *Built 2026-11-19* (§7, "the harvest's margins on the dashboard").
     2. *Long run 80's wall time* (§9, "Verification at d42c873 promoted": 70,792 s, against
        long run 79's 14,501 s for its slowest world): check first that the two figures are
        measured alike. If they are, measure which world is slow and why on its saves (ADR-0045's
@@ -13187,3 +13207,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Gleaning's wage test (2026-11-19; §8 17, fourth, slice 2; research 08-22 §1, §4; slice 1's harvest wage):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** the late-medieval bylaws (Islip 1407, Wymeswold) barred from gleaning anyone who could earn the harvest wage, so that what reaping leaves fed those who could not and the able went to the harvest; gleaning slice 3 found the kernel had no harvest wage, so such a law brought nobody anything, and slice 1 built one. The law comes by the existing means: a template answering food running short, forecast by each household from a record of who gleaned (what those who could earn took, which those who cannot would glean in their place, against what its own who could earn would give up), put forward only by one whose household forecasts a gain (as an amendment or a plan is, so no proposal is made for nothing and nobody's choice among other moves changes), and kept by choice as a curfew is, with need over the word. It bears on no value, so its sponsor is one whose own gleaning gains. A new policy kind is appended (content API 235; a saved law names its template by id, as every kind since `cover_tip` was added without an ADR), with one new decision reason and one saved record appended within saves 220; nothing is expensive to reverse, so no ADR. "Could earn" is of an age to work for hire, the content's own bound for working for wages; the bylaws' penny a day is not modelled as a sum.
 - **NUDGE: the stubble law's design priors (2026-11-19; slice 2 above; time-boxed):** what those who could earn gleaned is taken to go wholly to those who remain gleaning, shared by what each gleaned; the record of who gleaned fades at the places' use half-life (180 days) and is weighed a year at that rate; "could earn" is the age bounds of work for hire (14 to 70 in the core); the bar binds the polity's people wherever and whenever they glean. Each is a design prior; revisit if lived worlds show the law proposed where nobody short gleans, or kept by those who could not earn.
 - **Fuel offered at market (2026-11-19; §8 17, fifth; research 08-16 §1.4; the 2026-11-03 lone-elders entry):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** 08-16 §1.4 treats fuel as a household necessity bought and sold as food is, and the lone-elders entry left buying it unbuilt because `can_offer` deliberately never offered firewood and opening it would change every market. Both halves are needed and neither is new machinery: the seller's offer beyond what it keeps (the hearth's days the household already keeps, by heat) and the buyer's weighing of what it lacks against the hours of its own the purchase saves, the rule a tool or food is bought by. It is kept to the household's own settlement: fuel is not fetched to sell again elsewhere nor bought at a door away, which would turn every errand into a firewood run before anyone has asked whether firewood was ever carted between villages. Nothing is tuned, and no threshold is new: the days kept are `fuel_target_days`, and what a fuel stands for is its heat. No save, wire or content change, so nothing is expensive to reverse; no ADR, and no new prior to log.
+- **The harvest's margins, reported (2026-11-19; §8 18, first; backlog E):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** gleaning, hired reaping and fuel at market landed today with the notables' gate's margins narrowing (fixture 2's enacted +38.7 % against 55 %), and the gate cannot see whether they happen at all over fifty years: it lives three. A reported row is how §4.7 measures what has no tolerance yet (Land, Travel, ADR-0030 §7's "measured, never set"), so the next long run reads how much reaping is hired, how much gleaning falls to those who could earn and would be barred, how much fuel changes hands and whether anyone proposes keeping the stubble, before any of it is relied on or tuned. The counters are kept as `transfers` is, never saved and never read by a decision, so nothing people do changes (the notables' gate against be0a6e9: 0 of 40 runs changed). The row is grey, so the dashboard's grades are unchanged. No ADR.

@@ -1394,6 +1394,13 @@ fn reaping_leaves_grain_on_the_stubble_and_people_glean_it() {
     let g = sim.people().order.gleaned;
     assert!(g.kg > 0.0 && g.short_kg > 0.0, "{g:?}");
     assert!(g.short_kg <= g.kg + 1e-9, "{g:?}");
+    // The dashboard's harvest margins count the same grain by whether its gleaner could earn the
+    // harvest wage (§8 18, first): every kilogram once, in counters no decision reads.
+    let m = sim.people().margins;
+    assert!(
+        (m.gleaned_able_kg + m.gleaned_other_kg - g.kg).abs() < 1e-6,
+        "{m:?} {g:?}"
+    );
     let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
     let saves =
         commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
@@ -1624,6 +1631,7 @@ fn a_household_short_of_hands_at_the_harvest_hires_reapers() {
     };
     let grain = crop.good;
     let wages = sim.people().transfers.get(civ_agents::Channel::Wage, grain);
+    let margins = sim.people().margins;
     let mut hired = false;
     for _ in 0..3 * 24 {
         sim.advance_minutes(60).expect("advances");
@@ -1648,6 +1656,17 @@ fn a_household_short_of_hands_at_the_harvest_hires_reapers() {
     assert!(
         sim.people().transfers.get(civ_agents::Channel::Wage, grain) > wages,
         "the reapers were paid in grain"
+    );
+    // The dashboard's harvest margins count each session paid, its hours and its pay (§8 18,
+    // first), a part of the wages paid in the crop's grain.
+    let m = sim.people().margins;
+    let paid = sim.people().transfers.get(civ_agents::Channel::Wage, grain) - wages;
+    assert!(m.reapings > margins.reapings, "{m:?}");
+    assert!(m.reaped_h > margins.reaped_h, "{m:?}");
+    let reaped_paid = m.reaped_paid_kg - margins.reaped_paid_kg;
+    assert!(
+        reaped_paid > 0.0 && reaped_paid <= paid + 1e-6,
+        "{m:?} {paid}"
     );
 }
 
@@ -1736,4 +1755,9 @@ fn a_lone_elder_with_no_firewood_buys_it_from_a_neighbour_with_wood_to_spare() {
         x.flows.get(Flow::Received, wood) >= bought - 1e-6,
         "the firewood bought came to them"
     );
+    // The dashboard's harvest margins read fuel traded from what moved by sale and barter (§8 18,
+    // first): the firewood bought is among it.
+    let t = &sim.people().transfers;
+    let traded = t.get(civ_agents::Channel::Sale, wood) + t.get(civ_agents::Channel::Barter, wood);
+    assert!(traded >= bought - 1e-6, "{traded} traded, {bought} bought");
 }

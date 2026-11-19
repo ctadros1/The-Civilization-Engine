@@ -261,6 +261,23 @@ impl Transfers {
     }
 }
 
+/// What the harvest's margins gave since the counters began (§8 18, first): reaping hired and
+/// grain gleaned, for the dashboard's report. Counters for reports, not world state, never saved;
+/// no decision reads them.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Margins {
+    /// Times a hired reaper was paid for a session on another household's field.
+    pub reapings: u32,
+    /// Hours of a capable adult's reaping those sessions gave.
+    pub reaped_h: f64,
+    /// What they were paid, kilograms of the crops' grain.
+    pub reaped_paid_kg: f64,
+    /// Grain gleaned, kilograms, by those who could earn the harvest wage (§8 17, fourth, slice
+    /// 2: of an age to work for hire) and by the others.
+    pub gleaned_able_kg: f64,
+    pub gleaned_other_kg: f64,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

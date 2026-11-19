@@ -803,6 +803,8 @@ pub struct Population {
     pub flows_gone: Flows,
     /// What moved between households, by channel (counters, not saved).
     pub transfers: crate::ledger::Transfers,
+    /// Reaping hired and grain gleaned, for the record (counters, not saved; §8 18, first).
+    pub margins: crate::ledger::Margins,
     /// How people spent their time (counters, not saved).
     pub time_use: TimeUse,
     /// Every infection there has been (M6a slice AZ; ADR-0021 §5). Saved.
@@ -6704,6 +6706,11 @@ impl Population {
                             // fourth, slice 2), what a law keeping the stubble is weighed by.
                             let half = params.places.use_half_life_days;
                             self.order.glean(hh_id, able, kcal, now.day_index(), half);
+                            if able {
+                                self.margins.gleaned_able_kg += kcal;
+                            } else {
+                                self.margins.gleaned_other_kg += kcal;
+                            }
                         }
                         // Who worked this place today (M5c slice AT): food got, kcal.
                         let kcal = ctx

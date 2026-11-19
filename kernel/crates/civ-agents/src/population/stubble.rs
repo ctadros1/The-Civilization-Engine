@@ -10,7 +10,7 @@
 use civ_core::PermanentId;
 
 use super::{Ctx, Population, may_eat_reserve, reapers};
-use crate::person::{Household, Person};
+use crate::person::{Household, Person, Target};
 use crate::polity::{LawStatus, PolicyKind};
 
 impl Population {
@@ -62,6 +62,78 @@ impl Population {
         held.iter()
             .map(|&(h, a, o)| (h, able * o / others, a))
             .collect()
+    }
+
+    /// Whether activity `def` at `target` by someone of `hh` is gleaning on its polity's own
+    /// stubble, where a law keeping the stubble binds (§8 19, seventh; research 08-22 §1: the
+    /// custom was the place's own, its bylaws its own fields'). Elsewhere it is not the polity's
+    /// to keep.
+    pub(super) fn stubble_binds(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        def: u16,
+        target: Target,
+    ) -> bool {
+        let gleans = ctx
+            .catalog
+            .activities
+            .get(usize::from(def))
+            .filter(|a| a.behavior == crate::params::Behavior::Gather)
+            .and_then(|a| a.resource)
+            .filter(|&r| ctx.land_params.resources.get(r).is_some_and(|r| r.reaped));
+        let pi = hh.settlement.and_then(|s| self.polity_of(s));
+        match (gleans, pi) {
+            (Some(r), Some(pi)) => self.own_stubble(ctx, pi, r, target),
+            _ => false,
+        }
+    }
+
+    /// Whether `person` gleaning by activity `def` at `target` would weigh a law keeping the
+    /// stubble now: for tests.
+    #[doc(hidden)]
+    pub fn stubble_binds_for_tests(
+        &self,
+        ctx: &Ctx,
+        person: PermanentId,
+        def: u16,
+        target: Target,
+    ) -> bool {
+        let (Some(p), Some(hh)) = (
+            self.person(person),
+            self.person(person)
+                .and_then(|p| self.household(p.household)),
+        ) else {
+            return false;
+        };
+        self.stubble_now(ctx, p, hh).is_some() && self.stubble_binds(ctx, hh, def, target)
+    }
+
+    /// Whether gleaning resource `r` at `target` is gleaning polity `pi`'s own stubble (§8 19,
+    /// seventh; research 08-22 §1): a field held by one of its households lies within the
+    /// gathering's block, whose gleanings these are.
+    pub(super) fn own_stubble(&self, ctx: &Ctx, pi: usize, r: usize, target: Target) -> bool {
+        let Target::Patch(centre) = target else {
+            return false;
+        };
+        let Some(res) = ctx.land_params.resources.get(r) else {
+            return false;
+        };
+        let patches = &ctx.land.patches;
+        let cols = patches.cols.max(1);
+        let k = res.range_patches;
+        let (cx, cy) = (centre % cols, centre / cols);
+        ctx.land.fields.iter().any(|f| {
+            let (x, y) = f.rect.centre_m();
+            let fp = patches.of_point(x, y) as u32;
+            let (fx, fy) = (fp % cols, fp / cols);
+            fx.abs_diff(cx) <= k
+                && fy.abs_diff(cy) <= k
+                && self
+                    .household(f.household)
+                    .and_then(|x| x.settlement)
+                    .is_some_and(|s| self.polities[pi].holds(Some(s)))
+        })
     }
 
     /// What keeping the stubble for those who cannot earn weighs with `p` of `hh` now, points,

@@ -1636,6 +1636,62 @@ fn a_household_short_of_food_proposes_to_keep_the_stubble_for_those_who_cannot_e
         let points = sim.with_ctx_for_tests(|pop, ctx| pop.stubble_points_for_tests(ctx, child));
         assert!(points.is_none(), "a child gleans as before");
     }
+    // The bar binds on the polity's own stubble only (§8 19, seventh; research 08-22 §1): gleaning
+    // the gleanings of a field one of its households holds, not ground with no field of its.
+    {
+        let rules = sim.rules().clone();
+        let glean = rules
+            .catalog
+            .activities
+            .iter()
+            .position(|x| x.id == "core:activity/glean")
+            .expect("gleaning") as u16;
+        let r = rules
+            .land
+            .resources
+            .iter()
+            .position(|x| x.id == "gleanings")
+            .expect("gleanings");
+        let k = rules.land.resources[r].range_patches;
+        let patches = sim.land().patches.clone();
+        let cols = patches.cols;
+        let field_patches: Vec<u32> = sim
+            .land()
+            .fields
+            .iter()
+            .map(|f| {
+                let (x, y) = f.rect.centre_m();
+                patches.of_point(x, y) as u32
+            })
+            .collect();
+        let own = sim
+            .land()
+            .fields
+            .iter()
+            .find(|f| f.household == poor.0 || f.household == able.0)
+            .map(|f| {
+                let (x, y) = f.rect.centre_m();
+                patches.of_point(x, y) as u32
+            })
+            .expect("a field of the polity's households");
+        let away = (0..cols * patches.rows)
+            .find(|&p| {
+                field_patches.iter().all(|&f| {
+                    (f % cols).abs_diff(p % cols) > k || (f / cols).abs_diff(p / cols) > k
+                })
+            })
+            .expect("ground with no field");
+        let binds = |sim: &mut Sim, at: u32| {
+            sim.with_ctx_for_tests(|pop, ctx| {
+                pop.stubble_binds_for_tests(ctx, grown, glean, civ_agents::Target::Patch(at))
+            })
+        };
+        assert!(binds(&mut sim, own), "on its own stubble the bar binds");
+        assert!(
+            !binds(&mut sim, away),
+            "where no field of its lies it does not"
+        );
+    }
     // Only a law they know of weighs with them (the ninth coverage pass, §8 18, third).
     let set_known = |sim: &mut Sim, known: Vec<(civ_core::PermanentId, i64)>| {
         let l = sim.people_mut_for_tests().polities[0]

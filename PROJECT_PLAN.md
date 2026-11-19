@@ -10548,6 +10548,24 @@ and M6a gives rivers a daily flow.
       after). **Not yet:** a want weighed over its years of use rather than its next season
       (the decision's horizon, a change to how every tool is weighed, so gated and larger); no
       lived world has yet shown a household that makes iron to sell.
+    - *The stubble bar's limits, slice 1 (2026-11-19): it binds on the polity's own stubble*
+      (§9, "The stubble bar binds on the polity's own stubble"; §8 19, seventh; research 08-22
+      §1, §2). The law keeping the stubble for those who cannot earn bound one who could earn
+      wherever they gleaned. **Built:** it binds only on gleaning the gleanings of a field one
+      of the polity's households holds, that is, where a field of theirs lies within the
+      gathering's block (`stubble_binds`, `own_stubble`); another settlement's stubble, or ground
+      with no field of theirs, is not the polity's to keep. **The season** needs no rule of its
+      own: the bar weighs only on gleaning, which is open only while gleanings lie, from the
+      reaping until they are gone, by daylight as all gathering is. No save, wire or content
+      change. **Tested:** polity (14: the stubble scene now checks that the bar binds on a field of
+      the polity's households and not on ground with no field of theirs, through a new test hook,
+      `stubble_binds_for_tests`; it fails with the bar binding everywhere); the whole civ-sim
+      suite (88 targets) and the civ-agents unit tests; smoke; fmt and clippy clean. **The
+      notables' gate**, locally, against cda31a0: passes, 0 of 40 runs changed (fixture 1
+      proposals +25.9 %, enacted +14.8 %, offices −30.0 %, moved −57.5 %; fixture 2 proposals
+      +17.1 %, enacted +38.7 %, offices +7.7 %, moved +72.8 %, before and after). **Not yet:**
+      the forecast still counts gleaning by those who could earn wherever it was done; a breach
+      heard as a case (slice 2).
       **Tested:** forum (27), faction (9), the civ-agents unit tests; fmt and clippy clean.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
@@ -13578,3 +13596,5 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Selling sludge blocked, not built (2026-11-19; §8 19, twelfth; ADR-0044 §7):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** a tank's disease load lies at its node and follows the keeper's sludge as it is spread. Sludge sold would have to carry its share of that load, and no node holds a load for sludge in a holder's keeping (`Store` doses eaters; `Food` is for food). That is a disease-model decision at ADR scale, and this milestone's ADR budget is spent (ADR-0046 is still with the owner). Passed over, not built. *Revisit when* the owner takes up the disease model or the next milestone opens.
 - **Iron by trade (2026-11-19; §8 19, tenth; M11d's fourteenth part; research 08-03):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** M11d's probes answered iron as a weighing: a household wanting a dynamo kept its iron and could only make it, and no settlement sold any, because no household ever bought a material. Smiths worked from bar stock bought as working capital (08-03). The smallest grounded slice is the rule salvage toward a tool already follows: a worked material kept toward a tool the household lacks is bought, worth the hours it saves, at home or by the existing fetch. It is limited to goods a recipe makes and no land gives, so the everyday materials households gather or dig (timber, stone, ore) are not bought, and no early world's trade moves. The notables' gate did not move (0 of 40 runs). The want weighed over years is left: it is the decision's horizon for every tool, a gated change of its own.
 - **NUDGE: iron by trade's prior (2026-11-19; the entry above; time-boxed):** a "worked material" is one that some recipe outputs and no land resource yields; only those are bought toward tools. Revisit if lived worlds show households idle for want of a gathered material a neighbour offers (timber, stone), or buying worked materials they would sooner make.
+- **The stubble bar binds on the polity's own stubble (2026-11-19; §8 19, seventh, slice 1; research 08-22 §1, §2):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** 08-22 finds the bylaws barring the able from gleaning were the place's own, binding its fields' stubble, and gleaning was open only from the carrying to the plough, by day. The law bound a person on any stubble, even another settlement's. Limiting it to gleanings within reach of a field the polity's households hold is the bylaws' reach. The season is already the gleanings' own, since the bar weighs only on gleaning. Deliberation sees no change, because a law's forecast and keeping are as they were, and the notables' gate did not move (0 of 40 runs). No ADR.
+- **NUDGE: the stubble bar's reach (2026-11-19; the entry above; time-boxed):** the polity's own stubble is taken to be any gathering block within which a field of one of its households lies. A block can hold a neighbour's field beside the polity's, and the bar binds there too. Revisit if lived worlds show the bar keeping people off stubble that is mostly another settlement's.

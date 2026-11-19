@@ -5710,14 +5710,7 @@ impl Population {
             .and_then(|p| self.stubble_now(ctx, p, &hh));
         if let Some(points) = stubble {
             for c in &mut cands {
-                let gleans = catalog
-                    .activities
-                    .get(usize::from(c.scored.def))
-                    .filter(|a| a.behavior == Behavior::Gather)
-                    .and_then(|a| a.resource)
-                    .and_then(|r| ctx.land_params.resources.get(r))
-                    .is_some_and(|r| r.reaped);
-                if gleans {
+                if self.stubble_binds(ctx, &hh, c.scored.def, c.scored.target) {
                     decide::add_term(c, Reason::Stubble, -points);
                 }
             }

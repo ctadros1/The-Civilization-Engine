@@ -10297,6 +10297,32 @@ and M6a gives rivers a daily flow.
       smoke; fmt and clippy clean. **The notables' gate**, locally, against be0a6e9: passes, 0 of 40 runs changed (every run's aggregates and offices as they were), fixture 1 proposals +25.9 %, enacted +14.8 %, offices −30.0 %, moved −57.5 %; fixture 2 proposals +17.1 %, enacted +38.7 %, offices +7.7 %, moved +72.8 %.
       **Not yet:** a tolerance for any of it, until a long run has been read; what each reaper
       earned against a workshop's hand.
+    - *Backlog E, speed against budgets (2026-11-19): long run 80's slow world, read again; a
+      walking grid that bars nothing is laid once* (§9, "Long run 80's slow world"; §8 18,
+      second). **Measured:** seed 4 lived alone on this 4-core container, with observation on
+      as the long runs have it. On d42c873 and on 3fa7d6c its years took 65 to 140 s until a slow
+      year or two at the same stage: on d42c873 year 9 took 585 s, and on 3fa7d6c years 8 and 9
+      took 420 and 377 s. The same binary lived twice drew a different history from year 1 (82
+      and 83 people), as §3.5 intends, so runs 79 and 80 are two histories, not a comparison of
+      code. Sampled with gdb in the slow years: landmark rebuilds about a third of the time,
+      settlements' walking fields about an eighth, laying the walking grid again about a
+      fifteenth, and ADR-0045's food dosing and the sewers' leaks in no sample. **Built:** a
+      latent fault in `NavGrid::with_barriers`, which returned before it recorded the
+      enclosures' revision when no cell is barred, so that once any enclosure had changed and
+      none barred walking every refresh laid the whole grid again (the same grid, keeping its
+      id, so a cost in speed only); it was not active in these runs. **Tested:** enclosures (6,
+      one new: an enclosure change that bars nothing is laid once, and a second refresh keeps
+      the grid; it fails without the change); determinism, roundtrip (110) and the civ-world unit
+      tests; smoke, with the same figures; fmt and clippy clean. **The notables' gate**, locally,
+      against 6bca7cd: passes, 0 of 40 runs changed. **Measured and not built:** a walking
+      field kept, cell by cell, where nothing changed in what it reached or beside it, an exact
+      refinement of the tile digests' keep (M10a slice DO). A probe over seed 4's first ten
+      years counted 472 changes of the walking ground (173 of them in the slow year 8, 17 to 66
+      in the others): every one of the 939 fields the tiles let go had a changed cell among or
+      beside what it reached, so none would have been kept, and landmarks were touched at 459
+      of them. A day's flood moves 2,500 to 18,000 cells, nearly all inside the walk from both
+      hearths. **Not yet:** what run 67's entry left for the owner, the walking ground changing
+      in coarser steps or landmarks not rebuilt for every flood, both behaviour changes.
     - *Backlog D, eighteenth item (2026-11-04): a household's line, wagons and trains pass on,
       and a line nobody holds is taken up* (the third and fourth items' "Not yet": a household's
       line, wagons and trains passing on; ADR-0034 §2, §3, §6; research 08-09 §1.2 and the
@@ -11423,7 +11449,10 @@ and M6a gives rivers a daily flow.
        long run 79's 14,501 s for its slowest world): check first that the two figures are
        measured alike. If they are, measure which world is slow and why on its saves (ADR-0045's
        food-borne disease slices are the new work in between). Only exact changes, as the
-       landmarks' were (§9, "Landmarks over the same ground are taken up again").
+       landmarks' were (§9, "Landmarks over the same ground are taken up again"). *Measured
+       2026-11-19* (§9, "Long run 80's slow world"): two histories, not a code comparison; the
+       flood-driven rebuilds are run 67's cause; a latent walking-grid fault fixed; an exact keep
+       of walking fields measured to spare nothing.
     3. *A ninth coverage pass: the 2026-11-19 slices* (gleaning slice 1, hired reaping slices 1
        and 2, fuel at market): each "Tested:" list read against the code, as the eighth pass
        did. Tests only, and gate-neutral unless a fault is found. Paths to look at: a reaper's
@@ -13207,3 +13236,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **NUDGE: the stubble law's design priors (2026-11-19; slice 2 above; time-boxed):** what those who could earn gleaned is taken to go wholly to those who remain gleaning, shared by what each gleaned; the record of who gleaned fades at the places' use half-life (180 days) and is weighed a year at that rate; "could earn" is the age bounds of work for hire (14 to 70 in the core); the bar binds the polity's people wherever and whenever they glean. Each is a design prior; revisit if lived worlds show the law proposed where nobody short gleans, or kept by those who could not earn.
 - **Fuel offered at market (2026-11-19; §8 17, fifth; research 08-16 §1.4; the 2026-11-03 lone-elders entry):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** 08-16 §1.4 treats fuel as a household necessity bought and sold as food is, and the lone-elders entry left buying it unbuilt because `can_offer` deliberately never offered firewood and opening it would change every market. Both halves are needed and neither is new machinery: the seller's offer beyond what it keeps (the hearth's days the household already keeps, by heat) and the buyer's weighing of what it lacks against the hours of its own the purchase saves, the rule a tool or food is bought by. It is kept to the household's own settlement: fuel is not fetched to sell again elsewhere nor bought at a door away, which would turn every errand into a firewood run before anyone has asked whether firewood was ever carted between villages. Nothing is tuned, and no threshold is new: the days kept are `fuel_target_days`, and what a fuel stands for is its heat. No save, wire or content change, so nothing is expensive to reverse; no ADR, and no new prior to log.
 - **The harvest's margins, reported (2026-11-19; §8 18, first; backlog E):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** gleaning, hired reaping and fuel at market landed today with the notables' gate's margins narrowing (fixture 2's enacted +38.7 % against 55 %), and the gate cannot see whether they happen at all over fifty years: it lives three. A reported row is how §4.7 measures what has no tolerance yet (Land, Travel, ADR-0030 §7's "measured, never set"), so the next long run reads how much reaping is hired, how much gleaning falls to those who could earn and would be barred, how much fuel changes hands and whether anyone proposes keeping the stubble, before any of it is relied on or tuned. The counters are kept as `transfers` is, never saved and never read by a decision, so nothing people do changes (the notables' gate against be0a6e9: 0 of 40 runs changed). The row is grey, so the dashboard's grades are unchanged. No ADR.
+- **Long run 80's slow world, read again (2026-11-19; §8 18, second; backlog E: speed against budgets; homelab long runs 67, 79, 80):** Decided by Claude under standing owner authority (2026-11-19). **The reading corrected:** world 4 (seed 4) took 14,501 s in run 79 (3fa7d6c) and 70,792 s in run 80 (d42c873), but the two runs are not a comparison of code. The world is not repeatable (§3.5): the same d42c873 binary, lived twice here with the same settings, had 82 and 83 people at the end of year 1, and neither run repeats run 79's or run 80's populations. Lived alone here, both commits ran seed 4 at the same speed until slow years at the same stage. Sampled with gdb, those slow years go to what run 67's entry found: the walking ground laid again for each day's flood depths, and with it the landmarks (about a third of the samples) and the settlements' walking fields (about an eighth). ADR-0045's food dosing and the sewers appear in no sample, so the long run's figure is the history that run drew on seed 4's ground. Seed 4 was also run 67's slow world. **Fixed (exact):** `NavGrid::with_barriers` now records the enclosures' revision before it returns with no barrier to lay. Before, once any enclosure had changed and none barred walking, every refresh laid the whole grid again. It was not active in these runs, so it is no speed-up here, but it would have made such a world slow. The notables' gate against 6bca7cd: 0 of 40 runs changed. **Measured, not built:** keeping a walking field cell by cell where nothing changed among or beside the cells it reached is exact, but over seed 4's first ten years it would have kept none of the 939 fields the tile digests let go, nor the landmarks, because a day's flood changes thousands of cells inside the walk from both hearths. *Reason:* shipping it would add machinery with nothing to show. Cutting the rebuilds at their source remains the owner's decision recorded in run 67's entry (coarser wading steps, or landmarks not rebuilt for every flood), because both change routes. Long run 83's seed 4 may be slow again for the same reason.

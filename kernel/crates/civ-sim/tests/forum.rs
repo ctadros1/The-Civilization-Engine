@@ -2319,3 +2319,107 @@ fn a_faction_against_the_elders_petitions_to_end_their_forum() {
         "its elder is spared their evenings: {stakes:?}"
     );
 }
+
+/// A one-holder forum, its hearer of household 3, who found nothing alone in household 0's case
+/// against household 1; and a faction against it founded by `organizer`. Gives the faction.
+fn against_a_lone_hearer(
+    sim: &mut Sim,
+    hh: &[(PermanentId, Vec<PermanentId>)],
+    organizer: PermanentId,
+) -> PermanentId {
+    use civ_agents::crime::CaseStance;
+    use civ_agents::faction::{Faction, Member, Why};
+    use civ_agents::word::Blamed;
+    let hearer = hh[3].1[0];
+    let forum = law(sim, "core:policy/name_a_hearer", Some(hearer));
+    let id = case(sim, &hh[0], &hh[1]);
+    let now = sim.now();
+    let pop = sim.people_mut_for_tests();
+    let household = pop.person(hearer).expect("alive").household;
+    let c = pop
+        .order
+        .cases
+        .iter_mut()
+        .find(|c| c.id == id)
+        .expect("the case");
+    c.stage = CaseStage::NotFound;
+    c.heard = Some(now);
+    c.forum = Some(forum);
+    c.stances = vec![CaseStance {
+        person: hearer,
+        household,
+        stance: Stance::Abstain,
+        stake: 0.0,
+        belief: 0.0,
+        regard: 0.0,
+        precedent: 0.0,
+    }];
+    let faction = sim.allocate_id_for_tests();
+    let pop = sim.people_mut_for_tests();
+    let settlement = pop.polities[0].settlement;
+    pop.factions.list.push(Faction::found(
+        faction,
+        settlement,
+        Blamed::Forum(forum),
+        organizer,
+        now,
+    ));
+    pop.factions.join(Member {
+        person: organizer,
+        faction,
+        since: now.day_index(),
+        why: Why::default(),
+    });
+    faction
+}
+
+/// The forum recall's choice (§8 17, third; the ninth and tenth coverage passes' "Left"): a
+/// faction against a forum of one holder may ask for its end or for another hearer, and asks for
+/// whichever brings its members more on average, an end only if it brings them any. Household 0
+/// brought the case the hearer found nothing in: another hearer, at even odds, brings it more
+/// than an end, and it asks for one. The hearer's own household is spared the hearer's evenings
+/// either way, and by an end the forum's finding too: the end brings it more, and it asks for it.
+#[test]
+fn a_faction_against_a_lone_hearer_asks_for_whichever_brings_its_members_more() {
+    use civ_agents::polity::PolicyKind;
+    let kind = |sim: &Sim, policy: u16| sim.rules().catalog.policies[usize::from(policy)].kind;
+    // The accuser who lost: another hearer.
+    let mut sim = world(3);
+    let hh = households(&sim);
+    assert!(hh.len() >= 4, "four households: {hh:?}");
+    let faction = against_a_lone_hearer(&mut sim, &hh, hh[0].1[0]);
+    let (chosen, (end, other)) =
+        sim.with_ctx_for_tests(|pop, ctx| pop.petition_weighed_for_tests(ctx, 0, faction));
+    let (end, other) = (
+        end.expect("an end weighed"),
+        other.expect("another weighed"),
+    );
+    assert!(
+        other > end,
+        "another hearer brings more: {other} against {end}"
+    );
+    let (m, _) = chosen.expect("a petition");
+    assert_eq!(kind(&sim, m.policy), PolicyKind::HearCases, "{m:?}");
+    assert!(m.nominee.is_some_and(|n| n != hh[3].1[0]), "{m:?}");
+    // The hearer's own household: the end.
+    let mut sim = world(3);
+    let hh = households(&sim);
+    assert!(
+        hh[3].1.len() >= 2,
+        "the hearer's household has another: {hh:?}"
+    );
+    let faction = against_a_lone_hearer(&mut sim, &hh, hh[3].1[1]);
+    let (chosen, (end, other)) =
+        sim.with_ctx_for_tests(|pop, ctx| pop.petition_weighed_for_tests(ctx, 0, faction));
+    let (end, other) = (
+        end.expect("an end weighed"),
+        other.expect("another weighed"),
+    );
+    assert!(
+        end > other && end > 0.0,
+        "the end brings more: {end} against {other}"
+    );
+    let (m, _) = chosen.expect("a petition");
+    assert_eq!(kind(&sim, m.policy), PolicyKind::Repeal, "{m:?}");
+    assert_eq!(m.nominee, None);
+}

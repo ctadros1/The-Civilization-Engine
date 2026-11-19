@@ -26,6 +26,10 @@ pub const PURPOSE_FACTION_THRESHOLD: u64 = 0x6661_6374_7468_7265; // "factthre"
 /// Purpose tag for whether someone is a free-rider at a petition (research 04-10 §1.4).
 pub const PURPOSE_FREE_RIDER: u64 = 0x6672_6565_7269_6465; // "freeride"
 
+/// A petition's demand and each household's stake in it, as `Population::petition_demand` gives
+/// it.
+pub type PetitionDemand = (MoveOption, Vec<(PermanentId, f32)>);
+
 impl Population {
     /// Midnight: memberships of those no longer here are let go, factions whose organizer is gone
     /// pass on or end, and those whose day it is review where they belong, in id order.
@@ -864,6 +868,20 @@ impl Population {
         faction: PermanentId,
         asked: Option<&Petition>,
     ) -> Option<(MoveOption, Vec<(PermanentId, f32)>)> {
+        self.petition_weighed(ctx, pi, faction, asked, None)
+    }
+
+    /// [`Self::petition_demand`], telling `weighed`, for a forum asked of afresh, what an end and
+    /// another hearer would each bring the faction's members on average (`None` for one not
+    /// open to it): what its choice is made by.
+    fn petition_weighed(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        faction: PermanentId,
+        asked: Option<&Petition>,
+        weighed: Option<&std::cell::Cell<(Option<f64>, Option<f64>)>>,
+    ) -> Option<(MoveOption, Vec<(PermanentId, f32)>)> {
         let (now, params) = (ctx.now, ctx.params);
         let policies = &ctx.catalog.policies;
         let polity = &self.polities[pi];
@@ -1023,7 +1041,14 @@ impl Population {
                     / theirs.len() as f64
             };
             let instead = if one_holder { replace(None) } else { None };
-            let recall = end.map(ended).filter(|(_, st)| mean(st) > 1e-9);
+            let recall = end.map(ended);
+            if let Some(w) = weighed {
+                w.set((
+                    recall.as_ref().map(|r| mean(&r.1)),
+                    instead.as_ref().map(|i| mean(&i.1)),
+                ));
+            }
+            let recall = recall.filter(|(_, st)| mean(st) > 1e-9);
             return match (recall, instead) {
                 (Some(r), Some(i)) => Some(if mean(&r.1) > mean(&i.1) { r } else { i }),
                 (r, i) => r.or(i),
@@ -1886,6 +1911,21 @@ impl Population {
         faction: PermanentId,
     ) -> Option<(MoveOption, Vec<(PermanentId, f32)>)> {
         self.petition_demand(ctx, pi, faction, None)
+    }
+
+    /// [`Population::petition_demand`] for faction `faction` of polity `pi`, with what an end of
+    /// the forum it stands against and another hearer would each bring its members on average:
+    /// for tests.
+    #[doc(hidden)]
+    pub fn petition_weighed_for_tests(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        faction: PermanentId,
+    ) -> (Option<PetitionDemand>, (Option<f64>, Option<f64>)) {
+        let weighed = std::cell::Cell::new((None, None));
+        let chosen = self.petition_weighed(ctx, pi, faction, None, Some(&weighed));
+        (chosen, weighed.get())
     }
 
     /// The refusal of law `law`'s levy at `settlement` that `person`, threshing now, has heard of

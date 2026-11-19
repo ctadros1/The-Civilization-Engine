@@ -10455,6 +10455,21 @@ and M6a gives rivers a daily flow.
       faction's weighing gives only the move it picks, so pinning which wins needs both
       weighings exposed to a test, a hook into `petition_demand` of its own. **Tested:** people
       (30), works (7); fmt and clippy clean.
+    - *Backlog E, coverage (2026-11-19): the forum recall's choice, pinned* (§9, "The forum
+      recall's choice, pinned"; the ninth and tenth passes' "Left"). A test hook and a test; no
+      behaviour changed. **The hook:** `petition_weighed_for_tests` gives the petition a faction
+      would ask and what an end of the forum and another hearer would each bring its members
+      on average (`petition_demand` now asks a private `petition_weighed` with nobody listening).
+      **The scene** (forum, one new, with a shared setup of a lone hearer who found nothing in
+      household 0's case against household 1): a faction founded from household 0 weighs
+      another hearer at +0.0036 against an end at −0.0036 and asks for another hearer; one
+      founded from the hearer's own household weighs the end at +0.25 against another at 0 and
+      asks for the end. It fails with the comparison reversed and with an end always preferred.
+      **Seen, not changed:** a faction of a household with no stake (households 2 and 4 here)
+      weighs an end at 0 and another hearer at −0.25 (their own evenings), and still asks for
+      another hearer: "an end only if it brings any" holds the end to a gain but not the
+      replacement. Recorded for a later look; a behaviour change, so not in a tests-only slice.
+      **Tested:** forum (27), faction (9), the civ-agents unit tests; fmt and clippy clean.
     - *Backlog D, eighteenth item (2026-11-04): a household's line, wagons and trains pass on,
       and a line nobody holds is taken up* (the third and fourth items' "Not yet": a household's
       line, wagons and trains passing on; ADR-0034 §2, §3, §6; research 08-09 §1.2 and the
@@ -13456,3 +13471,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **NUDGE: a works' fuel kept (2026-11-19; the entry above; time-boxed):** a household keeps, of each good with a heat, a session at its recipe's most units for `fuel_target_days` (three days), the most over the recipes making each line that its members know. Revisit if lived works idle for want of fuel their households sold, or hoard more than they burn in a season.
 - **A reading aloud kept by case (2026-11-19; §8 19, first; ADR-0025's "Writing arrives"):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** the observer is to show what a world did, and the reading aloud of a written finding at a hearing (ADR-0025's "Writing arrives") was kept only as a count, so no case could say it was read to those who sat. A record appended within the unreleased saves 220 (as written findings and gleaners were) is the least that lets the case's words say it. Nothing reads it but the frames, so the notables' gate did not move (0 of 40 runs). Not expensive to reverse, so no ADR.
 - **The tenth coverage pass (2026-11-19; §8 19, second; backlog E: test coverage):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** fuel weighed with hunger and a works' fuel landed today through filters (no fuel held, a way known, a works open) that their scenes did not reach. Each is now pinned by a test that fails without it. The first pins a limit recorded as "Not yet", so that building it is seen. Tests only, so nothing people do changes and the gate is not needed. The forum recall's choice is left: the only test hook returns the move picked, not both weighings, and adding one for a tie between two built weighings is a slice of its own, not a gap in what is tested.
+- **The forum recall's choice, pinned (2026-11-19; backlog E: test coverage; §8 17, third):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** the faction's choice between ending a forum of one holder and naming another hearer was the one branch of the recall that no test reached, because the hook gave only the move picked. A small hook, giving both weighings through a `Cell` that only tests pass, pins it, each side winning once, without changing what any faction asks. It showed that a faction with no stake may ask for a replacement that costs its members (−0.25 against an end at 0). That is recorded and not changed here: whether a replacement must also bring a gain is a behaviour change, to be gated.

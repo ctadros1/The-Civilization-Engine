@@ -7264,6 +7264,8 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
             lamp_first_lit: order.lamp_first_lit.map_or(-1, |t| t.minutes()),
             written,
             read_hearings: order.read_hearings,
+            gleaned_kg: order.gleaned.kg,
+            gleaned_short_kg: order.gleaned.short_kg,
         },
     );
     finish(fbb, root)
@@ -7649,6 +7651,10 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
         });
     }
     order.read_hearings = root.read_hearings();
+    order.gleaned = civ_agents::crime::Gleaned {
+        kg: root.gleaned_kg(),
+        short_kg: root.gleaned_short_kg(),
+    };
     // Coin issues and purses (schema 136); none before.
     for c in root.coin_issues().iter().flatten() {
         order.coinage.cohorts.push(civ_agents::coin::Cohort {

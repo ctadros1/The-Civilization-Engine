@@ -6667,6 +6667,17 @@ impl Population {
                                 .yield_around(ctx.land_params, r, patch as usize, hours, eff)
                         });
                         self.remember_patch(hh_id, seen, left, res.memory_days());
+                        // What was gleaned, and whether by a household short of food (research
+                        // 08-22 §3, §5): for the record, it changes nothing.
+                        if res.reaped && kcal > 0.0 {
+                            let short = self
+                                .outlook(ctx, hh_id)
+                                .is_some_and(|o| o.held < o.year_need);
+                            self.order.gleaned.kg += kcal;
+                            if short {
+                                self.order.gleaned.short_kg += kcal;
+                            }
+                        }
                         // Who worked this place today (M5c slice AT): food got, kcal.
                         let kcal = ctx
                             .catalog

@@ -1389,4 +1389,16 @@ fn reaping_leaves_grain_on_the_stubble_and_people_glean_it() {
         }
     }
     assert!(gleaned, "the household short of food gleaned the stubble");
+    // The record keeps what was gleaned, and that the household short of food gleaned it
+    // (research 08-22; the dashboard's crime and poverty row reads it), across a save and load.
+    let g = sim.people().order.gleaned;
+    assert!(g.kg > 0.0 && g.short_kg > 0.0, "{g:?}");
+    assert!(g.short_kg <= g.kg + 1e-9, "{g:?}");
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let at =
+        persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "glean").expect("saves");
+    let loaded = persist::load(&at.path, content()).expect("loads");
+    assert_eq!(loaded.people().order.gleaned, g);
 }

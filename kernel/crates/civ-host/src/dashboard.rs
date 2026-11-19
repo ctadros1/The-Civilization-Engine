@@ -740,6 +740,10 @@ pub struct CrimeSeen {
     pub seen: Ranked,
     /// Those brought before a gathering.
     pub cases: Ranked,
+    /// Grain gleaned from what reaping left, kilograms, and what households short of food
+    /// gleaned (research 08-22): what the poor got without taking.
+    pub gleaned_kg: f64,
+    pub gleaned_short_kg: f64,
 }
 
 /// A world's cases and challenges (M7b slice BU): by forum or gathering, how each closed.
@@ -864,7 +868,11 @@ impl JusticeSeen {
 impl CrimeSeen {
     /// The tally of `order`'s incidents.
     pub fn of(order: &civ_agents::crime::Order) -> CrimeSeen {
-        let mut c = CrimeSeen::default();
+        let mut c = CrimeSeen {
+            gleaned_kg: order.gleaned.kg,
+            gleaned_short_kg: order.gleaned.short_kg,
+            ..CrimeSeen::default()
+        };
         for i in &order.incidents {
             c.attempts.add(i.richer);
             if i.outcome == civ_agents::crime::Outcome::Taken {
@@ -885,10 +893,13 @@ impl CrimeSeen {
         self.takings.join(other.takings);
         self.seen.join(other.seen);
         self.cases.join(other.cases);
+        self.gleaned_kg += other.gleaned_kg;
+        self.gleaned_short_kg += other.gleaned_short_kg;
     }
 
     /// In words: "34 attempts, 0.71 of their neighbours richer on average; 12 takings (0.68), 8
-    /// seen (0.70), 3 brought as cases (0.80)".
+    /// seen (0.70), 3 brought as cases (0.80); 120 kg gleaned, 80 kg of it by households short of
+    /// food".
     pub fn words(&self) -> String {
         let one = |r: &Ranked, one: &str, many: &str, none: &str| {
             let what = if r.n == 1 { one } else { many };
@@ -909,8 +920,16 @@ impl CrimeSeen {
             ),
             None => "no attempts".to_owned(),
         };
+        let gleaned = if self.gleaned_kg > 0.0 {
+            format!(
+                "{:.0} kg gleaned, {:.0} kg of it by households short of food",
+                self.gleaned_kg, self.gleaned_short_kg
+            )
+        } else {
+            "nothing gleaned".to_owned()
+        };
         format!(
-            "{attempts}; {}, {}, {}",
+            "{attempts}; {}, {}, {}; {gleaned}",
             one(&self.takings, "taking", "takings", "no takings"),
             one(&self.seen, "seen", "seen", "none seen"),
             one(
@@ -3349,6 +3368,20 @@ mod tests {
         assert!(row.text.contains("10 takings (0.80)"), "{}", row.text);
         assert!(
             row.text.contains("none seen, none brought as cases"),
+            "{}",
+            row.text
+        );
+        assert!(row.text.ends_with("nothing gleaned"), "{}", row.text);
+        // What the poor got without taking (research 08-22): gleaning, all told and by those
+        // short of food, summed over the worlds; the grade is the attempts' alone.
+        a.crime.gleaned_kg = 30.0;
+        a.crime.gleaned_short_kg = 20.0;
+        b.crime.gleaned_kg = 10.0;
+        let row = crime(&[a.clone(), b.clone()]);
+        assert_eq!(row.grade, Grade::Green, "{}", row.text);
+        assert!(
+            row.text
+                .ends_with("40 kg gleaned, 20 kg of it by households short of food"),
             "{}",
             row.text
         );

@@ -732,6 +732,17 @@ pub struct Order {
     /// Hearings at which one who sat recalled a finding they held only on the page, not by word
     /// (ADR-0025's "Writing arrives"): for the record. Saved.
     pub read_hearings: u32,
+    /// Grain gleaned, all told and by households short of food (research 08-22): for the
+    /// record. Saved.
+    pub gleaned: Gleaned,
+}
+
+/// Grain gleaned from what reaping left (research 08-22 §3), kilograms: all of it, and what
+/// households short of food gleaned (food held below a year's need).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Gleaned {
+    pub kg: f64,
+    pub short_kg: f64,
 }
 
 /// A finding written down by one of those who heard the case, kept by their household as a

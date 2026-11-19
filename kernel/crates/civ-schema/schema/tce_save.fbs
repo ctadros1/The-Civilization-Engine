@@ -2592,6 +2592,10 @@ table Order {
   // Schema 220 (appended within the unreleased saves 220): hearings at which one who sat
   // recalled a finding they held only on the page; absent, 0.
   read_hearings: uint (id: 23);
+  // Schema 220 (research 08-22; appended within the unreleased saves 220): grain gleaned, all
+  // told and by households short of food, kilograms; absent, none.
+  gleaned_kg: double (id: 24);
+  gleaned_short_kg: double (id: 25);
 }
 
 // A finding written down (schema 220, ADR-0025's "Writing arrives"): the case's number, the

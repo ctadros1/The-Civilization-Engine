@@ -11588,6 +11588,74 @@ and M6a gives rivers a daily flow.
     evening, a recall that ends a forum, a crop left standing by a household that went, and a
     written finding in a sponsor's "seen" (its review half decided against).
 
+19. **What is open next, ranked (2026-11-19 survey from the hourly backlog's order, A to C, then
+    §7's "Not yet" lines, the ADRs' "Deferred" and "Revisit when" sections, research gaps and
+    question 18's leftovers; Unreal work, ADR-0046 and run 67's coarser walking ground, all the
+    owner's, left out):** each item was checked against `git log` and §9. Long run 83 is out on
+    be0a6e9, so items with little or no risk to the notables' gate come first.
+    **The backlog's head, checked:**
+    - *A, M11d's copper and iron ore question:* closed. ADR-0043 and its follow-ups (M11d's twelfth
+      and thirteenth parts) fixed what the demo had shown. The sixth eight-year `m11_world` run
+      (homelab 41277719464 on 9b7f3a8, `demos/m11/m11-demo-8y-9b7f3a8.txt`) dug copper. Two
+      probes answered iron as a weighing, not a fault: an easy year's leisure outweighs a distant
+      want of iron. Nothing was nudged. The demo has not been lived since 2026-11-01. The run's
+      "Not yet" lines (iron by trade; a want weighed over years) are below.
+    - *B, ADR-0037's deferrals:* the reinforced-concrete frame (72ff5e6), lifts and wind and
+      frames past four storeys (ADR-0042), and letting storeys (ADR-0040) are built. Still deferred
+      (glass, curtain walls, welding, prestressing, piles and settlement) wait on their own
+      "Revisit when": no world makes glass, and none builds past four storeys.
+    - *C, ADR-0038's and ADR-0044's deferrals:* salvage picking, the sewage farm and sewer
+      mending are built (backlog C, be58a11 to b0a7b23), as are covering (cover_tip) and leakage
+      (d80315f). Still open: compaction and burning tips; the toxicity of residues and metals in
+      farm soils (no harm model); rags, paper, glass and bones (no such goods); selling sewage;
+      sludge spread as dung; a sewer rate; inspection; and a farm's produce and pickers'
+      exposure. ADR-0044's "Revisit when" for the last is now met: ADR-0045 built a food route.
+    **Ranked:**
+    1. *A per-case record of readings aloud* (question 18's observer pass: "Not sent, so not
+       shown"). A hearing that recalls a finding only from the page is counted on the dashboard
+       but not kept by case, so the observer cannot say which case was read to whom. Appending
+       it within saves 220 is a record no decision reads, so gate-neutral.
+    2. *A coverage pass: the forum recall's choice, fuel weighed with hunger, and works' fuel*
+       (the ninth pass's "Left"; §7's 2026-11-19 entries): for a forum of one holder, the choice
+       between ending it and naming another hearer, set by both stakes in a scene; and fuel with
+       some held but too little. Tests only.
+    3. *The `m11_world` demo lived again on the current head* (A's follow-up): everything since
+       9b7f3a8 (enteric disease and food routes, gleaning, hired reaping, fuel markets, the works'
+       fuel) is unmeasured in an eight-year M11 world. A measurement, the coordinator's to
+       dispatch on the homelab. Gate-neutral.
+    4. *The harvest margins row read against long run 83* (§7, "the harvest's margins on the
+       dashboard", "Not yet: a tolerance"): once run 83 reports, read the row and say in §9
+       whether any of it earns a threshold. Report-only.
+    5. *Research: what a sewage farm's produce and its pickers carry* (ADR-0044's revisit, now
+       met): 05-07 and 12-10 cover food-borne disease and sewage farming apart, but not produce
+       grown on sewage, nor handling at a heap or tip. A research gap, gate-neutral.
+    6. *A sewage farm's produce and pickers' exposure through the food route* (ADR-0044 §7, after
+       5): a field watered from a sewer loads what it grows, as ADR-0045 loads prepared food, and
+       a picker handles what a heap holds. Disease, so smoke risk. It is gate-risky only where a
+       fixture keeps a sewage farm, which none does in three years.
+    7. *The stubble bar's limits and its breach* (question 18, seventh, carried; research 08-22
+       §1, §4): the harvest weeks and the polity's own fields; the employers' gain in hands; a
+       breach counted, as a curfew's is, then heard as a case. Deliberation, against the
+       narrowest margin (fixture 2's enacted is +38.7 % against 55 %).
+    8. *Fuel fetched from other settlements* (question 18, eighth, its second half; §7, "Fuel
+       offered at market"): fuel carried to sell again, and bought at a door elsewhere. An
+       economy change with gate risk.
+    9. *Cooking fewer and quicker meals before hunger* (§7, "Fuel weighed with hunger", "Not
+       built"; research 08-23 §4, §6): a hearth's burn that falls toward a floor as its fuel runs
+       short. A new mechanism in every household's fuel accounting, so smoke and gate risk.
+    10. *Iron by trade, and a want weighed over years* (M11d's fourteenth part's "Not yet"): no
+        settlement sells iron; a wanter weighs its shortfall by the day. Larger, an economy and
+        decision change.
+    11. *Prospecting's leftovers* (ADR-0043's "Not yet"): ground looked over on errands, word of
+        barren ground between settlements, and deadwood under the new memory.
+    12. *Tips and sewers' smaller deferrals* (ADR-0038 §6, ADR-0044 §7): compaction and burning
+        tips, selling sewage, sludge spread as dung, a sewer rate (a channel), and inspection as a
+        law's term. Each is its own small slice, of low value until a lived world keeps tips and
+        sewers for years.
+    Waiting on their "Revisit when", not open: ADR-0037's and ADR-0042's glass and tall frames;
+    ADR-0038's beasts; ADR-0041's downstream objections and pumped sewers; ADR-0040's rents law
+    and a building raised to let; ADR-0045's shared meals.
+
 ---
 
 ## 9. Decisions log

@@ -10407,6 +10407,27 @@ and M6a gives rivers a daily flow.
       enacted +14.8 %, offices −30.0 %, moved −57.5 %; fixture 2 proposals +17.1 %, enacted
       +38.7 %, offices +7.7 %, moved +72.8 %. **Not yet:** cooking adapted before hunger (above);
       fuel weighed with hunger when a household holds some fuel but too little for its food.
+    - *A works' fuel bought as its input (2026-11-19): charcoal and coal kept and bought for a
+      household's workshops* (§9, "A works' fuel bought as its input"; §8 18, eighth, its first
+      half; research 08-16 §1.4, 07-12). A works draws what its work uses from its owners'
+      household (the `owner` channel), and that household kept none of its works' fuel: charcoal
+      (a material) and coke stood as spare to offer, coal beyond its hearth's days likewise, and
+      no household ever bought a material. **Built:** a household with an open workshop keeps,
+      of each good with a heat, the most any recipe making one of its lines that its members
+      know burns at a session at its most, for the days a hearth keeps its fuel
+      (`works_fuel_keep`, into `Holding::keep` and `Holding::works`); and short of it, it weighs
+      buying it from its neighbours, as much as one person carries, worth the hours of its own it
+      saves, as hearth fuel is. A forge's household no longer offers the charcoal it forges with.
+      The gasworks' coal is its holder's household's, not a workshop's, and is not covered. No
+      save, wire or content change. **Tested:** works (7, one new: a household whose works forges
+      bar, with blooms and grain but no charcoal, keeps at least a session's charcoal for its
+      days and buys what a neighbour offers, up to a carried load; it fails without the keeping
+      and without the buying); the whole civ-sim suite (88 targets), the civ-agents and civ-host
+      unit tests; smoke; fmt and clippy clean. **The notables' gate**, locally, against 7494318:
+      passes, 0 of 40 runs changed, before and after alike: fixture 1 proposals +25.9 %, enacted
+      +14.8 %, offices −30.0 %, moved −57.5 %; fixture 2 proposals +17.1 %, enacted +38.7 %,
+      offices +7.7 %, moved +72.8 %. **Not yet:** fuel fetched from other settlements, or bought
+      at a door there (the second half); a gasworks' coal kept and bought by its holder.
     - *Backlog D, eighteenth item (2026-11-04): a household's line, wagons and trains pass on,
       and a line nobody holds is taken up* (the third and fourth items' "Not yet": a household's
       line, wagons and trains passing on; ADR-0034 §2, §3, §6; research 08-09 §1.2 and the
@@ -11560,7 +11581,9 @@ and M6a gives rivers a daily flow.
        hands in the forecast, and a breach heard as a case. Deliberation, gated, against the
        narrowest margin.
     8. *Coal and charcoal sold to works, and fuel fetched from other settlements* (the fuel
-       item's "Not yet"; after 5): an economy change, larger, with gate risk.
+       item's "Not yet"; after 5): an economy change, larger, with gate risk. The first half
+       *built 2026-11-19*, gate-neutral (§7, "A works' fuel bought as its input"); fuel fetched
+       from other settlements left.
     Not carried from 16 and 17, all built on 2026-11-19 (§9): a council's evenings counted by
     evening, a recall that ends a forum, a crop left standing by a household that went, and a
     written finding in a sponsor's "seen" (its review half decided against).
@@ -13332,3 +13355,5 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **The observer's states of the 2026-11-19 slices (2026-11-19; backlog E: the observer's empty and error states):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** ten slices landed in a day, and the observer is how they are seen. The web shell shows the words the kernel renders, so the faults were in the kernel's words: the stubble law levies nothing and read as a levy, and a written finding was nowhere in its case's words. Both are fixed as strings, so no wire change. What the kernel does not keep is not shown (a reading aloud by case, a breach of the stubble law); the first would need a saved record and the second is §8 18's seventh item. The words reach the chronicle too, but no decision reads them.
 - **Fuel weighed with hunger (2026-11-19; §8 18, sixth; research 08-23 §4, §6):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** 08-23 finds that households short of fuel give up other things before meals, and that fuel is weighed by what it makes possible. The engine's buyer valued fuel only by the gathering it saves, the opportunity-cost rule. The existing worth of food bought (own cost, more the shorter) is the mechanism: fuel that unlocks food a household holds is worth that food, through no new weight. It applies only where food waits on a fire, which no fixture world reaches, so the notables' gate did not move (0 of 40 runs). The second rule, cooking fewer and quicker meals before hunger, has no mechanism to work through: the hearth's burn is a fixed daily rate, so a stock-dependent burn is a new mechanism and is left. No save, wire or content change, and no ADR.
 - **NUDGE: fuel weighed with hunger's priors (2026-11-19; the entry above; time-boxed):** a day of the hearth's burning is taken to cook a day of the household's food (`fuel_kg_per_person_day` against `daily_kcal_per_person`); the food it unlocks is valued at the household's cheapest own cost of any food by energy, raised by how short it is as food bought is; and it is weighed only when nothing is eaten as it is and no fuel is held. Each is a design prior; revisit if lived worlds show households buying firewood with grain they need, or still going hungry beside grain with firewood on offer.
+- **A works' fuel bought as its input (2026-11-19; §8 18, eighth, first half; research 08-16 §1.4, 07-12):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** a works' fuel is an input as its ore is, and the works draws it from its owners' household. That household kept nothing for it, so since fuel came to market (4c66735) a forge's household could offer the charcoal its forge burns, and none could buy any, charcoal being a material. Through the existing keeping (`Holding`) and buying (`best_deal`'s fuel branch) the household now keeps what its workshops burn and buys it short, worth the hours it saves, with no new weight. How much is kept is a design prior: a session at the recipe's most units, for the hearth's days of fuel. No fixture world keeps a forge, so the notables' gate did not move (0 of 40). No save, wire or content change, and no ADR.
+- **NUDGE: a works' fuel kept (2026-11-19; the entry above; time-boxed):** a household keeps, of each good with a heat, a session at its recipe's most units for `fuel_target_days` (three days), the most over the recipes making each line that its members know. Revisit if lived works idle for want of fuel their households sold, or hoard more than they burn in a season.

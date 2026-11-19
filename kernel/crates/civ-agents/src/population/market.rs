@@ -70,6 +70,8 @@ const OFFER_FOOD_HALF_LIFE_DAYS: f64 = 365.0;
 pub(crate) struct Holding {
     pub keep: Vec<f64>,
     pub want: Vec<f64>,
+    /// Of `keep`, what it keeps of each good for its workshops' fuel (§8 18, eighth): kilograms.
+    pub works: Vec<f64>,
     pub spare_years: f64,
     /// The food it keeps to see it to its next harvest and its margin, kcal.
     pub food_keep: f64,
@@ -592,17 +594,18 @@ impl Population {
     }
 
     /// The good and units of the best purchase household `household` could make from its
-    /// neighbours now, and the hours it saves, as [`Self::find_deal`] weighs it with every walk
-    /// taken as none: for tests.
+    /// neighbours now (or from `only`), and the hours it saves, as [`Self::find_deal`] weighs it
+    /// with every walk taken as none: for tests.
     #[doc(hidden)]
     pub fn neighbours_deal_for_tests(
         &self,
         ctx: &Ctx,
         household: PermanentId,
+        only: Option<PermanentId>,
     ) -> Option<(usize, f64, f64)> {
         let hh = self.household(household)?;
         let stores = stores_now(hh, ctx.now, ctx.params, &ctx.catalog.goods);
-        self.find_deal(ctx, hh, &stores, &|_| Some(0.0), None, None)
+        self.find_deal(ctx, hh, &stores, &|_| Some(0.0), only, None)
             .map(|d| (d.good, d.units, d.saving_h))
     }
 
@@ -738,6 +741,7 @@ impl Population {
             }
         }
         let fuel_day = fuel_per_day(params, members, ctx.now.day_index());
+        let works = self.works_fuel_keep(ctx, hh, &knows);
         for (g, d) in goods.iter().enumerate() {
             // The household's need is in kilograms of the first fuel; another by its heat. A fuel
             // its hearth would burn only by a technique none of them knows is not kept for it
@@ -749,6 +753,8 @@ impl Population {
             if d.purpose == GoodUse::Material && !housed && d.money.is_none() {
                 keep[g] = keep[g].max(held(g));
             }
+            // And what its workshops burn (§8 18, eighth).
+            keep[g] += works[g];
             if d.purpose != GoodUse::Food || d.kept_back() {
                 want[g] = if keep[g] <= 0.0 {
                     0.0
@@ -770,9 +776,53 @@ impl Population {
         Holding {
             keep,
             want,
+            works,
             spare_years,
             food_keep,
         }
+    }
+
+    /// What household `hh` keeps of each good for the fuel its open workshops' work burns
+    /// (§8 18, eighth; research 08-16 §1.4, 07-12: a works' fuel is an input as its ore is),
+    /// kilograms: for each of its lines, the most any recipe making it that its members know asks
+    /// of each good with a heat (charcoal, coal, coke) for a session at its most, for the days of
+    /// fuel a hearth keeps. Nothing for a household with no workshop.
+    fn works_fuel_keep(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        knows: &dyn Fn(usize) -> bool,
+    ) -> Vec<f64> {
+        let (catalog, params) = (ctx.catalog, ctx.params);
+        let goods = &catalog.goods;
+        let mut out = vec![0.0f64; goods.len()];
+        for f in self
+            .firms
+            .iter()
+            .filter(|f| f.owner == hh.id && f.is_open())
+        {
+            for &line in &f.lines {
+                for r in catalog.recipes.iter().filter(|r| {
+                    r.outputs.iter().any(|&(o, _)| o == usize::from(line))
+                        && r.technique.is_none_or(knows)
+                }) {
+                    let mut session = vec![0.0f64; goods.len()];
+                    for &(g, amount) in &r.inputs {
+                        session[g] += amount * r.max_units.max(1.0);
+                    }
+                    for &(g, amount) in &r.session_inputs {
+                        session[g] += amount;
+                    }
+                    for (g, kg) in session.into_iter().enumerate() {
+                        if kg > 0.0 && goods[g].fuel.is_some() {
+                            let kept = kg * params.household.fuel_target_days;
+                            out[g] = out[g].max(kept);
+                        }
+                    }
+                }
+            }
+        }
+        out
     }
 
     /// Each household whose day it is reviews what it offers and on what terms (ADR-0006 §4):
@@ -1244,8 +1294,9 @@ impl Population {
                     }
                     let own = costs()[g].unwrap_or(f64::INFINITY) * units;
                     (units, TradeWorth::Goods { hours: 0.0 }, own)
-                } else if d.purpose == GoodUse::Fuel
-                    && d.fuel.and_then(|f| f.technique).is_none_or(knows)
+                } else if (d.purpose == GoodUse::Fuel
+                    && d.fuel.and_then(|f| f.technique).is_none_or(knows))
+                    || holding.works.get(g).is_some_and(|&w| w > 0.0)
                 {
                     // Fuel its hearth burns, that it is short of (§8 17, fifth; research 08-16
                     // §1.4): what it lacks of its hearth's days in this fuel by heat, as much as
@@ -1257,11 +1308,22 @@ impl Population {
                     } else {
                         self.household(seller).and_then(|x| x.settlement)
                     };
-                    if fuel_short <= 0.0 || neighbour != hh.settlement {
+                    // What its workshops burn of this fuel that it lacks (§8 18, eighth): their
+                    // input, bought as their owners' household buys any.
+                    let works_short = (holding.keep.get(g).copied().unwrap_or(0.0) - held(g))
+                        .max(0.0)
+                        .min(holding.works.get(g).copied().unwrap_or(0.0));
+                    let hearth = d.purpose == GoodUse::Fuel
+                        && d.fuel.and_then(|f| f.technique).is_none_or(knows);
+                    if (fuel_short <= 0.0 || !hearth) && works_short <= 0.0
+                        || neighbour != hh.settlement
+                    {
                         continue;
                     }
                     let ratio = crate::params::fuel_ratio(goods, g).max(1e-9);
-                    let units = (fuel_short / ratio)
+                    let for_hearth = if hearth { fuel_short / ratio } else { 0.0 };
+                    let units = for_hearth
+                        .max(works_short)
                         .min(params.household.carry_kg)
                         .min(f64::from(o.units));
                     if units < 1.0 {

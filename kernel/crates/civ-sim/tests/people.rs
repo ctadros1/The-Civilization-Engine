@@ -1804,7 +1804,7 @@ fn one_whose_grain_waits_on_a_fire_weighs_firewood_by_the_meals_it_makes() {
         .iter()
         .any(|(_, x)| x.id != hh && x.offers.iter().any(|o| usize::from(o.good) == wood));
     assert!(offered, "a neighbour offers firewood");
-    let deal = sim.with_ctx_for_tests(|pop, ctx| pop.neighbours_deal_for_tests(ctx, hh));
+    let deal = sim.with_ctx_for_tests(|pop, ctx| pop.neighbours_deal_for_tests(ctx, hh, None));
     assert!(
         deal.is_some_and(|(g, units, _)| g == wood && units >= 1.0),
         "she would buy firewood for the bread it bakes: {deal:?}"

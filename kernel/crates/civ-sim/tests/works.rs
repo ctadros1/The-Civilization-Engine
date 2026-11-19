@@ -517,3 +517,78 @@ fn a_blast_furnace_wants_four_hands_and_its_pig_is_fined_under_the_hammer() {
         "{pig_before} of pig for {bar} of bar"
     );
 }
+
+/// A works' fuel is an input it buys (§8 18, eighth; research 08-16 §1.4, 07-12): the household
+/// whose works forges bar, holding blooms and grain but no charcoal, buys the charcoal a neighbour
+/// offers, as much as one person carries, and keeps what its works burns for the days a hearth
+/// keeps its fuel. Before, charcoal was a material no household bought, and a works' owners kept
+/// none of it for their works.
+#[test]
+fn a_works_buys_the_charcoal_it_burns_from_a_neighbour() {
+    let mut sim = new_world(1);
+    sim.advance_minutes(24 * 60).expect("advances");
+    let (charcoal, grain, iron) = (
+        good(&sim, "core:good/charcoal"),
+        good(&sim, "core:good/grain"),
+        good(&sim, "core:good/iron"),
+    );
+    let (owner, who) = grown(&sim)[0];
+    let neighbour = grown(&sim)
+        .into_iter()
+        .map(|(h, _)| h)
+        .find(|&h| h != owner)
+        .expect("a neighbour");
+    if !sim.people().person(who).is_some_and(|p| {
+        p.knows(
+            sim.rules()
+                .catalog
+                .technique_index("core:technique/forging")
+                .expect("forging"),
+        )
+    }) {
+        sim.introduce_technique(who, "core:technique/forging", false)
+            .expect("introduced");
+    }
+    set(
+        &mut sim,
+        owner,
+        &[
+            ("core:good/iron_bloom", 200.0),
+            ("core:good/charcoal", 0.0),
+            ("core:good/grain", 5000.0),
+        ],
+    );
+    let firm = sim
+        .with_ctx_for_tests(|pop, ctx| pop.found_firm_for_tests(ctx, owner, who, iron))
+        .expect("a works");
+    assert!(sim.people().firm(firm).is_some_and(|f| f.is_open()));
+    // What the works burns is kept: blooms forged by hand at 8 kg a kilogram, two at a session,
+    // for the hearth's days.
+    let keep = sim.with_ctx_for_tests(|pop, ctx| pop.keep_for_tests(ctx, owner));
+    assert!(keep[charcoal] >= 16.0, "{}", keep[charcoal]);
+    // A neighbour offers charcoal for grain.
+    set(&mut sim, neighbour, &[("core:good/charcoal", 500.0)]);
+    {
+        let h = sim
+            .people_mut_for_tests()
+            .households
+            .iter_mut()
+            .map(|(_, h)| h)
+            .find(|h| h.id == neighbour)
+            .expect("neighbour");
+        h.offers = vec![civ_agents::market::Offer {
+            good: charcoal as u16,
+            payment: grain as u16,
+            price: 0.5,
+            units: 100.0,
+            ask_h: 0.5,
+        }];
+    }
+    let deal = sim
+        .with_ctx_for_tests(|pop, ctx| pop.neighbours_deal_for_tests(ctx, owner, Some(neighbour)));
+    let carry = sim.rules().people.household.carry_kg;
+    assert!(
+        deal.is_some_and(|(g, units, _)| g == charcoal && units > 1.0 && units <= carry + 1e-9),
+        "the works' household buys the charcoal its works burns: {deal:?}"
+    );
+}

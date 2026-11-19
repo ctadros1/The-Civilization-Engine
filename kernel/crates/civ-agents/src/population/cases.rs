@@ -565,6 +565,72 @@ impl Population {
         out
     }
 
+    /// At a hearing of case `own` tagged `tags`, those of `present` who can read read aloud the
+    /// findings their households keep written that they recall for it (ADR-0025's "Writing
+    /// arrives"; research 09-05 §2.1: Iceland's lawspeaker published the law by reciting it; 09-07
+    /// §6.4: writing expands reach): everyone there hears each as news made on `day`, at
+    /// `settlement`, unless every one of them already holds its word. Whether anything was read.
+    fn read_aloud(
+        &mut self,
+        ctx: &Ctx,
+        own: u32,
+        tags: u8,
+        present: &[PermanentId],
+        settlement: PermanentId,
+        day: i64,
+    ) -> bool {
+        if self.order.written.is_empty() {
+            return false;
+        }
+        let k = ctx.params.crime.recall_k as usize;
+        let mut read: Vec<u32> = Vec::new();
+        for &p in present {
+            let page = self.findings_read(ctx, p);
+            if page.is_empty() {
+                continue;
+            }
+            read.extend(
+                self.recall(ctx, p, own, tags, k)
+                    .into_iter()
+                    .map(|r| r.0)
+                    .filter(|id| page.contains(id)),
+            );
+        }
+        read.sort_unstable();
+        read.dedup();
+        let mut any = false;
+        for id in read {
+            let holds = |q: PermanentId| {
+                self.word.heard_by(q).iter().any(|h| {
+                    self.word.claim(h.claim).is_some_and(|c| {
+                        c.kind == crate::word::ClaimKind::Finding && c.event == Some(id)
+                    })
+                })
+            };
+            if present.iter().all(|&q| holds(q)) {
+                continue;
+            }
+            any = true;
+            let claim = self.word.make(crate::word::Claim {
+                id: 0,
+                kind: crate::word::ClaimKind::Finding,
+                settlement,
+                day,
+                subject: None,
+                grievance: None,
+                suspected: None,
+                fire: None,
+                event: Some(id),
+            });
+            for &q in present {
+                if self.person(q).is_some() {
+                    self.word.hear(q, claim, day, None, None);
+                }
+            }
+        }
+        any
+    }
+
     /// Whether any of findings `recalled` is one `p` recalls only from the page: their household
     /// keeps it written, and they hold no word of it (ADR-0025's "Writing arrives").
     fn recalled_from_page(&self, p: PermanentId, recalled: &[(u32, f64, f64)]) -> bool {
@@ -1312,6 +1378,10 @@ impl Population {
         };
         // Its body's members now (M4c slice AF).
         let members = self.body_members(&ctx.land.fields, pi, now, params);
+        // Its fact tags (M7b slice BS); and those there who can read read aloud the findings
+        // their households keep written that they recall for it (ADR-0025's "Writing arrives").
+        let tags = self.case_tags(ctx, pi, &c, outsider);
+        let read = self.read_aloud(ctx, c.id, tags, heard_by, settlement, day);
         let regard = |p: PermanentId, q: PermanentId| {
             if p == q {
                 1.0
@@ -1321,7 +1391,6 @@ impl Population {
         };
         // Its fact tags, and how far those hearing it follow the findings they remember (M7b
         // slice BS, ADR-0025 §2): the gathering's are informative.
-        let tags = self.case_tags(ctx, pi, &c, outsider);
         let authority = forum.map_or(crate::forum::Authority::Informative, |(d, _, _)| {
             d.authority
         });
@@ -1329,7 +1398,7 @@ impl Population {
         let mut recalled_all: Vec<(u32, f64, f64)> = Vec::new();
         // Whether one who sat recalled a finding they hold only on the page (ADR-0025's "Writing
         // arrives"): for the record, it changes nothing.
-        let page = std::cell::Cell::new(false);
+        let page = std::cell::Cell::new(read);
         let stances: Vec<CaseStance> = heard_by
             .iter()
             .filter_map(|&p| {

@@ -2044,3 +2044,91 @@ fn a_written_finding_passes_with_its_household_and_is_left_with_it() {
     let held: Vec<u32> = sim.people().order.written.iter().map(|w| w.case).collect();
     assert_eq!(held, vec![1]);
 }
+
+/// Writing reaches past the household (ADR-0025's "Writing arrives", slice 3; research 09-05
+/// §2.1: Iceland's lawspeaker published the law by reciting it; 09-07 §6.4: writing expands
+/// reach): an elder who can read, whose household keeps a finding written, reads it aloud at a
+/// sitting of the elders on a case of the same facts, so another elder who cannot read and held
+/// no word of it recalls it there, where the elders' findings persuade, and holds its word after.
+#[test]
+fn a_finding_kept_written_is_read_aloud_at_a_sitting_to_those_who_cannot_read() {
+    use civ_agents::crime::WrittenFinding;
+    use civ_agents::person::KnowSource;
+    let mut sim = world(3);
+    let hh = households(&sim);
+    assert!(hh.len() >= 4, "four households: {hh:?}");
+    law(&mut sim, "core:policy/hear_by_elders", None);
+    let reading = sim
+        .rules()
+        .catalog
+        .technique_index("core:technique/reading")
+        .expect("reading");
+    // An earlier case of the same facts, found long ago: its word is gone.
+    let earlier = case(&mut sim, &hh[0], &hh[1]);
+    let now = sim.now();
+    {
+        let pop = sim.people_mut_for_tests();
+        let c = pop
+            .order
+            .cases
+            .iter_mut()
+            .find(|c| c.id == earlier)
+            .expect("the case");
+        (c.stage, c.heard) = (CaseStage::Found, Some(now));
+    }
+    let id = case(&mut sim, &hh[0], &hh[1]);
+    let m = DAY - sim.now().minutes().rem_euclid(DAY) + DAY - 30;
+    sim.advance_minutes(m).expect("advances");
+    let drawn = sim.people().polities[0]
+        .sitting
+        .as_ref()
+        .and_then(|t| t.sitters(id))
+        .expect("the elders sit on it")
+        .to_vec();
+    let household = |sim: &Sim, p: PermanentId| sim.people().person(p).expect("alive").household;
+    let reader = *drawn
+        .iter()
+        .find(|&&p| household(&sim, p) == hh[2].0)
+        .expect("household 2's elder sits");
+    let listener = *drawn
+        .iter()
+        .find(|&&p| p != reader)
+        .expect("another elder sits");
+    let today = sim.now().day_index();
+    {
+        let pop = sim.people_mut_for_tests();
+        let p = pop
+            .people
+            .iter_mut()
+            .find(|(_, p)| p.id == reader)
+            .expect("the reader")
+            .1;
+        p.come_to_know(reading, KnowSource::Observer, now);
+        pop.order.written.push(WrittenFinding {
+            case: earlier,
+            holder: hh[2].0,
+            writer: reader,
+            made: today,
+        });
+        pop.word.prune(today, 60, 60, -1);
+        let t = pop.polities[0].sitting.as_mut().expect("it sits");
+        t.present = drawn.clone();
+    }
+    sim.advance_minutes(30).expect("advances");
+    let c = find(&sim, id);
+    let stance = c
+        .stances
+        .iter()
+        .find(|r| r.person == listener)
+        .unwrap_or_else(|| panic!("the listener sat: {c:?}"));
+    assert_ne!(stance.precedent, 0.0, "{c:?}");
+    let pop = sim.people();
+    assert!(
+        pop.word.heard_by(listener).iter().any(|h| pop
+            .word
+            .claim(h.claim)
+            .is_some_and(|k| k.event == Some(earlier))),
+        "the listener holds its word now"
+    );
+    assert_eq!(pop.order.read_hearings, 1, "recalled from the page");
+}

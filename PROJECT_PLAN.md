@@ -10068,6 +10068,22 @@ and M6a gives rivers a daily flow.
       roundtrip and determinism targets; the civ-agents (309) and civ-host (86) unit tests;
       smoke; fmt, clippy and the schema check clean. **The notables' gate**, locally:
       gate-neutral (all 40 runs identical).
+    - *ADR-0025's "Writing arrives", slice 3 (2026-11-18): a finding kept written is read aloud at
+      a sitting* (§9, "Written findings, slice 3"). A written finding reached only its household's
+      readers. **Built:** at a hearing, a gathering's or a forum's, each of those there who can
+      read reads aloud the findings their household keeps written that they recall for the case
+      (its tags matched, as recall does), and everyone there hears each as news made that day,
+      unless all of them already hold its word; they recall it at that hearing, and the word goes
+      on as any finding's does. A hearing where something was read counts as recalled from the
+      page (slice 2's count). **Tested:** forum (25, one new: an elder who can read reads a
+      finding aloud at a sitting of the elders, and another elder who cannot read and held no
+      word of it recalls it there and holds its word after; it fails without the reading aloud),
+      and the faction, polity, review, council, custom, opinion, values, credit, crime, holdings,
+      knowledge, roundtrip and determinism targets; the civ-agents (309) and civ-host (86) unit
+      tests; smoke; fmt, clippy and the schema check clean. **The notables' gate**, locally:
+      gate-neutral (all 40 runs identical; nobody in the fixtures knows reading). **Not yet:**
+      a finding kept by the forum or the polity rather than a household; copies made for others;
+      a written finding in the review or a sponsor's "seen".
     - *Backlog D, eighteenth item (2026-11-04): a household's line, wagons and trains pass on,
       and a line nobody holds is taken up* (the third and fourth items' "Not yet": a household's
       line, wagons and trains passing on; ADR-0034 §2, §3, §6; research 08-09 §1.2 and the
@@ -11140,7 +11156,8 @@ and M6a gives rivers a daily flow.
        forecast to serve its term, then lapse").
     4. *ADR-0025's "Writing arrives"*: written findings reaching further and lasting longer
        (09-07); writing exists; larger, touching precedent memory and saves. Slice 1 **landed**
-       2026-11-18 (§9, "Written findings, slice 1"): kept past the word by a hearer's household.
+       2026-11-18 (§9, "Written findings, slice 1"): kept past the word by a hearer's household;
+       slices 2 (the dashboard's count) and 3 (read aloud at a sitting) landed the same day.
     5. *Gleaning a crop a household that went left standing* (the 2026-11-04 recurring-red
        follow-ups; 05-06 §1.4, §5.3): changes people's days, helps the dying-worlds red; not
        deliberation, smoke risk.
@@ -12888,3 +12905,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **A hearer for a term is forecast to serve its term, then lapse (2026-11-18; the fixture 1 diagnosis's F4; ADR-0025 §1, M7a slice BN; research 09-02 §3.6):** Decided by Claude under standing owner authority (2026-11-18). The forecast has no horizon beyond the cases within memory, which it replays as a forum would hear them and states by the year; a term cannot be seen in a yearly rate, but it can in that replay: a forum held for `term_days` would have heard only that share of the days the cases span, and the gathering the rest after its law lapsed (a term's end is its own procedure, 09-02 §3.6; it lapses, M7a slice BN). So a forum with a term is weighed at `term_days / remember_days` (at most all) of what it would bring, and one in place of another over each one's share, the one in force by what is left of its term: while both would serve, one against the other, then whichever serves longer against the gathering. No weight is added; the share comes from the content's term and the people profile's memory. A renewable term is not forecast to be renewed (a new law is needed), as in the world.
 - **Written findings, slice 1 (2026-11-18; ADR-0025's "Revisit when": "Writing arrives (record reach and persistence change, not authority)"; research 09-07 §1.5, §6.4; M10c slice EC):** Decided by Claude under standing owner authority (2026-11-18). 09-07 §1.5 makes written coverage and record reach their own dimensions, apart from precedent's authority, and §6.4 says oral transmission keeps a small, selective set of remembered decisions while writing expands persistence and reach; it gives no figure for either. **What a written finding is:** a record of a forum's finding, of the case, kept by a household, with who wrote it and the day. **Who writes it:** the first of those who sat on it (in id order) who knows writing, at the sitting; design prior: the hearing's own record takes no hours beyond the sitting (09-07 gives none). **How long it lasts:** as a technique's record does (M10c slice EC): held by the household, passing when it joins another, left when it is no more; not let go after `remember_days`, which bounds the word alone. **How far it reaches:** in slice 1, to its household's readers only: one who knows reading recalls what their household keeps, beside the word they hold. **What reads it:** precedent recall at a hearing, which ADR-0025's authority (informative, persuasive, binding) still weighs; authority is unchanged, as the ADR's revisit line asks. A gathering's findings are not written in slice 1 (a gathering has no one office to write them), nor challenges; the review and a sponsor's "seen" do not read them yet.
 - **Written findings, slice 2 (2026-11-18; the entry above; plan §4.7's dashboard rows):** Decided by Claude under standing owner authority (2026-11-18). The measure of writing lengthening precedent is a hearing at which someone recalled a finding they could only have recalled from the page: their household keeps it written and they hold no word of it. That is counted where the hearing happens and saved as one number in the order, since the word of it is gone by the time a dashboard looks; findings written and still kept are read from the order as they stand. Both join the justice row's words; the row is reported, not graded, as before.
+- **Written findings, slice 3: read aloud at a sitting (2026-11-18; research 09-05 §2.1, 09-07 §6.4):** Decided by Claude under standing owner authority (2026-11-18). Of the three ways past the household (read aloud, kept by the forum, copied), reading aloud is the best grounded: 09-05 §2.1 records Iceland's lawspeaker publishing the law by reciting it at the assembly, a recorded way law reached those who could not read, and 09-07 §6.4 says writing expands reach; keeping by the forum would invent an office's archive the engine has no holder for, and copying a finding has no source beyond the copying of technique records, which is for kin living apart. What is read is what the reader recalls for the case (recall's tag match and `recall_k`), not every finding the household keeps; it is told as news made that day, so its word is held for `remember_days` from then and spreads as a fresh finding's does. It is read at any hearing, a gathering's as a forum's, since a gathering too is a sitting at the hearth. No new weight.

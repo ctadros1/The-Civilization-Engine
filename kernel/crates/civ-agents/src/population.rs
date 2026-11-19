@@ -124,6 +124,7 @@ mod rules;
 mod school;
 mod sickness;
 mod stewardship;
+mod stubble;
 mod suspicion;
 mod terms;
 mod values;
@@ -5696,6 +5697,26 @@ impl Population {
                 }
             }
         }
+        // The stubble kept for those who cannot earn (§8 17, fourth, slice 2): gleaning costs one
+        // who could earn the harvest wage and knows the law what keeping it weighs with them.
+        let stubble = self
+            .people
+            .get(h)
+            .and_then(|p| self.stubble_now(ctx, p, &hh));
+        if let Some(points) = stubble {
+            for c in &mut cands {
+                let gleans = catalog
+                    .activities
+                    .get(usize::from(c.scored.def))
+                    .filter(|a| a.behavior == Behavior::Gather)
+                    .and_then(|a| a.resource)
+                    .and_then(|r| ctx.land_params.resources.get(r))
+                    .is_some_and(|r| r.reaped);
+                if gleans {
+                    decide::add_term(c, Reason::Stubble, -points);
+                }
+            }
+        }
         // A law keeping the sick apart where they live (M10c slice EE, first part): going out of
         // a home kept apart, or tending at another one, costs one who knows of it what keeping it
         // weighs with them. The watch, the lamplighter and those at a fire are exempt.
@@ -6659,6 +6680,7 @@ impl Population {
                         p.carrying.good = Some(res.good as u16);
                         p.carrying.kg = (kept * res.unit_kg) as f32;
                         let (hh_id, kcal) = (p.household, kept * res.unit_kg);
+                        let able = reapers::could_earn(ctx.catalog, p.age_years(now));
                         let seen = (r as u16, patch, got, hours, now.day_index());
                         // A stock that only falls is judged by what is left of it as they leave:
                         // what as many hours more there would give them, as every return
@@ -6678,6 +6700,10 @@ impl Population {
                             if short {
                                 self.order.gleaned.short_kg += kcal;
                             }
+                            // And by whom: one who could earn the harvest wage or not (§8 17,
+                            // fourth, slice 2), what a law keeping the stubble is weighed by.
+                            let half = params.places.use_half_life_days;
+                            self.order.glean(hh_id, able, kcal, now.day_index(), half);
                         }
                         // Who worked this place today (M5c slice AT): food got, kcal.
                         let kcal = ctx

@@ -256,6 +256,9 @@ pub(super) struct Forecasts {
     /// What covering the polity's open tip would bring each household and cost it, kcal a year,
     /// by household id (ADR-0038 §6's covering).
     covers: Vec<(PermanentId, f64, f64)>,
+    /// What keeping the stubble for those who cannot earn the harvest wage would bring each
+    /// household and cost it, kcal a year, by household id (§8 17, fourth, slice 2).
+    stubble: Vec<(PermanentId, f64, f64)>,
 }
 
 /// What a household weighs a trade law by (M7c slice BV, ADR-0026 §1): its settlement's
@@ -712,6 +715,17 @@ impl Forecasts {
                     * o.year_need
                     / 365.0;
                 crate::polity::against_gain(o, recover, owe + home, pp)
+            }
+            // The stubble kept for those who cannot earn (§8 17, fourth, slice 2): what those who
+            // could earn the harvest wage gleaned that its own who cannot would glean in their
+            // place, less what its own who could earn gleaned.
+            Some(PolicyKind::KeepStubble) => {
+                let (gain, cost) = self
+                    .stubble
+                    .iter()
+                    .find(|s| s.0 == h)
+                    .map_or((0.0, 0.0), |s| (s.1, s.2));
+                crate::polity::against_gain(o, gain, cost, pp)
             }
             // A claim (M5c slice AT): what the household believes outsiders take at the places
             // it names that the claim would keep for it; it costs nothing to make.
@@ -2604,6 +2618,7 @@ impl Population {
             tips: self.tips_forecasts(ctx, households),
             rounds: self.rounds_forecasts(ctx, households),
             covers: self.cover_forecasts(ctx, pi, households),
+            stubble: self.stubble_forecasts(ctx, households),
             adults: {
                 let mut a = adults.to_vec();
                 a.sort_unstable();
@@ -4677,6 +4692,13 @@ impl Population {
                     // A claim names the places where the settlement's people saw outsiders at
                     // work (M5c slice AT): one move, its places fixed when it is proposed.
                     PolicyKind::ClaimPlace => moves.push(blank),
+                    // The stubble kept for those who cannot earn, where any of the settlement's
+                    // people who could earn the harvest wage gleaned (§8 17, fourth, slice 2).
+                    PolicyKind::KeepStubble => {
+                        if !fc.stubble.is_empty() {
+                            moves.push(blank);
+                        }
+                    }
                     // A crossing at one of the sites their own household wades, the three it
                     // wades most (M5c slice AW, step three).
                     PolicyKind::BuildCrossing => {
@@ -5299,8 +5321,16 @@ impl Population {
                     .get(usize::from(m.policy))
                     .is_some_and(|x| x.kind == PolicyKind::Plan)
             };
+            // So is the stubble kept for those who cannot earn (§8 17, fourth, slice 2): proposed
+            // by those who would glean in the place of those it bars.
+            let stubble = |m: &MoveOption| {
+                policies
+                    .get(usize::from(m.policy))
+                    .is_some_and(|x| x.kind == PolicyKind::KeepStubble)
+            };
             moves.retain(|m| {
-                (m.body.is_none() && !further(m) && !limit(m) && !plan(m)) || m.own_gain > 0.0
+                (m.body.is_none() && !further(m) && !limit(m) && !plan(m) && !stubble(m))
+                    || m.own_gain > 0.0
             });
             // Of the plans they laid, they put forward the one they reckon best for their
             // household and those who regard them, the first among equals (ADR-0030 §2), as one

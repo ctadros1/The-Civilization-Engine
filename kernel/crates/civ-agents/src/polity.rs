@@ -238,11 +238,17 @@ pub enum PolicyKind {
     /// household asked an equal share of the work as refuse comes; refuse under cover washes off
     /// in no rain, though it still seeps. Kept by choice, as the others.
     CoverTip,
+    /// The stubble kept for those who cannot earn the harvest wage (§8 17, fourth, slice 2;
+    /// research 08-22 §1, §4: the Islip and Wymeswold bylaws barred from gleaning anyone who could
+    /// earn a penny, or two pence, a day at the harvest): nobody of the polity of an age to work
+    /// for hire gleans, so what reaping leaves is for its children, its old and its weak. Kept by
+    /// choice, as a curfew is; a household going hungry gleans still.
+    KeepStubble,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 49] = [
+    pub const ALL: [PolicyKind; 50] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -292,6 +298,7 @@ impl PolicyKind {
         PolicyKind::CollectRefuse,
         PolicyKind::LaySewer,
         PolicyKind::CoverTip,
+        PolicyKind::KeepStubble,
     ];
 
     /// The authored name.
@@ -346,6 +353,7 @@ impl PolicyKind {
             PolicyKind::CollectRefuse => "collect_refuse",
             PolicyKind::LaySewer => "lay_sewer",
             PolicyKind::CoverTip => "cover_tip",
+            PolicyKind::KeepStubble => "keep_stubble",
         }
     }
 
@@ -2630,6 +2638,9 @@ pub fn ending_words(
         Some(PolicyKind::CollectRefuse) => "the collecting of refuse".to_owned(),
         Some(PolicyKind::LaySewer) => "the laying of the sewer".to_owned(),
         Some(PolicyKind::CoverTip) => "the covering of the tip".to_owned(),
+        Some(PolicyKind::KeepStubble) => {
+            "the keeping of the stubble for those who cannot earn".to_owned()
+        }
         Some(PolicyKind::BearerHeard) => "the hearing of refused notes".to_owned(),
         Some(PolicyKind::IssueNotes) => "the store's notes".to_owned(),
         Some(PolicyKind::LegalTender) => "the store's notes as legal tender".to_owned(),

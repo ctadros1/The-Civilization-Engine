@@ -10215,10 +10215,42 @@ and M6a gives rivers a daily flow.
       the civ-agents, civ-land, civ-host and civ-content unit tests; smoke; fmt and clippy clean.
       **The notables' gate**, locally, against 1a6dc79: passes, 29 of 40 runs changed (households short of hands now hire): fixture 1 proposals +28.0 % to +33.3 % (105 %), enacted +16.0 % to +19.2 % (55 %), offices −20.0 % to −10.0 % (85 %), moved −34.7 % to +46.0 % (95 %); fixture 2 proposals +7.8 % to +6.1 %, enacted +19.4 % to +21.1 %, offices +21.4 % to +23.1 %, moved +44.2 % to +62.5 %. **Not yet:** slice 2, the
       bylaws' wage test for gleaning (research 08-22 §1: those able to earn the harvest wage may not
-      glean), now that there is a harvest wage to earn; the wage bid up while hours go untaken (a
+      glean), now that there is a harvest wage to earn (done 2026-11-19, slice 2, the next entry); the wage bid up while hours go untaken (a
       workshop's `wage_max_change`; research 08-10 §5.6, faster review for urgent seasonal tasks);
       hire for the other field tasks (sowing, threshing); pay as a share of the sheaves, or owed
       until threshing, for a household with no grain left to pay; reapers from other settlements.
+    - *Hired field work at the harvest, slice 2 (2026-11-19): gleaning's wage test, the stubble
+      kept for those who cannot earn* (§9, "Gleaning's wage test"; §8 17, fourth; research 08-22
+      §1, §4: at Islip in 1407 the bylaw barred from gleaning anyone who could earn a penny a day,
+      at Wymeswold two pence; gleaning slice 3's block). With slice 1 there is a harvest wage to
+      earn, so a law reserving gleaning to those who cannot earn now brings someone something.
+      **Built:** each gleaning trip is recorded by household, by whether the gleaner could earn
+      the harvest wage (of an age to work for hire, as the content's work for hire allows) or not,
+      fading at the places' use half-life (`Order::gleaners`, saved, appended within saves 220). A
+      new policy kind `keep_stubble` (content API 235; the core's
+      `zestfully_zone_the_stubble`, answering `food_short`, levying nothing, bearing on no value)
+      is weighed by each household as what those who could earn gleaned a year, shared among the
+      households whose others gleaned by what each of them gleaned, against what its own who could
+      earn gleaned; it is put forward only where someone who could earn gleaned and someone else
+      did, and only by one whose household forecasts a gain from it (as an amendment or a plan
+      is), so its sponsor is one whose children or old would glean in the place of those it bars.
+      In force, one who could earn and knows of it weighs keeping it when they would glean (a
+      term, "a law keeps the stubble for those who cannot earn the harvest wage", as a curfew's),
+      unless their household is going hungry; a child or an elder gleans as before. **Tested:**
+      polity (14, one new: where a household's adults gleaned 150 kg and a household short of
+      food, its grain lasting ninety days, gleaned 100 kg by its others, that household forecasts
+      a gain and the other a loss; reviewing day by day, the short household's elder proposes it;
+      in force, the other household's grown member weighs keeping it and a child does not; the
+      record is kept across a save and load; it fails without the move), a content test (the
+      template answers food running short, levies nothing, and sorts last; each older template's
+      ordering test lists it as newer), and the people, forum, faction, council, custom, review,
+      opinion, values, crime, credit, roundtrip, determinism, settlements, regimes, modes,
+      resolution, bottlenecks, soil and firms targets; the civ-agents, civ-land, civ-host and
+      civ-content unit tests and the content tests; smoke; fmt, clippy and the schema check clean.
+      **The notables' gate**, locally, against 213a65c: passes, 10 of 40 runs changed, all of fixture 2 and each by one more law proposed and one more enacted (the new law, come to in ria_coast's lean years): fixture 1 unchanged (proposals +33.3 %, enacted +19.2 %, offices −10.0 %, moved +46.0 %, before and after); fixture 2 proposals +6.1 % to +5.8 % (105 %), enacted +21.1 % to +19.7 % (55 %), offices +23.1 % to +23.1 % (85 %), moved +62.5 % to +65.7 % (95 %). **Not yet:** the bar kept to
+      the harvest weeks or to the polity's own fields (it binds the polity's people wherever they
+      glean, all year); the employers' gain in hands kept for the harvest wage in the forecast; a
+      breach heard as a case; a landholder's leave.
     - *Backlog D, eighteenth item (2026-11-04): a household's line, wagons and trains pass on,
       and a line nobody holds is taken up* (the third and fourth items' "Not yet": a household's
       line, wagons and trains passing on; ADR-0034 §2, §3, §6; research 08-09 §1.2 and the
@@ -11318,7 +11350,8 @@ and M6a gives rivers a daily flow.
        workshop hires; it unblocks the bylaws' wage test for gleaning; larger, an economy change,
        smoke and gate risk.
        *Slice 1 built 2026-11-19* (§7, "Hired field work at the harvest, slice 1": reaping only);
-       slice 2 is the bylaws' wage test for gleaning.
+       slice 2 is the bylaws' wage test for gleaning (*built 2026-11-19*, §7, "Hired field work at
+       the harvest, slice 2").
     5. *Fuel offered at market* (the 2026-11-03 lone-elders entry's "Not yet": firewood is never
        offered; research 08-16 §1.4: fuel a household necessity and an input): a household with
        wood to spare posts it as it posts food; helps the dying-worlds red; economy, smoke risk.
@@ -13077,3 +13110,5 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **A faction may recall a forum (2026-11-19; §8 17, third; research 09-02 §3.6; ADR-0025 §1; M4c slices AH, AI):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** a recall is removal with nobody named in the office's place (09-02 §3.6 counts removal among an office's own procedures); the kernel already has every part: a faction's petition against what it blames (AH), a repeal that ends a law and is weighed as what that law brings turned about (AI), and a forum's end sending its cases to the gathering (ADR-0025 §1). So a faction against a forum may now ask for its repeal, and against one of one holder chooses between that and another hearer by what each brings its members, asking for an end only where it brings them something; no new law kind, template, weight or save field.
 - **Hired field work at the harvest, slice 1 (2026-11-19; §8 17, fourth; research 08-10 §1.3, §5.6; slice J's hiring):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** 08-10 §1.3 puts a wage inside the household's own calendar: an offer is worth taking only against the value and urgency of what the time displaces, so a farmer refuses outside work at the harvest and takes it in the slack. The kernel already weighs a workshop's wage that way (`best_job`, the decision's `Hire`), so reaping for hire reuses it whole rather than adding a labour market: who hires is a household whose reaping outruns its hands before the standing loss (the reaping urgency's grace, counted at a peak's hours, since a household works its long days before it pays anyone); who goes is whoever finds the wage worth more than its own work, which the decision already finds; and the wage is the custom a workshop pays, the same `firm.wage_share` of what an hour of the work brings, so no harvest wage is set by hand. Reaping only, to keep the economy change small and the gate readable; paid from grain held, the simplest payment the ledger already makes. Nothing is saved for it (the offer is read from fields and stores when weighed; the reaper's act aims at the field, `Target::Field`, already saved), so saves, wire and content are unchanged and nothing is expensive to reverse; no ADR. Slice 2 is the bylaws' wage test for gleaning (research 08-22 §1), which this unblocks.
 - **NUDGE: hired reaping's design priors (2026-11-19; slice 1 above; time-boxed):** a household hires only the hours its members cannot give at `peak_work_hours_per_day` before the first ripe field's grace (a quarter of the crop lost standing) runs out; the field ripe longest is offered first; an offer under half an hour is not made; the wage is `firm.wage_share` (0.5) of the field's expected grain over the hours still needed to bring it in, paid in that grain from the field's household's store, never more than it holds; a reaper works at the best reaping rate its own household holds the tools for. Each is a design prior, not a measurement; revisit if lived worlds show harvests lost standing beside idle neighbours, or reapers drawn off their own harvests.
+- **Gleaning's wage test (2026-11-19; §8 17, fourth, slice 2; research 08-22 §1, §4; slice 1's harvest wage):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** the late-medieval bylaws (Islip 1407, Wymeswold) barred from gleaning anyone who could earn the harvest wage, so that what reaping leaves fed those who could not and the able went to the harvest; gleaning slice 3 found the kernel had no harvest wage, so such a law brought nobody anything, and slice 1 built one. The law comes by the existing means: a template answering food running short, forecast by each household from a record of who gleaned (what those who could earn took, which those who cannot would glean in their place, against what its own who could earn would give up), put forward only by one whose household forecasts a gain (as an amendment or a plan is, so no proposal is made for nothing and nobody's choice among other moves changes), and kept by choice as a curfew is, with need over the word. It bears on no value, so its sponsor is one whose own gleaning gains. A new policy kind is appended (content API 235; a saved law names its template by id, as every kind since `cover_tip` was added without an ADR), with one new decision reason and one saved record appended within saves 220; nothing is expensive to reverse, so no ADR. "Could earn" is of an age to work for hire, the content's own bound for working for wages; the bylaws' penny a day is not modelled as a sum.
+- **NUDGE: the stubble law's design priors (2026-11-19; slice 2 above; time-boxed):** what those who could earn gleaned is taken to go wholly to those who remain gleaning, shared by what each gleaned; the record of who gleaned fades at the places' use half-life (180 days) and is weighed a year at that rate; "could earn" is the age bounds of work for hire (14 to 70 in the core); the bar binds the polity's people wherever and whenever they glean. Each is a design prior; revisit if lived worlds show the law proposed where nobody short gleans, or kept by those who could not earn.

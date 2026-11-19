@@ -2596,6 +2596,10 @@ table Order {
   // told and by households short of food, kilograms; absent, none.
   gleaned_kg: double (id: 24);
   gleaned_short_kg: double (id: 25);
+  // Schema 220 (§8 17, fourth, slice 2; appended within the unreleased saves 220): what each
+  // household's people gleaned, fading, by those who could earn the harvest wage and the others,
+  // in household order; absent, none.
+  gleaners: [GleanedBySave] (id: 26);
 }
 
 // A finding written down (schema 220, ADR-0025's "Writing arrives"): the case's number, the
@@ -2605,6 +2609,15 @@ struct WrittenFindingSave {
   holder: ulong;
   writer: ulong;
   made: long;
+}
+
+// What a household's people gleaned (schema 220): kilograms by those of an age to work for hire,
+// and by the others, fading, reckoned to `day`.
+struct GleanedBySave {
+  household: ulong;
+  able_kg: double;
+  other_kg: double;
+  day: long;
 }
 
 // An issue of coin (schema 136): its number, the polity whose mint struck it, the day, grams a

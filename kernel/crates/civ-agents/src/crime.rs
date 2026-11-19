@@ -735,6 +735,73 @@ pub struct Order {
     /// Grain gleaned, all told and by households short of food (research 08-22): for the
     /// record. Saved.
     pub gleaned: Gleaned,
+    /// What each household's people gleaned, fading, by those who could earn the harvest wage and
+    /// by the others (§8 17, fourth, slice 2), in household order: what a law keeping the stubble
+    /// for those who cannot earn is weighed by. Saved.
+    pub gleaners: Vec<GleanedBy>,
+}
+
+/// What a household's people gleaned (research 08-22 §1, §4: the bylaws barred those who could
+/// earn the harvest wage), kilograms, fading: by those of an age to work for hire, and by the
+/// others, reckoned to `day`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GleanedBy {
+    pub household: PermanentId,
+    pub able_kg: f64,
+    pub other_kg: f64,
+    pub day: i64,
+}
+
+impl GleanedBy {
+    /// What it holds faded to `day`, at `half_life_days`: (able, others), kilograms.
+    pub fn at(&self, day: i64, half_life_days: f64) -> (f64, f64) {
+        let f = f64::from(crate::uses::fading(day - self.day, half_life_days));
+        (self.able_kg * f, self.other_kg * f)
+    }
+}
+
+impl Order {
+    /// Someone of `household` gleaned `kg` on `day`, one who could earn the harvest wage or not;
+    /// the record fades at `half_life_days`, and what has faded to almost nothing is let go.
+    pub fn glean(
+        &mut self,
+        household: PermanentId,
+        able: bool,
+        kg: f64,
+        day: i64,
+        half_life_days: f64,
+    ) {
+        let at = match self
+            .gleaners
+            .binary_search_by_key(&household, |g| g.household)
+        {
+            Ok(at) => at,
+            Err(at) => {
+                self.gleaners.insert(
+                    at,
+                    GleanedBy {
+                        household,
+                        able_kg: 0.0,
+                        other_kg: 0.0,
+                        day,
+                    },
+                );
+                at
+            }
+        };
+        let g = &mut self.gleaners[at];
+        let (able_kg, other_kg) = g.at(day, half_life_days);
+        *g = GleanedBy {
+            household,
+            able_kg: able_kg + if able { kg } else { 0.0 },
+            other_kg: other_kg + if able { 0.0 } else { kg },
+            day: g.day.max(day),
+        };
+        self.gleaners.retain(|g| {
+            let (a, o) = g.at(day, half_life_days);
+            a + o >= 0.01
+        });
+    }
 }
 
 /// Grain gleaned from what reaping left (research 08-22 §3), kilograms: all of it, and what

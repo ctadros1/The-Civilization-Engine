@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 234
+kernel_content_api = 235
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2872,6 +2872,7 @@ fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_taking
         "core:policy/zestfully_name_a_hearer_for_a_year",
         "core:policy/zestfully_take_the_watch_by_turns",
         "core:policy/zestfully_zone_a_covered_tip",
+        "core:policy/zestfully_zone_the_stubble",
     ];
     assert!(
         reg.catalog
@@ -2919,6 +2920,7 @@ fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
         "core:policy/zestfully_name_a_hearer_for_a_year",
         "core:policy/zestfully_take_the_watch_by_turns",
         "core:policy/zestfully_zone_a_covered_tip",
+        "core:policy/zestfully_zone_the_stubble",
     ];
     assert!(
         reg.catalog
@@ -3007,6 +3009,7 @@ fn the_core_lets_a_polity_licence_paid_carers_who_know_fluid_replacement() {
         "core:policy/zestfully_name_a_hearer_for_a_year",
         "core:policy/zestfully_take_the_watch_by_turns",
         "core:policy/zestfully_zone_a_covered_tip",
+        "core:policy/zestfully_zone_the_stubble",
     ];
     assert!(
         reg.catalog
@@ -3053,6 +3056,7 @@ fn the_core_lets_a_polity_keep_the_sick_apart_after_a_death_of_contagion() {
         "core:policy/zestfully_name_a_hearer_for_a_year",
         "core:policy/zestfully_take_the_watch_by_turns",
         "core:policy/zestfully_zone_a_covered_tip",
+        "core:policy/zestfully_zone_the_stubble",
     ];
     assert!(
         reg.catalog
@@ -3110,6 +3114,7 @@ fn the_core_lets_a_polity_name_a_health_officer_who_can_write() {
         "core:policy/zestfully_name_a_hearer_for_a_year",
         "core:policy/zestfully_take_the_watch_by_turns",
         "core:policy/zestfully_zone_a_covered_tip",
+        "core:policy/zestfully_zone_the_stubble",
     ];
     assert!(
         reg.catalog
@@ -3161,6 +3166,7 @@ fn the_core_lets_a_polity_clear_middens_from_the_water() {
         "core:policy/zestfully_name_a_hearer_for_a_year",
         "core:policy/zestfully_take_the_watch_by_turns",
         "core:policy/zestfully_zone_a_covered_tip",
+        "core:policy/zestfully_zone_the_stubble",
     ];
     assert!(
         reg.catalog
@@ -3206,6 +3212,7 @@ fn the_core_lets_a_polity_raise_a_sickhouse_where_the_sick_lay_untended() {
         "core:policy/zestfully_name_a_hearer_for_a_year",
         "core:policy/zestfully_take_the_watch_by_turns",
         "core:policy/zestfully_zone_a_covered_tip",
+        "core:policy/zestfully_zone_the_stubble",
     ];
     assert!(
         reg.catalog
@@ -3427,6 +3434,7 @@ fn the_core_lets_a_polity_carry_refuse_to_a_tip() {
         "core:policy/zestfully_name_a_hearer_for_a_year",
         "core:policy/zestfully_take_the_watch_by_turns",
         "core:policy/zestfully_zone_a_covered_tip",
+        "core:policy/zestfully_zone_the_stubble",
     ];
     assert!(
         reg.catalog
@@ -3506,6 +3514,7 @@ fn the_core_lets_a_polity_run_a_refuse_round_by_law() {
         "core:policy/zestfully_name_a_hearer_for_a_year",
         "core:policy/zestfully_take_the_watch_by_turns",
         "core:policy/zestfully_zone_a_covered_tip",
+        "core:policy/zestfully_zone_the_stubble",
     ];
     assert!(
         reg.catalog
@@ -3777,6 +3786,7 @@ fn the_core_lets_a_polity_lay_a_sewer_to_the_river() {
         "core:policy/zestfully_name_a_hearer_for_a_year",
         "core:policy/zestfully_take_the_watch_by_turns",
         "core:policy/zestfully_zone_a_covered_tip",
+        "core:policy/zestfully_zone_the_stubble",
     ];
     assert!(
         reg.catalog
@@ -4014,6 +4024,7 @@ fn the_core_lets_a_polity_ask_new_steel_frames_be_cased_against_fire() {
         "core:policy/zestfully_name_a_hearer_for_a_year",
         "core:policy/zestfully_take_the_watch_by_turns",
         "core:policy/zestfully_zone_a_covered_tip",
+        "core:policy/zestfully_zone_the_stubble",
     ];
     assert!(
         reg.catalog
@@ -4344,13 +4355,17 @@ fn the_core_offers_a_watch_kept_by_turns_drawn_by_lot() {
         })
     );
     assert_eq!(plain.tenure, None, "the plain watch holds for no term");
-    // Its id sorts after every older template's (the covered tip's, ADR-0038 §6, is newer).
+    // Its id sorts after every older template's (the covered tip's, ADR-0038 §6, and the
+    // stubble's, §8 17, are newer).
     let last = reg
         .catalog
         .policies
         .iter()
         .map(|p| p.id.as_str())
-        .filter(|&id| id != "core:policy/zestfully_zone_a_covered_tip")
+        .filter(|&id| {
+            id != "core:policy/zestfully_zone_a_covered_tip"
+                && id != "core:policy/zestfully_zone_the_stubble"
+        })
         .max()
         .expect("templates");
     assert_eq!(last, turns.id);
@@ -4379,6 +4394,33 @@ fn the_core_lets_a_polity_cover_its_tip() {
     );
     // At 8 hours a cubic metre of earth, a tonne of refuse takes 0.15 × 1000 / 220 × 8 hours.
     assert!((c.h_per_kg(8.0) * 1000.0 - 0.15 * 1000.0 / 220.0 * 8.0).abs() < 1e-5);
+    // Its id sorts after every older template's (the stubble's, §8 17, is newer).
+    let last = reg
+        .catalog
+        .policies
+        .iter()
+        .map(|p| p.id.as_str())
+        .filter(|&id| id != "core:policy/zestfully_zone_the_stubble")
+        .max()
+        .expect("templates");
+    assert_eq!(last, def.id);
+}
+
+/// The stubble kept for those who cannot earn the harvest wage (§8 17, fourth, slice 2; research
+/// 08-22 §1, §4): a template answering food running short, levying nothing, its id the last.
+#[test]
+fn the_core_lets_a_polity_keep_the_stubble_for_those_who_cannot_earn() {
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/zestfully_zone_the_stubble")
+        .expect("the core keeps the stubble");
+    assert_eq!(def.kind, PolicyKind::KeepStubble);
+    assert_eq!(def.answers, vec![IssueKind::FoodShort]);
+    assert!(def.levy_shares.is_empty());
     let last = reg
         .catalog
         .policies

@@ -1,0 +1,132 @@
+//! The stubble kept for those who cannot earn the harvest wage (§8 17, fourth, slice 2; research
+//! 08-22 §1, §4): the Islip (1407) and Wymeswold bylaws barred from gleaning anyone who could earn
+//! a penny, or two pence, a day at the harvest, so that what reaping leaves fed those who could
+//! not, and the able went to the harvest wage. Here it is a law a polity may come to by its own
+//! means: those who glean, and would glean what the able now take, may propose it; each household
+//! weighs it by what its own gleaning would gain and what its own able would give up; once in
+//! force, one of an age to work for hire who knows it weighs keeping it when they would glean, as
+//! a curfew is kept, unless their household is going hungry.
+
+use civ_core::PermanentId;
+
+use super::{Ctx, Population, may_eat_reserve, reapers};
+use crate::person::{Household, Person};
+use crate::polity::{LawStatus, PolicyKind};
+
+impl Population {
+    /// What keeping the stubble for those who cannot earn would bring each of `households` a year
+    /// and cost it, kcal: what the polity's people who could earn the harvest wage gleaned, a
+    /// year at the rate the record fades, shared among the households whose others gleaned by
+    /// what each of them gleaned (they would glean it in the place of those barred); less what
+    /// its own who could earn gleaned. None where content has no such law, nobody who could earn
+    /// gleaned, or nobody else did.
+    pub(super) fn stubble_forecasts(
+        &self,
+        ctx: &Ctx,
+        households: &[PermanentId],
+    ) -> Vec<(PermanentId, f64, f64)> {
+        if !ctx
+            .catalog
+            .policies
+            .iter()
+            .any(|d| d.kind == PolicyKind::KeepStubble)
+        {
+            return Vec::new();
+        }
+        let (day, params) = (ctx.now.day_index(), ctx.params);
+        let half = params.places.use_half_life_days;
+        let kcal = ctx
+            .catalog
+            .crops
+            .get(params.farm.crop)
+            .and_then(|c| ctx.catalog.goods.get(c.good))
+            .map_or(0.0, |g| g.kcal_per_kg);
+        let held: Vec<(PermanentId, f64, f64)> = households
+            .iter()
+            .filter_map(|&h| {
+                let i = self
+                    .order
+                    .gleaners
+                    .binary_search_by_key(&h, |g| g.household)
+                    .ok()?;
+                let (able, other) = self.order.gleaners[i].at(day, half);
+                let year = |kg: f64| crate::uses::per_year(kg, half) * kcal;
+                Some((h, year(able), year(other)))
+            })
+            .collect();
+        let able: f64 = held.iter().map(|g| g.1).sum();
+        let others: f64 = held.iter().map(|g| g.2).sum();
+        if able <= 0.0 || others <= 0.0 {
+            return Vec::new();
+        }
+        held.iter()
+            .map(|&(h, a, o)| (h, able * o / others, a))
+            .collect()
+    }
+
+    /// What keeping the stubble for those who cannot earn weighs with `p` of `hh` now, points,
+    /// when they would glean: a law of it in force in their polity (or one struck down they still
+    /// keep), known to them, and they of an age to work for hire. None while someone of their
+    /// household is going hungry (need over the gathering's word, as for a claim).
+    pub(super) fn stubble_now(&self, ctx: &Ctx, p: &Person, hh: &Household) -> Option<f64> {
+        let (now, params) = (ctx.now, ctx.params);
+        if !reapers::could_earn(ctx.catalog, p.age_years(now)) {
+            return None;
+        }
+        let pi = self.polity_of(hh.settlement?)?;
+        let law = self.polities[pi].laws.iter().find(|l| {
+            l.kind == PolicyKind::KeepStubble
+                && (l.status == LawStatus::InForce || self.keeps_struck(ctx, p.id, l))
+        })?;
+        if !law.knows(p.id) {
+            return None;
+        }
+        let hungry = hh.members.iter().any(|&m| {
+            self.person(m)
+                .is_some_and(|q| may_eat_reserve(q, now, params))
+        });
+        if hungry {
+            return None;
+        }
+        let stance = law
+            .stances
+            .iter()
+            .find(|r| r.person == p.id)
+            .map_or(0.0, |r| r.stance.sign());
+        let regard = self
+            .ties
+            .regard(p.id, law.sponsor, now.day_index(), &params.ties);
+        let norm = self.norm_points(ctx, p.id);
+        Some(crate::polity::comply_points(norm, stance, regard, 0.0, &params.polity).max(0.0))
+    }
+
+    /// What a law keeping the stubble for those who cannot earn would bring each household of
+    /// settlement `settlement` a year and cost it, kcal: for tests.
+    #[doc(hidden)]
+    pub fn stubble_forecasts_for_tests(
+        &self,
+        ctx: &Ctx,
+        settlement: PermanentId,
+    ) -> Vec<(PermanentId, f64, f64)> {
+        let Some(pi) = self.polity_of(settlement) else {
+            return Vec::new();
+        };
+        let mut households: Vec<PermanentId> = self
+            .households
+            .iter()
+            .filter(|(_, x)| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
+            .map(|(_, x)| x.id)
+            .collect();
+        households.sort_unstable();
+        self.stubble_forecasts(ctx, &households)
+    }
+
+    /// What keeping the stubble weighs with `person` now when they would glean, points: for
+    /// tests.
+    #[doc(hidden)]
+    pub fn stubble_points_for_tests(&self, ctx: &Ctx, person: PermanentId) -> Option<f64> {
+        let p = self.person(person)?;
+        let hh = self.household(p.household)?;
+        self.stubble_now(ctx, p, hh)
+    }
+}

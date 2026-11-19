@@ -1,0 +1,24 @@
+# The stubble kept for those who cannot earn the harvest wage (§8 17, fourth, slice 2; research
+# 08-22 §1, §4: at Islip in 1407 the bylaw barred from gleaning anyone who could earn a penny a
+# day at the harvest, at Wymeswold two pence; the custom belonged to the place's poor, and the able
+# went to the harvest wage). Where food runs short (the issue `food_short`) and some of the
+# settlement's people who could earn the harvest wage, being of an age to work for hire, gleaned
+# lately, anyone whose household would gain by it may propose that nobody of an age to work for
+# hire glean. A household weighs it by what those who could earn gleaned, a year at the rate the
+# record fades, shared among the households whose others gleaned by what each of them gleaned
+# (they would glean it in their place: a design prior), against what its own who could earn
+# gleaned. Keeping it is each person's choice, as a curfew's is: one who could earn and knows of
+# it weighs keeping it when they would glean, and one whose household is going hungry gleans
+# still. Whether anyone proposes it and whether a gathering passes it is people's choice. Its id
+# sorts after every older template's: hearth talk about a question and a saved law are keyed by a
+# template's place in id order.
+kind = "policy"
+id = "core:policy/zestfully_zone_the_stubble"
+name = "The stubble kept for those who cannot earn"
+description = "Nobody of an age to work for hire gleans the stubble: what reaping leaves is for those who cannot earn the harvest wage."
+does = "keep_stubble"
+answers = ["food_short"]
+
+# It bears on no value: who proposes it, and who stands for it, do so by what their own gleaning
+# would gain or lose (a design choice of the first slice, so that its sponsor is one who would
+# glean in the place of those it bars).

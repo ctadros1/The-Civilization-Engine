@@ -7237,6 +7237,13 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
         .map(|w| save::WrittenFindingSave::new(w.case, w.holder.get(), w.writer.get(), w.made))
         .collect();
     let written = (!written.is_empty()).then(|| fbb.create_vector(&written));
+    // What each household's people gleaned (schema 220, §8 17, fourth, slice 2).
+    let gleaners: Vec<save::GleanedBySave> = order
+        .gleaners
+        .iter()
+        .map(|g| save::GleanedBySave::new(g.household.get(), g.able_kg, g.other_kg, g.day))
+        .collect();
+    let gleaners = (!gleaners.is_empty()).then(|| fbb.create_vector(&gleaners));
     let root = save::Order::create(
         &mut fbb,
         &save::OrderArgs {
@@ -7266,6 +7273,7 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
             read_hearings: order.read_hearings,
             gleaned_kg: order.gleaned.kg,
             gleaned_short_kg: order.gleaned.short_kg,
+            gleaners,
         },
     );
     finish(fbb, root)
@@ -7655,6 +7663,15 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
         kg: root.gleaned_kg(),
         short_kg: root.gleaned_short_kg(),
     };
+    // What each household's people gleaned (schema 220); none before.
+    for g in root.gleaners().iter().flatten() {
+        order.gleaners.push(civ_agents::crime::GleanedBy {
+            household: required(g.household(), "a gleaner's household")?,
+            able_kg: g.able_kg(),
+            other_kg: g.other_kg(),
+            day: g.day(),
+        });
+    }
     // Coin issues and purses (schema 136); none before.
     for c in root.coin_issues().iter().flatten() {
         order.coinage.cohorts.push(civ_agents::coin::Cohort {

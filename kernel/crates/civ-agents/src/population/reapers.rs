@@ -34,6 +34,16 @@ pub(super) struct ReapOffer {
     pub good: usize,
 }
 
+/// Whether someone `age` years old could earn the harvest wage (§8 17, fourth, slice 2; research
+/// 08-22 §1: the bylaws barred from gleaning anyone who could earn a penny a day): of an age to
+/// work for hire, as the content's work for hire allows.
+pub(super) fn could_earn(catalog: &crate::params::Catalog, age: f64) -> bool {
+    catalog
+        .activities
+        .iter()
+        .any(|a| a.behavior == Behavior::Hire && (a.min_age_years..=a.max_age_years).contains(&age))
+}
+
 impl Population {
     /// The pay household `employer`'s field `fi` offers for an hour of a capable adult's reaping
     /// on day `day`: `firm.wage_share` of the grain the field is expected to give over the hours

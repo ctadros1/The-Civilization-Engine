@@ -1454,3 +1454,200 @@ fn a_store_whose_keeper_s_term_ends_is_settled_under_their_roof_at_that_midnight
     );
     assert!(roofed > open);
 }
+
+/// Gleaning's wage test (§8 17, fourth, slice 2; research 08-22 §1, §4: the Islip and Wymeswold
+/// bylaws barred from gleaning anyone who could earn the harvest wage): where some of the
+/// settlement's people of an age to work for hire glean the stubble, a household short of food
+/// whose others glean it, who would glean what the able take, forecasts a gain from keeping the
+/// stubble for those who cannot earn, and proposes it; a household whose own able gleaned
+/// forecasts a loss. Once in force, one who could earn and knows of it weighs keeping it when they
+/// would glean; a child does not. What each household gleaned, and by whom, is kept across a save
+/// and load.
+#[test]
+fn a_household_short_of_food_proposes_to_keep_the_stubble_for_those_who_cannot_earn() {
+    let mut sim = world_with(content(), 3);
+    sim.advance_minutes(30 * DAY).expect("advances");
+    assert!(
+        sim.rules()
+            .catalog
+            .policies
+            .iter()
+            .any(|p| p.kind == PolicyKind::KeepStubble),
+        "the core content keeps the stubble for those who cannot earn"
+    );
+    let settlement = sim.people().polities[0].settlement;
+    let now = sim.now();
+    let age = |sim: &Sim, p: civ_core::PermanentId| {
+        sim.people()
+            .person(p)
+            .map_or(0.0, |q| q.age_years(sim.now()))
+    };
+    let mut households: Vec<(civ_core::PermanentId, Vec<civ_core::PermanentId>)> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+        .map(|(_, x)| (x.id, x.members.clone()))
+        .collect();
+    households.sort_unstable();
+    assert!(households.len() >= 2, "the settlement has households");
+    // The poor household has a child among its gleaners; the other's able gleaned.
+    let poor = households
+        .iter()
+        .find(|(_, m)| m.iter().any(|&p| age(&sim, p) < 14.0))
+        .unwrap_or(&households[0])
+        .clone();
+    let able = households
+        .iter()
+        .find(|(h, _)| *h != poor.0)
+        .expect("another household")
+        .clone();
+    let day = now.day_index();
+    let set_record = |sim: &mut Sim| {
+        let day = sim.now().day_index();
+        let mut g = vec![
+            civ_agents::crime::GleanedBy {
+                household: poor.0,
+                able_kg: 0.0,
+                other_kg: 100.0,
+                day,
+            },
+            civ_agents::crime::GleanedBy {
+                household: able.0,
+                able_kg: 150.0,
+                other_kg: 0.0,
+                day,
+            },
+        ];
+        g.sort_by_key(|x| x.household);
+        sim.people_mut_for_tests().order.gleaners = g;
+    };
+    // The poor household holds grain for ninety days, its harvest further off: its food will not
+    // last to it.
+    let starve = |sim: &mut Sim| {
+        let goods = sim.rules().catalog.goods.clone();
+        let grain = sim.rules().catalog.crops[sim.rules().people.farm.crop].good;
+        let per_day = sim.rules().people.household.daily_kcal_per_person;
+        let pop = sim.people_mut_for_tests();
+        let x = pop
+            .households
+            .iter_mut()
+            .find(|(_, x)| x.id == poor.0)
+            .expect("the poor household")
+            .1;
+        let kg = x.members.len() as f64 * per_day * 90.0 / goods[grain].kcal_per_kg;
+        for (i, (held, g)) in x.stores.iter_mut().zip(&goods).enumerate() {
+            if g.purpose == civ_agents::params::GoodUse::Food {
+                *held = if i == grain { kg } else { 0.0 };
+            }
+        }
+    };
+    set_record(&mut sim);
+    starve(&mut sim);
+    let fc = sim.with_ctx_for_tests(|pop, ctx| pop.stubble_forecasts_for_tests(ctx, settlement));
+    let of = |h: civ_core::PermanentId| fc.iter().find(|f| f.0 == h).copied();
+    let p = of(poor.0).expect("the poor household weighs it");
+    let a = of(able.0).expect("the able household weighs it");
+    assert!(
+        p.1 > 0.0 && p.2 == 0.0,
+        "the poor gain what the able gleaned: {p:?}"
+    );
+    assert!(
+        a.1 == 0.0 && a.2 > 0.0,
+        "the able give up their gleaning: {a:?}"
+    );
+    // The gathering hears it from someone whose household would gain: review day by day until
+    // it is proposed, each other proposal taken as passed (a village that has its common store
+    // and its lending already).
+    let mut proposed = None;
+    for _ in 0..60 {
+        {
+            let now = sim.now();
+            let pop = sim.people_mut_for_tests();
+            for l in pop.polities[0].laws.iter_mut() {
+                if l.status == LawStatus::Proposed && l.kind != PolicyKind::KeepStubble {
+                    l.status = LawStatus::InForce;
+                    l.decided = Some(now);
+                    l.outcome = Some(Outcome::Passed);
+                }
+            }
+            pop.polities[0].gathering = None;
+        }
+        set_record(&mut sim);
+        starve(&mut sim);
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+        proposed = sim.people().polities[0]
+            .laws
+            .iter()
+            .find(|l| l.kind == PolicyKind::KeepStubble)
+            .map(|l| (l.id, l.sponsor));
+        if proposed.is_some() {
+            break;
+        }
+        sim.advance_minutes(DAY).expect("advances");
+    }
+    let (law, sponsor) = proposed.expect("someone proposed keeping the stubble");
+    let sponsor_household = sim
+        .people()
+        .person(sponsor)
+        .map(|p| p.household)
+        .expect("the sponsor lives");
+    assert_eq!(
+        sponsor_household, poor.0,
+        "the household short of food, whose others glean, proposes it"
+    );
+    // In force and known to all, as if passed.
+    let everyone: Vec<_> = {
+        let mut k: Vec<_> = sim
+            .people()
+            .people
+            .iter()
+            .map(|(_, p)| (p.id, day))
+            .collect();
+        k.sort_unstable();
+        k
+    };
+    {
+        let now = sim.now();
+        let pop = sim.people_mut_for_tests();
+        let l = pop.polities[0]
+            .laws
+            .iter_mut()
+            .find(|l| l.id == law)
+            .expect("the law");
+        l.status = LawStatus::InForce;
+        l.decided = Some(now);
+        l.outcome = Some(Outcome::Passed);
+        l.known = everyone;
+        pop.polities[0].gathering = None;
+    }
+    let grown = able
+        .1
+        .iter()
+        .copied()
+        .find(|&p| (14.0..=70.0).contains(&age(&sim, p)))
+        .expect("the able household has someone of an age to work for hire");
+    let points = sim.with_ctx_for_tests(|pop, ctx| pop.stubble_points_for_tests(ctx, grown));
+    assert!(
+        points.is_some(),
+        "one who could earn weighs keeping the stubble when they would glean"
+    );
+    if let Some(&child) = poor.1.iter().find(|&&p| age(&sim, p) < 14.0) {
+        let points = sim.with_ctx_for_tests(|pop, ctx| pop.stubble_points_for_tests(ctx, child));
+        assert!(points.is_none(), "a child gleans as before");
+    }
+    // The record of who gleaned is kept across a save and load.
+    let kept = sim.people().order.gleaners.clone();
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(
+        &mut sim,
+        &saves,
+        commons_persist::SaveKind::Manual,
+        "stubble",
+    )
+    .expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.people().order.gleaners, kept);
+}

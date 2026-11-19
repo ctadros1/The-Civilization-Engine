@@ -1857,6 +1857,7 @@ impl PolicyFile {
                 | PolicyKind::CollectRefuse
                 | PolicyKind::LaySewer
                 | PolicyKind::CoverTip
+                | PolicyKind::KeepStubble
                 | PolicyKind::BearerHeard
                 | PolicyKind::IssueNotes
                 | PolicyKind::LegalTender
@@ -1940,6 +1941,7 @@ impl PolicyFile {
                 | PolicyKind::CollectRefuse
                 | PolicyKind::LaySewer
                 | PolicyKind::CoverTip
+                | PolicyKind::KeepStubble
                 | PolicyKind::BearerHeard
                 | PolicyKind::IssueNotes
                 | PolicyKind::LegalTender

@@ -802,13 +802,13 @@ fn an_ask_anchors_on_what_replacing_the_good_from_elsewhere_would_cost() {
     let (seller, offer) = households_of(&worlds[0], a)
         .into_iter()
         .find_map(|h| {
-            // A good it has plenty of, so it still offers it at its next review.
-            let o = *worlds[0]
-                .people()
-                .household(h)?
-                .offers
-                .iter()
-                .find(|o| o.units >= 5.0)?;
+            // A good it has plenty of, so it still offers it at its next review: not a fuel,
+            // burned day by day (offered since §8 17, fifth).
+            let goods = &worlds[0].rules().catalog.goods;
+            let o = *worlds[0].people().household(h)?.offers.iter().find(|o| {
+                o.units >= 5.0
+                    && goods[usize::from(o.good)].purpose != civ_agents::params::GoodUse::Fuel
+            })?;
             Some((h, o))
         })
         .expect("a household of the first settlement offers something");

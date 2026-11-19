@@ -1650,3 +1650,90 @@ fn a_household_short_of_hands_at_the_harvest_hires_reapers() {
         "the reapers were paid in grain"
     );
 }
+
+/// Fuel offered at market (§8 17, fifth; research 08-16 §1.4: fuel is a household necessity and an
+/// input; the lone-elders entry's "Not yet"): an elder of 72, alone, past gathering firewood, holds
+/// more grain than their year needs and a quern, but no fuel; the neighbours hold firewood
+/// beyond their hearths' days but not so much that they can give it (twice those days). A
+/// household with wood to spare offers it as it offers food, and the elder buys firewood at a
+/// neighbour's door, paying from what they hold beyond what they keep. Before, firewood was never offered, and with nobody able to
+/// give it, none came to them.
+#[test]
+fn a_lone_elder_with_no_firewood_buys_it_from_a_neighbour_with_wood_to_spare() {
+    let mut sim = new_world(3, 0);
+    // Past the band's first harvest and its homes.
+    sim.advance_minutes(200 * 24 * 60).expect("advances");
+    let (hh, elder) = lone_elder(&mut sim, 72.3, 450.0);
+    let params = sim.rules().people.clone();
+    let goods = sim.rules().catalog.goods.clone();
+    let index = |id: &str| goods.iter().position(|g| g.id == id).expect(id);
+    let wood = index("core:good/firewood");
+    let start = sim.now();
+    {
+        let pop = sim.people_mut_for_tests();
+        for (_, p) in pop.people.iter_mut().filter(|(_, p)| p.id == elder) {
+            let reserve = population::reserve_kcal(p, start, &params);
+            p.energy_kcal = (-0.4 * reserve) as f32;
+            p.burn_kcal_min = 0.0;
+            p.needs_at = start;
+        }
+    }
+    // Each neighbour holds half as much firewood again as its hearth's days: some to spare, none
+    // to give.
+    let stock = |sim: &mut Sim| {
+        let now = sim.now();
+        let pop = sim.people_mut_for_tests();
+        for (_, x) in pop.households.iter_mut().filter(|(_, x)| x.id != hh) {
+            let keep = params.household.fuel_target_days
+                * population::fuel_per_day(&params, x.members.len(), now.day_index());
+            let held = population::stores_now(x, now, &params, &goods);
+            x.stores = held;
+            x.stores_at = now;
+            for (g, d) in goods.iter().enumerate() {
+                if d.purpose == civ_agents::params::GoodUse::Fuel {
+                    x.stores[g] = 0.0;
+                }
+            }
+            x.stores[wood] = 1.5 * keep;
+        }
+    };
+    let settlement = sim
+        .people()
+        .household(hh)
+        .and_then(|x| x.settlement)
+        .expect("their settlement");
+    // The elder bought firewood at a neighbour's door: a trade at the market with firewood the
+    // good sold and their household the buyer (before, firewood only ever passed as payment).
+    let mut bought = 0.0;
+    for _ in 0..30 {
+        stock(&mut sim);
+        let gives = sim
+            .people()
+            .households
+            .iter()
+            .filter(|(_, x)| x.id != hh)
+            .any(|(_, x)| population::spare_fuel_kg(x, sim.now(), &params, &goods) > 0.0);
+        assert!(!gives, "no neighbour can give firewood");
+        let since = sim.now();
+        sim.advance_minutes(24 * 60).expect("lives");
+        bought += sim.people().market(settlement).map_or(0.0, |m| {
+            m.recent
+                .iter()
+                .filter(|t| t.at >= since && usize::from(t.good) == wood && t.buyer == hh)
+                .map(|t| f64::from(t.units))
+                .sum::<f64>()
+        });
+        if bought > 0.0 {
+            break;
+        }
+    }
+    assert!(
+        bought > 0.0,
+        "the elder bought firewood at a neighbour's door"
+    );
+    let x = sim.people().household(hh).expect("their household");
+    assert!(
+        x.flows.get(Flow::Received, wood) >= bought - 1e-6,
+        "the firewood bought came to them"
+    );
+}

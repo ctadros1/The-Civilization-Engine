@@ -148,13 +148,14 @@ fn stock_anchor(anchor: f64, spare_years: f64, response: f64) -> f64 {
 }
 
 /// Whether a household offers what it holds of good `d` beyond what it keeps: a tool that can be
-/// carried away, food not kept back for sowing, materials and stores (pots); never firewood.
+/// carried away, food not kept back for sowing, materials and stores (pots), and fuel beyond its
+/// hearth's days (§8 17, fifth; research 08-16 §1.4: fuel is a household necessity and an input,
+/// bought as food is).
 pub(crate) fn can_offer(d: &GoodDef) -> bool {
     match d.purpose {
         GoodUse::Tool => !d.tool.as_ref().is_some_and(|t| t.fixed),
         GoodUse::Food => !d.kept_back(),
-        GoodUse::Material | GoodUse::Store => true,
-        GoodUse::Fuel => false,
+        GoodUse::Material | GoodUse::Store | GoodUse::Fuel => true,
     }
 }
 
@@ -1165,6 +1166,13 @@ impl Population {
         } else {
             0.0
         };
+        // Fuel it is short of for its hearth's days, in kilograms of the first fuel by heat (§8 17,
+        // fifth): what it keeps less what it holds of every fuel.
+        let fuel_short = (params.household.fuel_target_days
+            * fuel_per_day(params, hh.members.len().max(1), ctx.now.day_index())
+            - crate::person::fuel_kg(stores, goods))
+        .max(0.0);
+        let knows = |t: usize| self.household_knows(&hh.members, t);
         // How much of each tool it needs, reckoned at its first offer: many sellers offer the same.
         let mut tool_needs: Vec<Option<f64>> = vec![None; goods.len()];
         let mut best: Option<Deal> = None;
@@ -1213,6 +1221,31 @@ impl Population {
                     let short = (holding.keep.get(g).copied().unwrap_or(0.0) - held(g)).max(0.0);
                     let units = short.min(params.household.carry_kg).min(f64::from(o.units));
                     if units <= 1e-6 {
+                        continue;
+                    }
+                    let own = costs()[g].unwrap_or(f64::INFINITY) * units;
+                    (units, TradeWorth::Goods { hours: 0.0 }, own)
+                } else if d.purpose == GoodUse::Fuel
+                    && d.fuel.and_then(|f| f.technique).is_none_or(knows)
+                {
+                    // Fuel its hearth burns, that it is short of (§8 17, fifth; research 08-16
+                    // §1.4): what it lacks of its hearth's days in this fuel by heat, as much as
+                    // one person carries, worth the hours of its own it saves (all a buyer would
+                    // give, for one past gathering it). Bought from its own neighbours, not at a
+                    // door elsewhere (a first slice).
+                    let neighbour = if firm {
+                        self.firm(seller).and_then(|f| f.settlement)
+                    } else {
+                        self.household(seller).and_then(|x| x.settlement)
+                    };
+                    if fuel_short <= 0.0 || neighbour != hh.settlement {
+                        continue;
+                    }
+                    let ratio = crate::params::fuel_ratio(goods, g).max(1e-9);
+                    let units = (fuel_short / ratio)
+                        .min(params.household.carry_kg)
+                        .min(f64::from(o.units));
+                    if units < 1.0 {
                         continue;
                     }
                     let own = costs()[g].unwrap_or(f64::INFINITY) * units;
@@ -2065,8 +2098,10 @@ impl Population {
             let (Some(d), Some(pd)) = (goods.get(g), goods.get(p)) else {
                 continue;
             };
-            // Something it can sell, and is not short of itself (that it buys for itself).
-            if !can_offer(d) || held(g) < keep(g) {
+            // Something it can sell, and is not short of itself (that it buys for itself). Fuel
+            // is sold where it was gathered, not fetched to sell again (§8 17, fifth: a first
+            // slice; a bulky necessity every household gathers).
+            if !can_offer(d) || d.purpose == GoodUse::Fuel || held(g) < keep(g) {
                 continue;
             }
             let Some(home_h) = market.unmet_worth(g).or_else(|| market.price_h(g)) else {

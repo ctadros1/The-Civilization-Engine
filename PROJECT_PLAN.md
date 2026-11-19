@@ -10251,6 +10251,32 @@ and M6a gives rivers a daily flow.
       the harvest weeks or to the polity's own fields (it binds the polity's people wherever they
       glean, all year); the employers' gain in hands kept for the harvest wage in the forecast; a
       breach heard as a case; a landholder's leave.
+    - *Fuel offered at market (2026-11-19): a household with wood to spare offers it, and one
+      short of fuel buys it* (§9, "Fuel offered at market"; §8 17, fifth; the 2026-11-03
+      lone-elders entry's "Not yet"; research 08-16 §1.4: fuel is a household necessity and an
+      input). Firewood was never offered (`market::can_offer`), and no household bought fuel at a
+      door: it passed between households only as payment for other goods, or as a gift to one whose
+      food waits on a fire. **Built:** a household offers fuel beyond its hearth's days
+      (`fuel_target_days` of burning, by heat) as it offers food beyond its keep, on its review
+      day at its own cost and margin; and a household short of its hearth's days of fuel weighs
+      buying a fuel its hearth burns, as much as it lacks by heat and one person carries, worth the
+      hours of its own the purchase saves (all a buyer would give, for one past gathering it), as
+      it weighs a tool or food, from its own neighbours. What it pays comes from what it holds
+      beyond what it keeps, as always. Fuel is not fetched from another settlement to sell again,
+      nor bought at a door elsewhere (a first slice). No save, wire or content change. **Tested:** people (27, one new: an elder of 72,
+      alone and past gathering firewood, with more grain than their year needs and no fuel, among
+      neighbours holding half as much firewood again as their hearths' days, too little to give,
+      buys firewood at a neighbour's door within the month; it fails with either half undone),
+      fetch (25; its anchoring scene now picks a good the seller has plenty of that is not a fuel,
+      since firewood offered is burned below the offer by the next review), and the market, firms,
+      coal, credit, money, letting, bottlenecks, soil, roundtrip,
+      determinism, regimes, modes, resolution, residues, carts, boats, trade_law, custody, polity,
+      mills, works, collector and settlements targets; the civ-agents, civ-land, civ-host and
+      civ-content unit tests; smoke; fmt and clippy clean. **The notables' gate**, locally,
+      against 59084d0: passes, 38 of 40 runs changed (every market now carries fuel): fixture 1 proposals +33.3 % to +25.9 % (105 %), enacted +19.2 % to +14.8 % (55 %), offices −10.0 % to −30.0 % (85 %), moved +46.0 % to −57.5 % (95 %); fixture 2 proposals +5.8 % to +17.1 %, enacted +19.7 % to +38.7 %, offices +23.1 % to +7.7 %, moved +65.7 % to +72.8 %. The whole civ-sim suite (88 targets) passes besides. **Not yet:** fuel weighed with hunger when food waits on a fire
+      (bought fuel is worth hours saved, not the meal it makes possible); charcoal and coal sold to
+      smithies and works as an input; fuel fetched from another settlement, or bought at a door
+      there.
     - *Backlog D, eighteenth item (2026-11-04): a household's line, wagons and trains pass on,
       and a line nobody holds is taken up* (the third and fourth items' "Not yet": a household's
       line, wagons and trains passing on; ADR-0034 §2, §3, §6; research 08-09 §1.2 and the
@@ -11355,6 +11381,7 @@ and M6a gives rivers a daily flow.
     5. *Fuel offered at market* (the 2026-11-03 lone-elders entry's "Not yet": firewood is never
        offered; research 08-16 §1.4: fuel a household necessity and an input): a household with
        wood to spare posts it as it posts food; helps the dying-worlds red; economy, smoke risk.
+       *Built 2026-11-19* (§7, "Fuel offered at market").
 
 ---
 
@@ -13112,3 +13139,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **NUDGE: hired reaping's design priors (2026-11-19; slice 1 above; time-boxed):** a household hires only the hours its members cannot give at `peak_work_hours_per_day` before the first ripe field's grace (a quarter of the crop lost standing) runs out; the field ripe longest is offered first; an offer under half an hour is not made; the wage is `firm.wage_share` (0.5) of the field's expected grain over the hours still needed to bring it in, paid in that grain from the field's household's store, never more than it holds; a reaper works at the best reaping rate its own household holds the tools for. Each is a design prior, not a measurement; revisit if lived worlds show harvests lost standing beside idle neighbours, or reapers drawn off their own harvests.
 - **Gleaning's wage test (2026-11-19; §8 17, fourth, slice 2; research 08-22 §1, §4; slice 1's harvest wage):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** the late-medieval bylaws (Islip 1407, Wymeswold) barred from gleaning anyone who could earn the harvest wage, so that what reaping leaves fed those who could not and the able went to the harvest; gleaning slice 3 found the kernel had no harvest wage, so such a law brought nobody anything, and slice 1 built one. The law comes by the existing means: a template answering food running short, forecast by each household from a record of who gleaned (what those who could earn took, which those who cannot would glean in their place, against what its own who could earn would give up), put forward only by one whose household forecasts a gain (as an amendment or a plan is, so no proposal is made for nothing and nobody's choice among other moves changes), and kept by choice as a curfew is, with need over the word. It bears on no value, so its sponsor is one whose own gleaning gains. A new policy kind is appended (content API 235; a saved law names its template by id, as every kind since `cover_tip` was added without an ADR), with one new decision reason and one saved record appended within saves 220; nothing is expensive to reverse, so no ADR. "Could earn" is of an age to work for hire, the content's own bound for working for wages; the bylaws' penny a day is not modelled as a sum.
 - **NUDGE: the stubble law's design priors (2026-11-19; slice 2 above; time-boxed):** what those who could earn gleaned is taken to go wholly to those who remain gleaning, shared by what each gleaned; the record of who gleaned fades at the places' use half-life (180 days) and is weighed a year at that rate; "could earn" is the age bounds of work for hire (14 to 70 in the core); the bar binds the polity's people wherever and whenever they glean. Each is a design prior; revisit if lived worlds show the law proposed where nobody short gleans, or kept by those who could not earn.
+- **Fuel offered at market (2026-11-19; §8 17, fifth; research 08-16 §1.4; the 2026-11-03 lone-elders entry):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** 08-16 §1.4 treats fuel as a household necessity bought and sold as food is, and the lone-elders entry left buying it unbuilt because `can_offer` deliberately never offered firewood and opening it would change every market. Both halves are needed and neither is new machinery: the seller's offer beyond what it keeps (the hearth's days the household already keeps, by heat) and the buyer's weighing of what it lacks against the hours of its own the purchase saves, the rule a tool or food is bought by. It is kept to the household's own settlement: fuel is not fetched to sell again elsewhere nor bought at a door away, which would turn every errand into a firewood run before anyone has asked whether firewood was ever carted between villages. Nothing is tuned, and no threshold is new: the days kept are `fuel_target_days`, and what a fuel stands for is its heat. No save, wire or content change, so nothing is expensive to reverse; no ADR, and no new prior to log.

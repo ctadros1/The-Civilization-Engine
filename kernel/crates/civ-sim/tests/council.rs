@@ -899,9 +899,12 @@ fn a_council_is_forecast_to_cost_its_sitters_their_evenings_against_the_custom_i
         .filter(|&p| p != sponsor && !came.iter().any(|c| c.0 == p))
         .collect();
     assert!(!stay_away.is_empty(), "some who would sit did not come");
+    // On three evenings: each is given once (one evening at the hearth serves every decision made
+    // at it, as a forum's are counted).
     let gathered = 3u64;
+    let evening = |at: SimTime, k: u64| SimTime::from_minutes(at.minutes() - k as i64 * DAY);
     for k in 0..gathered {
-        let l = abstained(&sim, k, &came, now);
+        let l = abstained(&sim, k, &came, evening(now, k));
         sim.people_mut_for_tests().polities[0].laws.push(l);
     }
     // And a case a forum heard, by one of those who came who would not sit: an evening the
@@ -1013,7 +1016,9 @@ fn a_council_is_forecast_to_cost_its_sitters_their_evenings_against_the_custom_i
     {
         let pop = sim.people_mut_for_tests();
         for l in &mut pop.polities[0].laws {
-            if l.decided == Some(now) {
+            if l.decided
+                .is_some_and(|t| t <= now && t >= evening(now, gathered - 1))
+            {
                 l.decided = Some(start);
             }
         }
@@ -1026,7 +1031,7 @@ fn a_council_is_forecast_to_cost_its_sitters_their_evenings_against_the_custom_i
         polity.body = body5;
         polity.versions.push(CustomVersion {
             body: body5,
-            since,
+            since: evening(since, 2),
             law: None,
             seized_by: Some(sponsor),
         });
@@ -1048,11 +1053,15 @@ fn a_council_is_forecast_to_cost_its_sitters_their_evenings_against_the_custom_i
         .chain(seated.iter().copied().filter(|&p| p != sponsor).take(2))
         .map(|p| (p, household_of(p)))
         .collect();
+    // On two evenings since the council sat, and a third decision on the first of them, which
+    // asks nobody another evening.
     let sat = 2u64;
     for k in 0..sat {
-        let l = abstained(&sim, 10 + k, &came, since);
+        let l = abstained(&sim, 10 + k, &came, evening(since, k));
         sim.people_mut_for_tests().polities[0].laws.push(l);
     }
+    let l = abstained(&sim, 10 + sat, &came, since);
+    sim.people_mut_for_tests().polities[0].laws.push(l);
     // Seating nine in place of the five is weighed evening by evening against the council's
     // sittings: those who came and would sit no longer are spared theirs, and those who would
     // sit and did not come are charged theirs; the gathering's evenings, before the council,

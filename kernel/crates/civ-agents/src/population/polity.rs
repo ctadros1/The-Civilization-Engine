@@ -20,6 +20,9 @@ pub(super) struct Seen {
     /// Whether it was decided at a sitting of the custom's body (every law, and each case it
     /// heard), not by a forum: the evenings a change of body would spare or ask (ADR-0024 §6).
     pub(super) gathered: bool,
+    /// The evening it was decided on: the one before the midnight that decided it. One evening at
+    /// the hearth serves every decision made at it (ADR-0025 §1, as a forum's are counted).
+    pub(super) night: i64,
 }
 
 /// What a change of the custom's body would do to people's evenings at its sittings (ADR-0024
@@ -45,46 +48,66 @@ pub(super) struct Evenings<'a> {
 }
 
 impl Evenings<'_> {
-    /// The evenings households `of` would be spared at decision `s` (fewer than none: asked)
+    /// The evenings households `of` would be spared at decisions `seen` (fewer than none: asked)
     /// were body `b`, sat by `sitters` if it is a council, deciding in place of the custom in
-    /// force, in the forecast's units.
-    pub(super) fn spared(
+    /// force, in the forecast's units: evening by evening, not decision by decision, since one
+    /// evening at the hearth serves every decision made at it (ADR-0025 §1; as a forum's are
+    /// counted, plan §9 of 2026-11-18). On each evening a decision of the custom's body was made,
+    /// each of the households' people who came is spared it once, and each the proposed body
+    /// would ask is asked it once.
+    pub(super) fn spared_nights(
         &self,
-        s: &Seen,
+        seen: &[&Seen],
         b: &Body,
         sitters: Option<&[PermanentId]>,
         of: &dyn Fn(PermanentId) -> bool,
     ) -> f64 {
-        if !s.gathered || (b.seats.is_none() && self.current.seats.is_none()) {
+        if b.seats.is_none() && self.current.seats.is_none() {
             return 0.0;
         }
-        let gave = s.stances.iter().filter(|r| of(r.1)).count() as f64;
-        let asked = match (b.seats, sitters) {
-            (Some(seats), Some(sit)) => {
-                let share = if seats.method == crate::seats::SeatMethod::Lot {
-                    (f64::from(seats.n) / sit.len().max(1) as f64).min(1.0)
-                } else {
-                    1.0
-                };
-                let theirs = sit
-                    .iter()
-                    .filter(|&&p| {
-                        self.adults
-                            .binary_search_by_key(&p, |a| a.0)
-                            .is_ok_and(|i| of(self.adults[i].1))
-                    })
-                    .count();
-                theirs as f64 * share
-            }
-            _ => {
-                let admitted = &self.admitted_by[usize::from(b.members.code())];
-                s.stances
-                    .iter()
-                    .filter(|r| of(r.1) && admitted.binary_search(&r.0).is_ok())
-                    .count() as f64
-            }
-        };
-        (gave - asked) * self.evening
+        let mut nights: Vec<i64> = seen
+            .iter()
+            .filter(|s| s.gathered)
+            .map(|s| s.night)
+            .collect();
+        nights.sort_unstable();
+        nights.dedup();
+        let mut total = 0.0;
+        for night in nights {
+            let tonight = || seen.iter().filter(|s| s.gathered && s.night == night);
+            let mut came: Vec<PermanentId> = tonight()
+                .flat_map(|s| s.stances.iter().filter(|r| of(r.1)).map(|r| r.0))
+                .collect();
+            came.sort_unstable();
+            came.dedup();
+            let gave = came.len() as f64;
+            let asked = match (b.seats, sitters) {
+                (Some(seats), Some(sit)) => {
+                    let share = if seats.method == crate::seats::SeatMethod::Lot {
+                        (f64::from(seats.n) / sit.len().max(1) as f64).min(1.0)
+                    } else {
+                        1.0
+                    };
+                    let theirs = sit
+                        .iter()
+                        .filter(|&&p| {
+                            self.adults
+                                .binary_search_by_key(&p, |a| a.0)
+                                .is_ok_and(|i| of(self.adults[i].1))
+                        })
+                        .count();
+                    theirs as f64 * share
+                }
+                _ => {
+                    let admitted = &self.admitted_by[usize::from(b.members.code())];
+                    came.iter()
+                        .filter(|p| admitted.binary_search(p).is_ok())
+                        .count() as f64
+                }
+            };
+            total += (gave - asked) * self.evening;
+        }
+        total
     }
 }
 
@@ -3132,6 +3155,7 @@ impl Population {
                     stances: s.stances.clone(),
                     passed: s.passed,
                     gathered: s.gathered,
+                    night: s.night,
                 })
                 .collect()
         };
@@ -3393,6 +3417,7 @@ impl Population {
                     .collect(),
                 passed: l.outcome == Some(Outcome::Passed),
                 gathered: true,
+                night: l.decided.map_or(0, |t| t.day_index() - 1),
             })
             .collect();
         decisions.extend(
@@ -3409,6 +3434,7 @@ impl Population {
                         .collect(),
                     passed: c.stage == crate::crime::CaseStage::Found,
                     gathered: c.forum.is_none(),
+                    night: c.heard.map_or(0, |t| t.day_index() - 1),
                 }),
         );
         decisions
@@ -3459,42 +3485,46 @@ impl Population {
             evening: params.elections.w_evening / pp.w_gain.max(1e-9),
         };
         let theirs = |h: PermanentId| households.contains(&h);
-        decisions
-            .iter()
-            .map(|s| {
-                let saved =
-                    evenings.spared(s, b, sitters.as_ref().map(|x| x.1.as_slice()), &theirs);
-                let now_passes = if let Some((seats, sit)) = &sitters {
-                    let stances: Vec<(PermanentId, Stance)> =
-                        s.stances.iter().map(|r| (r.0, r.2)).collect();
-                    super::elections::council_would_pass(b, seats, sit, &stances)
-                } else {
-                    let (mut present, mut support, mut oppose) = (0, 0, 0);
-                    for &(p, _, stance, _) in &s.stances {
-                        if admitted.binary_search(&p).is_err() {
-                            continue;
+        let saved = evenings.spared_nights(
+            &decisions.iter().collect::<Vec<_>>(),
+            b,
+            sitters.as_ref().map(|x| x.1.as_slice()),
+            &theirs,
+        );
+        saved
+            + decisions
+                .iter()
+                .map(|s| {
+                    let now_passes = if let Some((seats, sit)) = &sitters {
+                        let stances: Vec<(PermanentId, Stance)> =
+                            s.stances.iter().map(|r| (r.0, r.2)).collect();
+                        super::elections::council_would_pass(b, seats, sit, &stances)
+                    } else {
+                        let (mut present, mut support, mut oppose) = (0, 0, 0);
+                        for &(p, _, stance, _) in &s.stances {
+                            if admitted.binary_search(&p).is_err() {
+                                continue;
+                            }
+                            present += 1;
+                            match stance {
+                                Stance::Support => support += 1,
+                                Stance::Oppose => oppose += 1,
+                                Stance::Abstain => {}
+                            }
                         }
-                        present += 1;
-                        match stance {
-                            Stance::Support => support += 1,
-                            Stance::Oppose => oppose += 1,
-                            Stance::Abstain => {}
-                        }
+                        b.decide(admitted.len() as u32, present, support, oppose) == Outcome::Passed
+                    };
+                    if now_passes == s.passed {
+                        return 0.0;
                     }
-                    b.decide(admitted.len() as u32, present, support, oppose) == Outcome::Passed
-                };
-                if now_passes == s.passed {
-                    return saved;
-                }
-                let sign = if now_passes { 1.0 } else { -1.0 };
-                saved
-                    + households
+                    let sign = if now_passes { 1.0 } else { -1.0 };
+                    households
                         .iter()
                         .filter_map(|&h| s.stances.iter().find(|r| r.1 == h))
                         .map(|r| sign * r.3 / pp.w_gain.max(1e-9))
                         .sum::<f64>()
-            })
-            .sum()
+                })
+                .sum::<f64>()
     }
 
     /// A polity's routine review (ADR-0013 §5): with nothing before the gathering and an issue
@@ -4078,22 +4108,25 @@ impl Population {
         // would have turned the other way, at the household's stake in it.
         let amend_gain =
             |b: &Body, sitters: Option<&[PermanentId]>, h: PermanentId, seen: &[usize]| -> f64 {
-                seen.iter()
-                    .map(|&i| {
-                        let s = &decisions[i];
-                        // The evenings it would spare the household or ask of it (ADR-0024 §6,
-                        // M7a slice BQ): those its people gave under the custom in force, less
-                        // those a council would ask of its people who would sit.
-                        let saved = evenings.spared(s, b, sitters, &|hh| hh == h);
-                        let now_passes = would_pass(s, b, sitters);
-                        if now_passes == s.passed {
-                            return saved;
-                        }
-                        let stake = s.stances.iter().find(|r| r.1 == h).map_or(0.0, |r| r.3);
-                        let sign = if now_passes { 1.0 } else { -1.0 };
-                        saved + sign * stake / pp.w_gain.max(1e-9)
-                    })
-                    .sum()
+                // The evenings it would spare the household or ask of it (ADR-0024 §6, M7a slice
+                // BQ): those its people gave under the custom in force, less those a council would
+                // ask of its people who would sit, an evening at a time.
+                let those: Vec<&Seen> = seen.iter().map(|&i| &decisions[i]).collect();
+                let saved = evenings.spared_nights(&those, b, sitters, &|hh| hh == h);
+                saved
+                    + seen
+                        .iter()
+                        .map(|&i| {
+                            let s = &decisions[i];
+                            let now_passes = would_pass(s, b, sitters);
+                            if now_passes == s.passed {
+                                return 0.0;
+                            }
+                            let stake = s.stances.iter().find(|r| r.1 == h).map_or(0.0, |r| r.3);
+                            let sign = if now_passes { 1.0 } else { -1.0 };
+                            sign * stake / pp.w_gain.max(1e-9)
+                        })
+                        .sum::<f64>()
             };
         // The decisions those `seen` saw.
         let seen_by = |seen: &dyn Fn(PermanentId, PermanentId) -> bool| -> Vec<usize> {

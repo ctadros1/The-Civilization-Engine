@@ -1397,8 +1397,30 @@ fn reaping_leaves_grain_on_the_stubble_and_people_glean_it() {
     let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
     let saves =
         commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
-    let at =
+    let saved =
         persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "glean").expect("saves");
-    let loaded = persist::load(&at.path, content()).expect("loads");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
     assert_eq!(loaded.people().order.gleaned, g);
+    // Gleaning is a use of a place like any gathering (research 08-22 §1, §4: the custom was the
+    // place's own; outsiders were barred): the household's people worked the stubble's patch,
+    // and the record of who uses which place, which outsiders' views and a polity's claims on
+    // places read (M5c slices AT, AU: outsiders use a claimed place by leave), holds it.
+    let side = 2 * rules.land.resources[r].range_patches + 1;
+    let cols = sim.land().patches.cols;
+    let rows = sim.land().patches.rows;
+    let (px, py) = (at as u32 % cols, at as u32 / cols);
+    let centre = ((py / side) * side + side / 2).min(rows - 1) * cols
+        + ((px / side) * side + side / 2).min(cols - 1);
+    let place = civ_agents::uses::Place::Patch(centre);
+    assert!(place.claimable(), "a polity may claim the stubble's patch");
+    let used = sim.people().uses.held(
+        holder,
+        place,
+        sim.now().day_index(),
+        rules.people.places.use_half_life_days,
+    );
+    assert!(
+        used.as_ref().is_some_and(|u| u.kcal > 0.0),
+        "the household's gleaning is a use of the patch: {used:?}"
+    );
 }

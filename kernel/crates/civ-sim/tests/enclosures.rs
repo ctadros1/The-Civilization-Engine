@@ -133,6 +133,28 @@ fn barred(sim: &Sim) -> Vec<u32> {
         .collect()
 }
 
+/// A change to the enclosures that leaves no cell barred (a line whose every stretch is a gap, or
+/// none at all) is laid over the walking grid once, not again at every refresh (§8 18, second:
+/// speed against budgets): the grid remembers the enclosures' revision it was laid at even when
+/// it bars nothing, so a later refresh with nothing changed keeps the grid it has.
+#[test]
+fn an_enclosure_change_that_bars_nothing_is_laid_once() {
+    let mut sim = village(11);
+    let land = sim.land_mut_for_tests();
+    land.enclosures.list.clear();
+    land.enclosures.changed();
+    assert!(barred(&sim).is_empty(), "nothing is barred");
+    assert_ne!(sim.land().enclosures.revision(), 0);
+    sim.lay_decks_for_tests();
+    let laid = std::sync::Arc::clone(sim.nav());
+    assert_eq!(laid.barrier_revision(), sim.land().enclosures.revision());
+    sim.lay_decks_for_tests();
+    assert!(
+        std::sync::Arc::ptr_eq(&laid, sim.nav()),
+        "a refresh with nothing changed keeps the grid"
+    );
+}
+
 #[test]
 fn a_standing_line_is_climbed_slowly_an_open_gate_is_walked_through_and_a_shut_one_is_not() {
     let mut sim = village(3);

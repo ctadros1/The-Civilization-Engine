@@ -532,6 +532,9 @@ impl NavGrid {
             flood_depths,
             flood_revision,
         );
+        // The revision it was laid at, even when nothing bars walking: a grid that forgot it
+        // would be laid again at every refresh (§8 18, second).
+        grid.barrier_revision = barrier_revision;
         if barriers.is_empty() {
             return grid;
         }
@@ -546,7 +549,6 @@ impl NavGrid {
             value.to_bits().hash(&mut hash);
         }
         grid.travel_revision = hash.finish();
-        grid.barrier_revision = barrier_revision;
         grid
     }
 

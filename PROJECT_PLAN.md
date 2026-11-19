@@ -11376,7 +11376,7 @@ and M6a gives rivers a daily flow.
        deliberation, smoke risk. Slice 1 **landed** 2026-11-19 as gleaning proper
        (research 08-22; §9, "Gleaning, slice 1"): what reaping leaves on the stubble, gleaned by
        those short of food; a crop left standing by a household that went is not gleaning and stays
-       open.
+       open. *Built 2026-11-19* (§9, "A crop nobody is left to reap is left to be gleaned").
 17. **What is open next, ranked (2026-11-19 survey of §7's "Not yet", the ADRs' deferrals and
     "Revisit when" lines, this list and the research gaps the 2026-11-18/19 work found; Unreal
     work and ADR-0046 left out):** by grounding, self-containment, value and risk to the gates.
@@ -11384,13 +11384,16 @@ and M6a gives rivers a daily flow.
        is given once": its "Recorded, not chased"): the council's `Evenings` charge and credit a
        sitting per decision, where one evening serves all decided at it; the record (laws'
        decided days and stances) grounds it as it did the forum's; self-contained, deliberation,
-       gated.
+       gated. *Built 2026-11-19*, gate-neutral (§9, "A council's evenings are counted by evening").
     2. *A written finding read by the review and a sponsor's "seen"* (Written findings' "Not
        yet"; research 09-07 §1.5, §6.4): precedent and the sponsor's expected success reach back
-       past the word where the page keeps it; small, and gate-neutral where nobody writes.
+       past the word where the page keeps it; small, and gate-neutral where nobody writes. The
+       sponsor's half *built 2026-11-19*, gate-neutral; the review's half decided against (§9,
+       "Written findings, slice 4").
     3. *A recall that ends a forum without naming another* (backlog D, thirteenth item's "Not
        yet"): the gathering hears cases again; an existing law kind ended by petition, as the
-       thirteenth item's removal is; deliberation, gated.
+       thirteenth item's removal is; deliberation, gated. *Built 2026-11-19*, gate-neutral (§9, "A
+       faction may recall a forum").
     4. *Hired field work at the harvest* (gleaning slice 3's block; research 08-10 §1.3:
        households allocate labour across their own land and wage work by season): a household short of hands hires reapers as a
        workshop hires; it unblocks the bylaws' wage test for gleaning; larger, an economy change,
@@ -11408,7 +11411,8 @@ and M6a gives rivers a daily flow.
     a long run, and the notables' gate's margins are narrowing (fixture 2's enacted +38.7 %
     against 55 %, its moved +72.8 % against 95 %; §7, "Fuel offered at market"). So the work
     with little risk to the gate comes first: research gaps, coverage passes, the observer,
-    report-only measures and speed. The rest is ranked by grounding, value and risk.
+    report-only measures and speed. The rest is ranked by grounding, value and risk. *Corrected
+    2026-11-19:* the first draft carried four items that had already landed (listed at its end).
     1. *The harvest's margins, reported by the dashboard* (§4.7's reported rows, as Land and
        Travel are): gleaning by those who could earn the harvest wage and by the others, reaping
        hired (hours and grain paid), fuel sold and bartered, and stubble laws enacted and in
@@ -11432,22 +11436,17 @@ and M6a gives rivers a daily flow.
        item's "Not yet"): fuel weighed with hunger when food waits on a fire, and coal and
        charcoal sold to works, need grounding the index lacks (08-16 is about cities'
        hinterlands, 03-06 about foraging). A research gap, so gate-neutral.
-    6. *A written finding read by the review and a sponsor's "seen"* (17, second, carried):
-       gate-neutral where nobody writes. Check first that neither fixture writes.
-    7. *Fuel weighed with hunger when food waits on a fire* (the fuel item's "Not yet"; after 5):
+    6. *Fuel weighed with hunger when food waits on a fire* (the fuel item's "Not yet"; after 5):
        an economy change, with smoke and gate risk.
-    8. *The stubble bar's limits and its breach* (slice 2's "Not yet"; research 08-22 §1, §4):
+    7. *The stubble bar's limits and its breach* (slice 2's "Not yet"; research 08-22 §1, §4):
        the bar limited to the harvest weeks and the polity's own fields, the employers' gain in
        hands in the forecast, and a breach heard as a case. Deliberation, gated, against the
        narrowest margin.
-    9. *A council's evenings counted by evening, not by decision* (17, first, carried):
-       deliberation, gated.
-    10. *A recall that ends a forum without naming another* (17, third, carried): deliberation,
-        gated.
-    11. *A crop left standing by a household that went* (16, fifth's remainder; research 08-22):
-        it changes people's days, with smoke risk.
-    12. *Coal and charcoal sold to works, and fuel fetched from other settlements* (the fuel
-        item's "Not yet"; after 5): an economy change, larger, with gate risk.
+    8. *Coal and charcoal sold to works, and fuel fetched from other settlements* (the fuel
+       item's "Not yet"; after 5): an economy change, larger, with gate risk.
+    Not carried from 16 and 17, all built on 2026-11-19 (§9): a council's evenings counted by
+    evening, a recall that ends a forum, a crop left standing by a household that went, and a
+    written finding in a sponsor's "seen" (its review half decided against).
 
 ---
 

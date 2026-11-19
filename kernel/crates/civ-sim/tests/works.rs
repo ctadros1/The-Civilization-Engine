@@ -538,17 +538,6 @@ fn a_works_buys_the_charcoal_it_burns_from_a_neighbour() {
         .map(|(h, _)| h)
         .find(|&h| h != owner)
         .expect("a neighbour");
-    if !sim.people().person(who).is_some_and(|p| {
-        p.knows(
-            sim.rules()
-                .catalog
-                .technique_index("core:technique/forging")
-                .expect("forging"),
-        )
-    }) {
-        sim.introduce_technique(who, "core:technique/forging", false)
-            .expect("introduced");
-    }
     set(
         &mut sim,
         owner,
@@ -562,6 +551,36 @@ fn a_works_buys_the_charcoal_it_burns_from_a_neighbour() {
         .with_ctx_for_tests(|pop, ctx| pop.found_firm_for_tests(ctx, owner, who, iron))
         .expect("a works");
     assert!(sim.people().firm(firm).is_some_and(|f| f.is_open()));
+    // Only by a way its people know (the ninth coverage pass's follow-up, §8 19, second): with
+    // nobody of the household knowing how to forge, its works' charcoal is kept for nothing.
+    let knows_forging = sim.people().households.iter().any(|(_, x)| {
+        x.id == owner
+            && x.members.iter().any(|&m| {
+                sim.people().person(m).is_some_and(|p| {
+                    p.knows(
+                        sim.rules()
+                            .catalog
+                            .technique_index("core:technique/forging")
+                            .expect("forging"),
+                    )
+                })
+            })
+    });
+    if !knows_forging {
+        let keep = sim.with_ctx_for_tests(|pop, ctx| pop.keep_for_tests(ctx, owner));
+        assert_eq!(keep[charcoal], 0.0, "no way known, nothing kept for it");
+    }
+    if !sim.people().person(who).is_some_and(|p| {
+        p.knows(
+            sim.rules()
+                .catalog
+                .technique_index("core:technique/forging")
+                .expect("forging"),
+        )
+    }) {
+        sim.introduce_technique(who, "core:technique/forging", false)
+            .expect("introduced");
+    }
     // What the works burns is kept: blooms forged by hand at 8 kg a kilogram, two at a session,
     // for the hearth's days.
     let keep = sim.with_ctx_for_tests(|pop, ctx| pop.keep_for_tests(ctx, owner));
@@ -590,5 +609,17 @@ fn a_works_buys_the_charcoal_it_burns_from_a_neighbour() {
     assert!(
         deal.is_some_and(|(g, units, _)| g == charcoal && units > 1.0 && units <= carry + 1e-9),
         "the works' household buys the charcoal its works burns: {deal:?}"
+    );
+    // A works closed keeps nothing of its fuel, and its household buys none for it.
+    sim.with_ctx_for_tests(|pop, ctx| {
+        pop.close_firm_for_tests(ctx, firm, civ_agents::firm::Exit::Idle)
+    });
+    let keep = sim.with_ctx_for_tests(|pop, ctx| pop.keep_for_tests(ctx, owner));
+    assert_eq!(keep[charcoal], 0.0, "a closed works keeps nothing");
+    let deal = sim
+        .with_ctx_for_tests(|pop, ctx| pop.neighbours_deal_for_tests(ctx, owner, Some(neighbour)));
+    assert!(
+        deal.is_none_or(|(g, _, _)| g != charcoal),
+        "nobody buys charcoal for a closed works: {deal:?}"
     );
 }

@@ -10442,6 +10442,19 @@ and M6a gives rivers a daily flow.
       notables' gate**, locally, against 3c0e3b5: passes, 0 of 40 runs changed (fixture 1
       proposals +25.9 %, enacted +14.8 %, offices −30.0 %, moved −57.5 %; fixture 2 proposals
       +17.1 %, enacted +38.7 %, offices +7.7 %, moved +72.8 %, as before).
+    - *Backlog E, coverage, tenth pass (2026-11-19): fuel weighed with hunger and a works'
+      fuel, at their edges* (§9, "The tenth coverage pass"; §8 19, second). Tests only; no code
+      changed and no fault found. **Pinned:** (1) a household's food waits on a fire only
+      while it holds no fuel at all: with half a kilogram of firewood, too little to bake with,
+      firewood is weighed by the gathering it saves and is not its best purchase (people, one
+      new, sharing the fuel-against-food scene's setup; it fails without the fuel-held check;
+      it pins the recorded "Not yet" and changes when that is built); (2) a works' fuel is kept
+      only by a way its people know, and nothing is kept or bought for a works once closed
+      (works, the charcoal scene; each fails with its filter removed). **Left:** the forum
+      recall's choice, for a forum of one holder, between ending it and another hearer: the
+      faction's weighing gives only the move it picks, so pinning which wins needs both
+      weighings exposed to a test, a hook into `petition_demand` of its own. **Tested:** people
+      (30), works (7); fmt and clippy clean.
     - *Backlog D, eighteenth item (2026-11-04): a household's line, wagons and trains pass on,
       and a line nobody holds is taken up* (the third and fourth items' "Not yet": a household's
       line, wagons and trains passing on; ADR-0034 §2, §3, §6; research 08-09 §1.2 and the
@@ -11633,7 +11646,8 @@ and M6a gives rivers a daily flow.
     2. *A coverage pass: the forum recall's choice, fuel weighed with hunger, and works' fuel*
        (the ninth pass's "Left"; §7's 2026-11-19 entries): for a forum of one holder, the choice
        between ending it and naming another hearer, set by both stakes in a scene; and fuel with
-       some held but too little. Tests only.
+       some held but too little. Tests only. *Done 2026-11-19* (§7, "coverage, tenth pass"):
+       two of three pinned; the recall's choice left for a hook of its own.
     3. *The `m11_world` demo lived again on the current head* (A's follow-up): everything since
        9b7f3a8 (enteric disease and food routes, gleaning, hired reaping, fuel markets, the works'
        fuel) is unmeasured in an eight-year M11 world. A measurement, the coordinator's to
@@ -13441,3 +13455,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **A works' fuel bought as its input (2026-11-19; §8 18, eighth, first half; research 08-16 §1.4, 07-12):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** a works' fuel is an input as its ore is, and the works draws it from its owners' household. That household kept nothing for it, so since fuel came to market (4c66735) a forge's household could offer the charcoal its forge burns, and none could buy any, charcoal being a material. Through the existing keeping (`Holding`) and buying (`best_deal`'s fuel branch) the household now keeps what its workshops burn and buys it short, worth the hours it saves, with no new weight. How much is kept is a design prior: a session at the recipe's most units, for the hearth's days of fuel. No fixture world keeps a forge, so the notables' gate did not move (0 of 40). No save, wire or content change, and no ADR.
 - **NUDGE: a works' fuel kept (2026-11-19; the entry above; time-boxed):** a household keeps, of each good with a heat, a session at its recipe's most units for `fuel_target_days` (three days), the most over the recipes making each line that its members know. Revisit if lived works idle for want of fuel their households sold, or hoard more than they burn in a season.
 - **A reading aloud kept by case (2026-11-19; §8 19, first; ADR-0025's "Writing arrives"):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** the observer is to show what a world did, and the reading aloud of a written finding at a hearing (ADR-0025's "Writing arrives") was kept only as a count, so no case could say it was read to those who sat. A record appended within the unreleased saves 220 (as written findings and gleaners were) is the least that lets the case's words say it. Nothing reads it but the frames, so the notables' gate did not move (0 of 40 runs). Not expensive to reverse, so no ADR.
+- **The tenth coverage pass (2026-11-19; §8 19, second; backlog E: test coverage):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** fuel weighed with hunger and a works' fuel landed today through filters (no fuel held, a way known, a works open) that their scenes did not reach. Each is now pinned by a test that fails without it. The first pins a limit recorded as "Not yet", so that building it is seen. Tests only, so nothing people do changes and the gate is not needed. The forum recall's choice is left: the only test hook returns the move picked, not both weighings, and adding one for a tie between two built weighings is a slice of its own, not a gap in what is tested.

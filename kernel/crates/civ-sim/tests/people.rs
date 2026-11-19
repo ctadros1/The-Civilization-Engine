@@ -1738,6 +1738,33 @@ fn a_household_short_of_hands_at_the_harvest_hires_reapers() {
 /// and she buys it.
 #[test]
 fn one_whose_grain_waits_on_a_fire_weighs_firewood_by_the_meals_it_makes() {
+    let (mut sim, hh, wood) = grain_waits_on_a_fire(0.0);
+    let deal = sim.with_ctx_for_tests(|pop, ctx| pop.neighbours_deal_for_tests(ctx, hh, None));
+    assert!(
+        deal.is_some_and(|(g, units, _)| g == wood && units >= 1.0),
+        "she would buy firewood for the bread it bakes: {deal:?}"
+    );
+}
+
+/// The edge of fuel weighed with hunger (§8 19, second; §7, "Fuel weighed with hunger", "Not
+/// yet"): her food waits on a fire only while she holds no fuel at all. With half a kilogram of
+/// firewood, too little to bake with, the firewood is weighed by the gathering it saves, as
+/// before, and is not her best purchase. When fuel too short for the food is weighed with hunger,
+/// this test changes with it.
+#[test]
+fn with_some_firewood_held_it_is_weighed_by_the_gathering_it_saves() {
+    let (mut sim, hh, wood) = grain_waits_on_a_fire(0.5);
+    let deal = sim.with_ctx_for_tests(|pop, ctx| pop.neighbours_deal_for_tests(ctx, hh, None));
+    assert!(
+        deal.is_none_or(|(g, _, _)| g != wood),
+        "with firewood held, her grain does not wait on a fire: {deal:?}"
+    );
+}
+
+/// The scene of fuel weighed with hunger: a grown woman alone, able to gather, holding grain beyond
+/// her year and nothing else to eat, with `held_wood` kilograms of firewood, among neighbours who
+/// offer firewood. Gives the world, her household and the firewood's index.
+fn grain_waits_on_a_fire(held_wood: f64) -> (Sim, PermanentId, usize) {
     let mut sim = new_world(3, 0);
     sim.advance_minutes(200 * 24 * 60).expect("advances");
     let (hh, woman) = lone_elder(&mut sim, 38.0, 450.0);
@@ -1796,6 +1823,10 @@ fn one_whose_grain_waits_on_a_fire_weighs_firewood_by_the_meals_it_makes() {
                     x.stores[g] = 0.0;
                 }
             }
+            // And of firewood, what the scene gives her.
+            if x.id == hh {
+                x.stores[wood] = held_wood;
+            }
         }
     }
     let offered = sim
@@ -1804,11 +1835,7 @@ fn one_whose_grain_waits_on_a_fire_weighs_firewood_by_the_meals_it_makes() {
         .iter()
         .any(|(_, x)| x.id != hh && x.offers.iter().any(|o| usize::from(o.good) == wood));
     assert!(offered, "a neighbour offers firewood");
-    let deal = sim.with_ctx_for_tests(|pop, ctx| pop.neighbours_deal_for_tests(ctx, hh, None));
-    assert!(
-        deal.is_some_and(|(g, units, _)| g == wood && units >= 1.0),
-        "she would buy firewood for the bread it bakes: {deal:?}"
-    );
+    (sim, hh, wood)
 }
 
 /// Fuel offered at market (§8 17, fifth; research 08-16 §1.4: fuel is a household necessity and an

@@ -1,6 +1,6 @@
 # Research topics
 
-176 deep-research topics across 16 domains, from the simulation engine to how each part of a society works. 167 are needed before v1 (M0–M8); the rest come after. Priorities: 100 High, 69 Medium, 7 Low.
+177 deep-research topics across 16 domains, from the simulation engine to how each part of a society works. 168 are needed before v1 (M0–M8); the rest come after. Priorities: 100 High, 70 Medium, 7 Low.
 
 ## Research files
 
@@ -81,7 +81,7 @@ When a report changes a decision, update `PROJECT_PLAN.md` and its decisions log
 | 14-12 | [Visualizing construction stages and collapses](14-rendering/12-construction-collapse-vfx.md) | Unreal Engine rendering and pipeline | Medium |
 | 14-14 | [Rendering rivers and lakes from generated hydrology](14-rendering/14-water-rendering.md) | Unreal Engine rendering and pipeline | Medium |
 
-### M3: Village economy (39)
+### M3: Village economy (40)
 
 | ID | Topic | Domain | Priority |
 |---|---|---|---|
@@ -120,6 +120,7 @@ When a report changes a decision, update `PROJECT_PLAN.md` and its decisions log
 | 08-17 | [Guilds: economic, political and knowledge institutions](08-economy/17-guilds.md) | Economy | Medium |
 | 08-21 | [Classifying economic systems](08-economy/21-economic-system-typology.md) | Economy | Medium |
 | 08-22 | [Gleaning: what the harvest leaves, who may take it, and what it was worth](08-economy/22-gleaning.md) | Economy | Medium |
+| 08-23 | [Household fuel: gathering, buying, going without, and fuel against food](08-economy/23-household-fuel.md) | Economy | Medium |
 | 11-02 | [How architectural styles evolve and spread](11-architecture-construction/02-style-evolution.md) | Architecture and construction | Medium |
 | 11-12 | [Earthworks: terraces, canals, levees and leveling](11-architecture-construction/12-earthworks.md) | Architecture and construction | Medium |
 | 14-06 | [Condition-driven weathering and aging materials](14-rendering/06-procedural-weathering.md) | Unreal Engine rendering and pipeline | Medium |
@@ -363,7 +364,7 @@ When a report changes a decision, update `PROJECT_PLAN.md` and its decisions log
 | 07-12 | [Preconditions and cluster of the Industrial Revolution](07-technology/12-industrialization.md) | M10 | Low | Simulation |
 | 07-13 | [Modern technology: electricity, combustion and telecommunications](07-technology/13-modern-tech.md) | M11 | Low | Simulation |
 
-### 08. Economy (22)
+### 08. Economy (23)
 
 | ID | Topic | Needed by | Priority | Type |
 |---|---|---|---|---|
@@ -389,6 +390,7 @@ When a report changes a decision, update `PROJECT_PLAN.md` and its decisions log
 | 08-20 | [Pre-industrial economic crises](08-economy/20-economic-crises.md) | M7 | Medium | Simulation |
 | 08-21 | [Classifying economic systems](08-economy/21-economic-system-typology.md) | M3 | Medium | Simulation |
 | 08-22 | [Gleaning: what the harvest leaves, who may take it, and what it was worth](08-economy/22-gleaning.md) | M3 | Medium | Simulation |
+| 08-23 | [Household fuel: gathering, buying, going without, and fuel against food](08-economy/23-household-fuel.md) | M3 | Medium | Simulation |
 
 ### 09. Government, law and politics (17)
 

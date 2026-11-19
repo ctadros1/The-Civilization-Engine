@@ -10353,6 +10353,18 @@ and M6a gives rivers a daily flow.
       civ-host unit tests; smoke; fmt and clippy clean; the web shell builds and its unit tests
       pass (223). The browser tests could not run here: this container has no Playwright
       browser. Frames read the world and change nothing in it, so the notables' gate was not run.
+    - *Research 08-23 (2026-11-19): household fuel* (§9, "Research 08-23"; §8 18, fifth): gathering,
+      buying, going without, and fuel against food when food waits on a fire, the grounding the
+      fuel item's "Not yet" lacked (08-16 covers cities' hinterlands, 03-06 woody biomass).
+      Findings: gathering is costly and mostly women's and children's work, and its time is a poor
+      measure of scarcity; buying is weighed by the opportunity cost of collecting time, and
+      households hold several fuels at once; the English poor's fuel came by right, allotment
+      and charity as well as by purchase; when fuel is short, households cook fewer and quicker
+      meals and undercook or skip before going hungry (modern and regional evidence, mostly
+      search summaries). Proposed rules: the built fuel market stands; fuel against food weighs
+      fuel by the meals it makes possible, and cooking adapts before hunger (a design prior);
+      fuel by right or relief is the polity's to make; fuel to works belongs to 08-16 and 07-12.
+      No code.
     - *Backlog D, eighteenth item (2026-11-04): a household's line, wagons and trains pass on,
       and a line nobody holds is taken up* (the third and fourth items' "Not yet": a household's
       line, wagons and trains passing on; ADR-0034 §2, §3, §6; research 08-09 §1.2 and the
@@ -11496,7 +11508,8 @@ and M6a gives rivers a daily flow.
     5. *A research note on household fuel: gathering, buying and going without* (the fuel
        item's "Not yet"): fuel weighed with hunger when food waits on a fire, and coal and
        charcoal sold to works, need grounding the index lacks (08-16 is about cities'
-       hinterlands, 03-06 about foraging). A research gap, so gate-neutral.
+       hinterlands, 03-06 about foraging). A research gap, so gate-neutral. *Written
+       2026-11-19* (research 08-23).
     6. *Fuel weighed with hunger when food waits on a fire* (the fuel item's "Not yet"; after 5):
        an economy change, with smoke and gate risk.
     7. *The stubble bar's limits and its breach* (slice 2's "Not yet"; research 08-22 §1, §4):
@@ -13271,3 +13284,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Long run 80's slow world, read again (2026-11-19; §8 18, second; backlog E: speed against budgets; homelab long runs 67, 79, 80):** Decided by Claude under standing owner authority (2026-11-19). **The reading corrected:** world 4 (seed 4) took 14,501 s in run 79 (3fa7d6c) and 70,792 s in run 80 (d42c873), but the two runs are not a comparison of code. The world is not repeatable (§3.5): the same d42c873 binary, lived twice here with the same settings, had 82 and 83 people at the end of year 1, and neither run repeats run 79's or run 80's populations. Lived alone here, both commits ran seed 4 at the same speed until slow years at the same stage. Sampled with gdb, those slow years go to what run 67's entry found: the walking ground laid again for each day's flood depths, and with it the landmarks (about a third of the samples) and the settlements' walking fields (about an eighth). ADR-0045's food dosing and the sewers appear in no sample, so the long run's figure is the history that run drew on seed 4's ground. Seed 4 was also run 67's slow world. **Fixed (exact):** `NavGrid::with_barriers` now records the enclosures' revision before it returns with no barrier to lay. Before, once any enclosure had changed and none barred walking, every refresh laid the whole grid again. It was not active in these runs, so it is no speed-up here, but it would have made such a world slow. The notables' gate against 6bca7cd: 0 of 40 runs changed. **Measured, not built:** keeping a walking field cell by cell where nothing changed among or beside the cells it reached is exact, but over seed 4's first ten years it would have kept none of the 939 fields the tile digests let go, nor the landmarks, because a day's flood changes thousands of cells inside the walk from both hearths. *Reason:* shipping it would add machinery with nothing to show. Cutting the rebuilds at their source remains the owner's decision recorded in run 67's entry (coarser wading steps, or landmarks not rebuilt for every flood), because both change routes. Long run 83's seed 4 may be slow again for the same reason.
 - **The ninth coverage pass (2026-11-19; §8 18, third; backlog E: test coverage):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** ten slices landed on 2026-11-19 with the notables' gate's margins narrowing, so their untested branches were read before more is built on them. Three were real gaps, each now pinned by a test that fails without its line: what makes the stubble law weigh nothing (not heard of, a hungry household, a law superseded), a household with no grain hiring no reapers, and what the harvest margins row reads from a world. Tests only, so nothing people do changes and the gate is not needed. Left, and said so: the forum recall's choice between ending a forum of one holder and another hearer, which needs a scene that sets both stakes.
 - **A hired reaper's doing (2026-11-19; §8 18, fourth; the observer):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** the observer is the only place a person's day is read, and a reaper hired onto another's field was told in a workshop hand's words, at a field that read as their own, so hired reaping (§8 17, fourth) was invisible as what it is. Naming the field's household for any field not the person's own also tells a tenant or a helper truly. The words are built in the kernel's frames and sent as strings, so no wire change; frames change nothing in the world, so no gate.
+- **Research 08-23 (2026-11-19; §8 18, fifth; backlog E: gaps in the research index):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** fuel weighed with hunger (§8 18, sixth) and fuel sold to works (eighth) were next in line with no report to design against; 08-16 is about cities and 03-06 about the woodland. A short note in 08-22's form, every figure marked by how it was reached (most by search summary, none load-bearing) and what is uncertain, so that the next slice is designed against a source. It proposes that a household short of fuel and food weighs fuel by the meals it makes possible and cooks fewer, quicker meals before going hungry, both design priors.

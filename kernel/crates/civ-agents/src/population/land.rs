@@ -75,6 +75,83 @@ pub(super) fn crop_brought_in(f: &mut Field) -> bool {
 }
 
 impl Population {
+    /// A crop left standing by a household that is no more, with no heir to take it with the
+    /// field (`succeed`): once it is ripe, what it would give is left on the ground as gleanings
+    /// for anyone in reach (research 08-22 §1: what the harvest leaves is the poor's; 05-06 §1.4,
+    /// §5.3: a household comes back to reap only with surviving property rights, which one no
+    /// more has not), and the field lies between crops for the regime's next review. Those of the
+    /// settlement nearest know it stands there, as they know any place's yield. A household that
+    /// moved away keeps its crop (`crops_go_with`), and one that inherits a field its crop.
+    pub(super) fn crops_left_standing(&mut self, ctx: &mut Ctx) {
+        let day = ctx.now.day_index();
+        // Who would know each, what they would have seen, and how long they remember it.
+        type Seen = (PermanentId, (u16, u32, f64, f64, i64), f64);
+        let mut seen: Vec<Seen> = Vec::new();
+        for fi in 0..ctx.land.fields.len() {
+            let f = &ctx.land.fields[fi];
+            if f.stage != FieldStage::Sown || self.household(f.household).is_some() {
+                continue;
+            }
+            let Some(crop) = ctx.catalog.crops.get(usize::from(f.crop)) else {
+                continue;
+            };
+            if day < f.ripe_day(crop) {
+                continue;
+            }
+            let Some(r) = ctx
+                .land_params
+                .resources
+                .iter()
+                .position(|res| res.reaped && res.good == crop.good)
+            else {
+                continue;
+            };
+            let allow = ctx.land.allowance(ctx.land_params, f, crop);
+            let (_, kg, _) = f.harvest_kg(crop, day, allow);
+            let at = f.rect.centre_m();
+            let p = ctx.land.patches.of_point(at.0, at.1);
+            let unit = ctx.land_params.resources[r].unit_kg.max(1e-9);
+            if let Some(stock) = ctx.land.stocks.get_mut(r).and_then(|s| s.get_mut(p)) {
+                *stock += (kg / unit) as f32;
+            }
+            let f = &mut ctx.land.fields[fi];
+            f.stage = FieldStage::Fallow;
+            f.work_h = 0.0;
+            f.sheaves_kg = 0.0;
+            f.stage_since = ctx.now;
+            self.fields_moved();
+            // Who would know: the households of the settlement whose hearth is nearest.
+            let Some(s) = ctx
+                .land
+                .settlements
+                .iter()
+                .filter(|s| s.abandoned.is_none())
+                .min_by(|a, b| distance_m(a.hearth_m, at).total_cmp(&distance_m(b.hearth_m, at)))
+                .map(|s| s.id)
+            else {
+                continue;
+            };
+            let Some(knower) = self
+                .households
+                .iter()
+                .find(|(_, x)| x.settlement == Some(s) && !x.members.is_empty())
+                .map(|(_, x)| x.id)
+            else {
+                continue;
+            };
+            let range = ctx.land_params.resources[r].range_patches;
+            let centre = super::block_centre(&ctx.land.patches, range, p);
+            let units = ctx
+                .land
+                .yield_around(ctx.land_params, r, centre as usize, 1.0, 1.0);
+            let memory = ctx.land_params.resources[r].memory_days();
+            seen.push((knower, (r as u16, centre, units, 1.0, day), memory));
+        }
+        for (knower, s, memory) in seen {
+            self.remember_patch(knower, s, None, memory);
+        }
+    }
+
     /// Household `from` moves to another settlement as household `to` (ADR-0018 §5): the fields
     /// it works with a crop standing or sheaves waiting go with it for that crop alone (research
     /// 05-06 §1.4, §5.3: migrants return to reap, with surviving property rights; 08-09 §1.1:

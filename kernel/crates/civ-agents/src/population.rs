@@ -7917,13 +7917,11 @@ impl Population {
             // Those who reaped saw what they left, and say so at the hearth: they know the stubble
             // as if they had gleaned it an hour (the settlement's households share what one
             // learns, as of any place).
-            // Places are known by the centre of the block of patches a trip ranges over.
-            let patches = &ctx.land.patches;
-            let side = 2 * ctx.land_params.resources[r].range_patches + 1;
-            let (px, py) = (p as u32 % patches.cols, p as u32 / patches.cols);
-            let cpx = ((px / side) * side + side / 2).min(patches.cols - 1);
-            let cpy = ((py / side) * side + side / 2).min(patches.rows - 1);
-            let centre = cpy * patches.cols + cpx;
+            let centre = block_centre(
+                &ctx.land.patches,
+                ctx.land_params.resources[r].range_patches,
+                p,
+            );
             let units = ctx
                 .land
                 .yield_around(ctx.land_params, r, centre as usize, 1.0, 1.0);
@@ -8936,6 +8934,16 @@ pub fn eat_from(stores: &mut [f64], goods: &[GoodDef], want: f64, reserve: bool)
 }
 
 /// Lays out the aligned blocks of side `2·range + 1` patches and the cell people walk to in each.
+/// The patch a place is known by for a trip ranging `range` patches about it: the centre of the
+/// block of patches holding patch `p` (places are laid out in such blocks; `lay_out_places`).
+pub(super) fn block_centre(patches: &civ_land::Patches, range: u32, p: usize) -> u32 {
+    let side = 2 * range + 1;
+    let (px, py) = (p as u32 % patches.cols, p as u32 / patches.cols);
+    let cpx = ((px / side) * side + side / 2).min(patches.cols - 1);
+    let cpy = ((py / side) * side + side / 2).min(patches.rows - 1);
+    cpy * patches.cols + cpx
+}
+
 fn lay_out_places(ctx: &Ctx, range: u32, in_water: bool) -> Places {
     let map = ctx.map;
     let patches = &ctx.land.patches;

@@ -10127,6 +10127,28 @@ and M6a gives rivers a daily flow.
       a workshop's): a law reserving gleaning to those who cannot earn would bring nobody anything
       to forecast, so it waits for hired field work. A landholder's leave likewise waits for a
       reason to withhold it: raking the stubble or grazing it, neither built.
+    - *A crop nobody is left to reap is left to be gleaned (2026-11-19)* (§9, of that name; §8 16,
+      fifth, its open half; the 2026-11-04 recurring-red follow-ups' "Not yet": gleaning by the
+      households left behind when nobody comes back). A household that is no more with no heir to
+      take its fields (`succeed` gives none, or gives them back to the settlement) left its crop
+      standing: the review moves only fields between crops, so nobody reaped it and it was lost.
+      **Built:** once such a crop is ripe, what reaping would take of it is laid down as the
+      gleanings of its field's patch, the field lies between crops for the regime's next review,
+      and the settlement whose hearth is nearest knows it stands there, as it knows any place's
+      yield. Anyone in reach gleans it by what it brings their food, as any gleanings (slice 1),
+      and a polity's claim governs outsiders (slice 3). A household that moved away keeps its crop
+      and may come back for it (`crops_go_with`); one with an heir passes it with the field.
+      **Tested:** people (25, one new: a household whose people all die with no kin, its field
+      sown, leaves its ripe crop as gleanings, the field between crops and the settlement knowing
+      it; it fails without the change), and the soil, settlements, bottlenecks, regimes,
+      holdings, letting, credit, crime, knowledge, roundtrip and determinism targets; the
+      civ-agents, civ-land and civ-host unit tests; smoke; fmt and clippy clean. **The notables'
+      gate**, locally, against 7144878: gate-neutral (all 40 runs identical; no household in the
+      three-year fixtures dies out with a crop standing): fixture 1 proposals +28.0 %, enacted
+      +16.0 %, offices −20.0 %, moved −34.7 %; fixture 2 proposals +7.8 %, enacted +19.4 %,
+      offices +21.4 %, moved +44.2 %, each within its tolerance (105, 55, 85, 95 %). **Not yet:**
+      a crop that heirs or the settlement could reap whole rather than glean (an heir in another
+      settlement who would not come; a settlement's common work on it).
     - *Backlog D, eighteenth item (2026-11-04): a household's line, wagons and trains pass on,
       and a line nobody holds is taken up* (the third and fourth items' "Not yet": a household's
       line, wagons and trains passing on; ADR-0034 §2, §3, §6; research 08-09 §1.2 and the
@@ -12956,3 +12978,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **NUDGE: gleaning's figures (2026-11-19; research 08-22 §3; time-boxed design priors):** a crop's `left_share` 0.02 (derived 2-3 % from one parish estimate); gleanings' `max_rate_per_hour` 1.0 kg (derived from that estimate over assumed hours, highly uncertain) and `half_rate_stock_per_ha` 5.0 kg (a gleaned-over field leaves little worth stooping for); `loss_per_day` 0.03 (gone in about a month, as wild plant food; the season ran a few weeks at most). To be read against a homelab long run's lean years.
 - **Gleaning, slice 2 (2026-11-19; research 08-22 §3, §5; plan §4.7's crime and poverty row):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** 08-22's question of what gleaning did for the poor's food is answered by kilograms and by whom; "short of food" is read as the outlook already reads it (food held below a year's need), so no new threshold is authored. The count is kept where the gleaning happens and saved, as the stock it came from is gone by the time a dashboard looks; it joins the crime and poverty row, beside the takings it is the lawful counterpart of, and grades nothing.
 - **Gleaning, slice 3: custom through claims; the wage test blocked (2026-11-19; research 08-22 §1, §4; M5c slices AT, AU):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** the custom that barred outsiders from a parish's stubble is, in the kernel, a polity's claim on a place: gleaning is gathering at a patch, its use logged as any is, so outsiders seen gleaning feed the existing claim law and its leave share, and nothing gleaning-specific is authored. The wage test is not built: the bylaws kept able-bodied hands for the harvest wage, and the kernel has no harvest labour for hire, so such a law would protect nothing anyone forecasts and could only be proposed by a scripted reason. It waits for hired field work; a landholder's leave waits for raking or stubble grazing. No new boundary type or save change was needed or made.
+- **A crop nobody is left to reap is left to be gleaned (2026-11-19; research 08-22 §1; 05-06 §1.4, §5.3; ADR-0007 §2):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** of the ways the coordinator listed (the heir, kin, the settlement, anyone short of food, claims if contested), the heir and kin already take a crop with its field (`succeed`, `merge_household`) and a household that moved comes back for its own (`crops_go_with`); the gap is the crop no one has a right to, which 05-06 §5.3 ties to surviving property rights and 08-22 §1 to the poor's share of what the harvest leaves. Reaping it whole would need someone to hold the right to it and the work to be weighed as their own field's; letting it be gleaned needs neither and reuses slice 1 wholly, at gleaning's slower rate and with its month's loss, so the grain that would have rotted mostly feeds those short of food, by their own choice, and claims still bar outsiders. It is laid down only once ripe, so an unripe crop is not taken early, and the field then lies between crops, so the regime's review gives the ground to whoever takes it next. No new prior, save or content.

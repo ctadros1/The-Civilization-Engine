@@ -1408,6 +1408,8 @@ impl Population {
         // Households tell their members of gatherings ahead, and those short of food who find
         // the common store empty hold it against it (M4c slice AE).
         self.word_day(ctx);
+        // A crop no one is left to reap is left to be gleaned once it is ripe (research 08-22).
+        self.crops_left_standing(ctx);
         // Those who hold news of sickness tally the sources they know (M6a slice BA).
         self.suspicion_day(ctx);
         self.grieve_empty_stores(ctx);

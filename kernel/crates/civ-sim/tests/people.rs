@@ -1424,3 +1424,101 @@ fn reaping_leaves_grain_on_the_stubble_and_people_glean_it() {
         "the household's gleaning is a use of the patch: {used:?}"
     );
 }
+
+/// A crop left standing by a household that is no more, with no heir to take it with the field
+/// (research 08-22 §1; 05-06 §1.4, §5.3: only surviving property rights bring a household back to
+/// reap): once ripe, what it would give is left on the ground as gleanings for anyone in reach,
+/// the settlement's households know it stands there, and the field lies between crops for the
+/// next holder.
+#[test]
+fn a_crop_nobody_is_left_to_reap_is_left_to_be_gleaned() {
+    let mut sim = new_world(3, 0);
+    let rules = sim.rules().clone();
+    let crop = rules.catalog.crops[rules.people.farm.crop].clone();
+    let r = rules
+        .land
+        .resources
+        .iter()
+        .position(|x| x.id == "gleanings")
+        .expect("the land has gleanings");
+    // Live until a field is sown and not yet ripe.
+    let mut sown = None;
+    for _ in 0..300 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        let day = sim.now().day_index();
+        if let Some(f) = sim
+            .land()
+            .fields
+            .iter()
+            .find(|f| f.stage == civ_land::FieldStage::Sown && day + 5 < f.ripe_day(&crop))
+        {
+            sown = Some((f.id, f.household));
+            break;
+        }
+    }
+    let (field, household) = sown.expect("a field is sown in the first season");
+    // Its household's people die, with no kin to take what it held.
+    let members = sim
+        .people()
+        .household(household)
+        .expect("the household")
+        .members
+        .clone();
+    {
+        let pop = sim.people_mut_for_tests();
+        for rec in pop.records.values_mut() {
+            if members.contains(&rec.id) {
+                (rec.mother, rec.father) = (None, None);
+            }
+            if rec.mother.is_some_and(|m| members.contains(&m)) {
+                rec.mother = None;
+            }
+            if rec.father.is_some_and(|f| members.contains(&f)) {
+                rec.father = None;
+            }
+        }
+    }
+    // The youngest first, so no child is left to go to a neighbour's with the household's claim.
+    let now = sim.now();
+    let mut members = members;
+    members.sort_by(|a, b| {
+        let age = |p: &PermanentId| sim.people().person(*p).map_or(0.0, |q| q.age_years(now));
+        age(a).total_cmp(&age(b))
+    });
+    for m in members {
+        sim.with_ctx_for_tests(|pop, ctx| pop.die_for_tests(ctx, m));
+    }
+    assert!(sim.people().household(household).is_none(), "no more");
+    let get = |sim: &Sim| {
+        sim.land()
+            .fields
+            .iter()
+            .find(|f| f.id == field)
+            .cloned()
+            .expect("the field")
+    };
+    let f = get(&sim);
+    assert_eq!(f.stage, civ_land::FieldStage::Sown, "its crop still stands");
+    let c = f.rect.centre_m();
+    let at = sim.land().patches.of_point(c.0, c.1);
+    let before = sim.land().stocks[r][at];
+    // Past ripeness, the crop lies on the ground to be gleaned, and the field is between crops.
+    let ripe = f.ripe_day(&crop);
+    while sim.now().day_index() <= ripe + 1 {
+        sim.advance_minutes(24 * 60).expect("advances");
+    }
+    let f = get(&sim);
+    assert_eq!(f.stage, civ_land::FieldStage::Fallow, "{:?}", f.stage);
+    let after = sim.land().stocks[r][at];
+    assert!(
+        f64::from(after - before) > 0.2 * crop.yield_kg_per_ha * f.area_ha(),
+        "the standing crop lies there to glean: {before} to {after}"
+    );
+    assert!(
+        sim.people()
+            .households
+            .iter()
+            .any(|(_, x)| x.known.iter().any(|k| usize::from(k.resource) == r)),
+        "the settlement knows it stands there"
+    );
+}

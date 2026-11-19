@@ -1030,7 +1030,14 @@ impl Population {
             .filter(|f| !self.order.credit.owes(f.id))
             .filter_map(|f| f.wage.filter(|w| w.open_hours() >= 0.5).map(|w| (f, w)))
             .collect();
-        if hiring.is_empty() {
+        // Reaping the settlement's other households would hire (§8 17, fourth).
+        let reaping: Vec<(PermanentId, super::reapers::ReapOffer)> = self
+            .households
+            .iter()
+            .filter(|(_, x)| x.id != hh.id && x.settlement == Some(settlement))
+            .filter_map(|(_, x)| self.reap_offer(ctx, x.id).map(|o| (x.id, o)))
+            .collect();
+        if hiring.is_empty() && reaping.is_empty() {
             return None;
         }
         let (catalog, goods) = (ctx.catalog, &ctx.catalog.goods);
@@ -1045,6 +1052,21 @@ impl Population {
             .sum::<f64>()
             .max(food);
         let short = food_keep > food;
+        // What `units` of good `p` paid bring the household: food it is short of, or goods at
+        // what they are worth to it, with those hours to rank the work by.
+        let worth_of = |p: usize, units: f64| {
+            let d = goods.get(p)?;
+            let want = holding.want.get(p).copied().unwrap_or(0.0);
+            let hours = units * costs.get(p).copied().flatten().unwrap_or(0.0) * want;
+            let worth = if d.purpose == GoodUse::Food && d.kcal_per_kg > 0.0 && short {
+                TradeWorth::Food {
+                    kcal: units * d.kcal_per_kg,
+                }
+            } else {
+                TradeWorth::Goods { hours }
+            };
+            Some((hours, worth))
+        };
         let mut best: Option<(f64, JobOption)> = None;
         for (f, w) in hiring {
             let Some(owner) = self.household(f.owner) else {
@@ -1081,18 +1103,8 @@ impl Population {
             let session = bell.map_or(session_min, |(_, len)| f64::from(len));
             let minutes = (w.open_hours() * 60.0).min(session);
             let units = f64::from(w.per_hour) * minutes / 60.0;
-            let p = usize::from(w.pay);
-            let Some(d) = goods.get(p) else {
+            let Some((hours, worth)) = worth_of(usize::from(w.pay), units) else {
                 continue;
-            };
-            let want = holding.want.get(p).copied().unwrap_or(0.0);
-            let hours = units * costs.get(p).copied().flatten().unwrap_or(0.0) * want;
-            let worth = if d.purpose == GoodUse::Food && d.kcal_per_kg > 0.0 && short {
-                TradeWorth::Food {
-                    kcal: units * d.kcal_per_kg,
-                }
-            } else {
-                TradeWorth::Goods { hours }
             };
             let better = best
                 .as_ref()
@@ -1102,11 +1114,42 @@ impl Population {
                     hours,
                     JobOption {
                         firm: f.id,
+                        field: None,
                         walk_min: walk,
                         at,
                         minutes,
                         worth,
                         bell,
+                    },
+                ));
+            }
+        }
+        // Reaping for hire, for as long as a session or the hours wanted, paid in grain.
+        for (employer, o) in reaping {
+            let Some(walk) = reach
+                .seconds_to(cell_of(ctx.map, o.at))
+                .map(|s| f64::from(s) / 60.0)
+            else {
+                continue;
+            };
+            let minutes = (o.hours * 60.0).min(session_min);
+            let Some((hours, worth)) = worth_of(o.good, o.kg_per_hour * minutes / 60.0) else {
+                continue;
+            };
+            let better = best.as_ref().is_none_or(|(h, b)| {
+                hours > *h + 1e-9 || (hours >= *h - 1e-9 && employer < b.firm)
+            });
+            if better {
+                best = Some((
+                    hours,
+                    JobOption {
+                        firm: employer,
+                        field: Some(o.field),
+                        walk_min: walk,
+                        at: o.at,
+                        minutes,
+                        worth,
+                        bell: None,
                     },
                 ));
             }

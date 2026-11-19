@@ -115,6 +115,7 @@ mod patronage;
 mod places;
 mod polity;
 mod privileges;
+mod reapers;
 mod register;
 mod relations;
 mod residence;
@@ -7012,13 +7013,20 @@ impl Population {
                         self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
                 }
-                Some(Behavior::Hire) => {
-                    if let Target::Firm(firm) = p.act.target {
+                Some(Behavior::Hire) => match p.act.target {
+                    Target::Firm(firm) => {
                         self.hired_work(ctx, h, firm, minutes);
                         // Where they shed while they work for a firm (ADR-0021 §4).
                         self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
-                }
+                    // Reaping another household's field for hire (§8 17, fourth).
+                    Target::Field(field) => {
+                        self.hired_reaping(ctx, h, field, minutes);
+                        // Where they shed while they work (ADR-0021 §4).
+                        self.note_worked(ctx, who, field, f64::from(minutes) / 60.0);
+                    }
+                    _ => {}
+                },
                 Some(Behavior::Tend) => {
                     // At home, or at close kin's home (M10c slice DZ), or at the sickhouse (M10c
                     // slice EE, fourth part).
@@ -7115,7 +7123,17 @@ impl Population {
                 | Behavior::Take => {
                     self.view_counts.2 += 1;
                     if ctx.approx.views_by_party {
-                        self.views_moved(household, act_target);
+                        // Reaping for hire moves grain from the field's household.
+                        let with = match act_target {
+                            Target::Field(f) => ctx
+                                .land
+                                .fields
+                                .iter()
+                                .find(|x| x.id == f)
+                                .map_or(act_target, |x| Target::Household(x.household)),
+                            t => t,
+                        };
+                        self.views_moved(household, with);
                     } else {
                         self.views.clear();
                     }

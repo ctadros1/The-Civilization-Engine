@@ -687,12 +687,14 @@ pub enum TradeWorth {
 /// The longest a hand goes ahead of a works' bell to wait for it, minutes (a design prior).
 const BELL_EARLY_MIN: f64 = 60.0;
 
-/// Paid work at a workshop of another household (slice J): where, for how long, and what the
-/// pay brings the worker's household.
+/// Paid work at a workshop of another household (slice J), or reaping another household's field
+/// for hire (§8 17, fourth): where, for how long, and what the pay brings the worker's household.
 #[derive(Clone, Copy, Debug)]
 pub struct JobOption {
-    /// The workshop.
+    /// The workshop; for reaping, the household whose field it is.
     pub firm: PermanentId,
+    /// For reaping for hire, the field reaped (the work is then the field's, not a workshop's).
+    pub field: Option<PermanentId>,
     /// One-way walk to it, minutes.
     pub walk_min: f64,
     /// Where it is, metres.
@@ -2036,7 +2038,8 @@ pub fn candidates(
                     minutes: minutes.round().max(1.0) as u32,
                 });
                 steps.push(Step::Walk { to: f.home });
-                out.push(finish(id, Target::Firm(j.firm), terms, steps));
+                let target = j.field.map_or(Target::Firm(j.firm), Target::Field);
+                out.push(finish(id, target, terms, steps));
             }
             Behavior::Try => {
                 // Spare hours at home trying toward a technique that would answer a problem
@@ -3621,6 +3624,7 @@ mod tests {
         let firm = PermanentId::from_raw(9).expect("nonzero");
         let job = |bell: Option<(u16, u16)>| JobOption {
             firm,
+            field: None,
             walk_min: 20.0,
             at: (5.0, 5.0),
             minutes: 600.0,

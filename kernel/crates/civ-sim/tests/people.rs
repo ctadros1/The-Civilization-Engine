@@ -1522,3 +1522,131 @@ fn a_crop_nobody_is_left_to_reap_is_left_to_be_gleaned() {
         "the settlement knows it stands there"
     );
 }
+
+/// Hired field work at the harvest (§8 17, fourth; research 08-10 §1.3: a household allocates
+/// its hands across its own land and wage work by season): a household whose ripe crop has stood
+/// so long that its own hands cannot reap it before it loses a quarter of itself hires reapers, as
+/// a workshop hires hands, and pays them in grain; a neighbour with its own harvest in and its food
+/// gone, for whom the wage is worth more than what the time would do at home, reaps for it.
+#[test]
+fn a_household_short_of_hands_at_the_harvest_hires_reapers() {
+    let mut sim = new_world(3, 0);
+    let rules = sim.rules().clone();
+    let crop = rules.catalog.crops[rules.people.farm.crop].clone();
+    let hire = rules
+        .catalog
+        .index_of("core:activity/hired_work")
+        .expect("working for hire is an activity");
+    let ripe = |sim: &Sim| {
+        let day = sim.now().day_index();
+        sim.land()
+            .fields
+            .iter()
+            .find(|f| f.task(&crop, day) == Some(civ_land::FieldTask::Reap))
+            .map(|f| f.household)
+    };
+    // Live day by day until a crop is ripe.
+    let mut employer = None;
+    for _ in 0..300 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        employer = ripe(&sim);
+        if employer.is_some() {
+            break;
+        }
+    }
+    let employer = employer.expect("a crop ripens in the first season");
+    let settlement = sim
+        .people()
+        .household(employer)
+        .and_then(|x| x.settlement)
+        .expect("the household has a settlement");
+    let day = sim.now().day_index();
+    // Its crop has stood ripe all but a day and a half of the grace before a quarter is lost.
+    let grace = 0.25 / crop.standing_loss_per_day;
+    let sown = day - i64::from(crop.grow_days) - (grace - 1.5).floor() as i64;
+    let food: Vec<usize> = rules
+        .catalog
+        .goods
+        .iter()
+        .enumerate()
+        .filter(|(_, g)| g.kcal_per_kg > 0.0)
+        .map(|(i, _)| i)
+        .collect();
+    let mut neighbours = Vec::new();
+    {
+        let pop = sim.people_mut_for_tests();
+        for (_, x) in pop.households.iter_mut() {
+            if x.id == employer {
+                // The grain to pay with.
+                if let Some(kg) = x.stores.get_mut(crop.good) {
+                    *kg = kg.max(400.0);
+                }
+            } else if x.settlement == Some(settlement) {
+                // The neighbours' harvest is in and their food is gone.
+                for &g in &food {
+                    if let Some(kg) = x.stores.get_mut(g) {
+                        *kg = 0.0;
+                    }
+                }
+                neighbours.push(x.id);
+            }
+        }
+        let land = sim.land_mut_for_tests();
+        for f in land.fields.iter_mut() {
+            if f.household == employer {
+                if f.stage == civ_land::FieldStage::Sown {
+                    f.sown_day = sown;
+                    f.work_h = 0.0;
+                }
+            } else if neighbours.contains(&f.household) {
+                f.stage = civ_land::FieldStage::Fallow;
+                f.work_h = 0.0;
+                f.sheaves_kg = 0.0;
+            }
+        }
+    }
+    assert!(!neighbours.is_empty(), "the household has neighbours");
+    sim.people_mut_for_tests().forget_views();
+    let fields: Vec<PermanentId> = sim
+        .land()
+        .fields
+        .iter()
+        .filter(|f| f.household == employer)
+        .map(|f| f.id)
+        .collect();
+    let worked = |sim: &Sim| -> f64 {
+        sim.land()
+            .fields
+            .iter()
+            .filter(|f| f.household == employer)
+            .map(|f| f64::from(f.work_h) + f64::from(f.harvests) * 1e6)
+            .sum()
+    };
+    let grain = crop.good;
+    let wages = sim.people().transfers.get(civ_agents::Channel::Wage, grain);
+    let mut hired = false;
+    for _ in 0..3 * 24 {
+        sim.advance_minutes(60).expect("advances");
+        hired = sim
+            .people()
+            .people
+            .iter()
+            .filter(|(_, p)| neighbours.contains(&p.household))
+            .any(|(_, p)| {
+                p.receipts.iter().any(|r| {
+                    usize::from(r.chosen.def) == hire
+                        && matches!(r.chosen.target, civ_agents::person::Target::Field(f)
+                            if fields.contains(&f))
+                })
+            });
+        if hired && sim.people().transfers.get(civ_agents::Channel::Wage, grain) > wages {
+            break;
+        }
+    }
+    assert!(hired, "a neighbour set out to reap the field for hire");
+    assert!(worked(&sim) > 0.0, "the field was reaped");
+    assert!(
+        sim.people().transfers.get(civ_agents::Channel::Wage, grain) > wages,
+        "the reapers were paid in grain"
+    );
+}

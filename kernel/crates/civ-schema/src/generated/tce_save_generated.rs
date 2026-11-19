@@ -18073,6 +18073,197 @@ impl<'a> StruckSave {
 
 }
 
+// struct ReadAloudSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct ReadAloudSave(pub [u8; 24]);
+impl Default for ReadAloudSave {
+  fn default() -> Self {
+    Self([0; 24])
+  }
+}
+impl ::core::fmt::Debug for ReadAloudSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("ReadAloudSave")
+      .field("case_number", &self.case_number())
+      .field("finding", &self.finding())
+      .field("reader", &self.reader())
+      .field("day", &self.day())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for ReadAloudSave {}
+impl<'a> ::flatbuffers::Follow<'a> for ReadAloudSave {
+  type Inner = &'a ReadAloudSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a ReadAloudSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a ReadAloudSave {
+  type Inner = &'a ReadAloudSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<ReadAloudSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for ReadAloudSave {
+    type Output = ReadAloudSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const ReadAloudSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for ReadAloudSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> ReadAloudSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    case_number: u32,
+    finding: u32,
+    reader: u64,
+    day: i64,
+  ) -> Self {
+    let mut s = Self([0; 24]);
+    s.set_case_number(case_number);
+    s.set_finding(finding);
+    s.set_reader(reader);
+    s.set_day(day);
+    s
+  }
+
+  pub fn case_number(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_case_number(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn finding(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[4..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_finding(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[4..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn reader(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_reader(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn day(&self) -> i64 {
+    let mut mem = ::core::mem::MaybeUninit::<<i64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_day(&mut self, x: i64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct WrittenFindingSave, aligned to 8
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -52949,6 +53140,7 @@ impl<'a> Order<'a> {
   pub const VT_GLEANED_KG: ::flatbuffers::VOffsetT = 52;
   pub const VT_GLEANED_SHORT_KG: ::flatbuffers::VOffsetT = 54;
   pub const VT_GLEANERS: ::flatbuffers::VOffsetT = 56;
+  pub const VT_READ_ALOUD: ::flatbuffers::VOffsetT = 58;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -52965,6 +53157,7 @@ impl<'a> Order<'a> {
     builder.add_lamp_first_lit(args.lamp_first_lit);
     builder.add_loans_refused(args.loans_refused);
     builder.add_loans_asked(args.loans_asked);
+    if let Some(x) = args.read_aloud { builder.add_read_aloud(x); }
     if let Some(x) = args.gleaners { builder.add_gleaners(x); }
     builder.add_read_hearings(args.read_hearings);
     if let Some(x) = args.written { builder.add_written(x); }
@@ -53180,6 +53373,13 @@ impl<'a> Order<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, GleanedBySave>>>(Order::VT_GLEANERS, None)}
   }
+  #[inline]
+  pub fn read_aloud(&self) -> Option<::flatbuffers::Vector<'a, ReadAloudSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ReadAloudSave>>>(Order::VT_READ_ALOUD, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Order<'_> {
@@ -53215,6 +53415,7 @@ impl ::flatbuffers::Verifiable for Order<'_> {
      .visit_field::<f64>("gleaned_kg", Self::VT_GLEANED_KG, false)?
      .visit_field::<f64>("gleaned_short_kg", Self::VT_GLEANED_SHORT_KG, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, GleanedBySave>>>("gleaners", Self::VT_GLEANERS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ReadAloudSave>>>("read_aloud", Self::VT_READ_ALOUD, false)?
      .finish();
     Ok(())
   }
@@ -53247,6 +53448,7 @@ pub struct OrderArgs<'a> {
     pub gleaned_kg: f64,
     pub gleaned_short_kg: f64,
     pub gleaners: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, GleanedBySave>>>,
+    pub read_aloud: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ReadAloudSave>>>,
 }
 impl<'a> Default for OrderArgs<'a> {
   #[inline]
@@ -53279,6 +53481,7 @@ impl<'a> Default for OrderArgs<'a> {
       gleaned_kg: 0.0,
       gleaned_short_kg: 0.0,
       gleaners: None,
+      read_aloud: None,
     }
   }
 }
@@ -53397,6 +53600,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> OrderBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Order::VT_GLEANERS, gleaners);
   }
   #[inline]
+  pub fn add_read_aloud(&mut self, read_aloud: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ReadAloudSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Order::VT_READ_ALOUD, read_aloud);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> OrderBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     OrderBuilder {
@@ -53441,6 +53648,7 @@ impl ::core::fmt::Debug for Order<'_> {
       ds.field("gleaned_kg", &self.gleaned_kg());
       ds.field("gleaned_short_kg", &self.gleaned_short_kg());
       ds.field("gleaners", &self.gleaners());
+      ds.field("read_aloud", &self.read_aloud());
       ds.finish()
   }
 }

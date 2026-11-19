@@ -583,7 +583,8 @@ impl Population {
             return false;
         }
         let k = ctx.params.crime.recall_k as usize;
-        let mut read: Vec<u32> = Vec::new();
+        // Each finding read, with the first there (in the order present) who read it.
+        let mut read: Vec<(u32, PermanentId)> = Vec::new();
         for &p in present {
             let page = self.findings_read(ctx, p);
             if page.is_empty() {
@@ -593,13 +594,14 @@ impl Population {
                 self.recall(ctx, p, own, tags, k)
                     .into_iter()
                     .map(|r| r.0)
-                    .filter(|id| page.contains(id)),
+                    .filter(|id| page.contains(id))
+                    .map(|id| (id, p)),
             );
         }
-        read.sort_unstable();
-        read.dedup();
+        read.sort_by_key(|r| r.0);
+        read.dedup_by_key(|r| r.0);
         let mut any = false;
-        for id in read {
+        for (id, reader) in read {
             let holds = |q: PermanentId| {
                 self.word.heard_by(q).iter().any(|h| {
                     self.word.claim(h.claim).is_some_and(|c| {
@@ -627,6 +629,13 @@ impl Population {
                     self.word.hear(q, claim, day, None, None);
                 }
             }
+            // For the record (§8 19, first): which finding was read at which hearing, by whom.
+            self.order.read_aloud.push(crate::crime::ReadAloud {
+                case: own,
+                finding: id,
+                reader,
+                day,
+            });
         }
         any
     }

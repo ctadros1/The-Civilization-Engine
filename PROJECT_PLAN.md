@@ -10428,6 +10428,20 @@ and M6a gives rivers a daily flow.
       +14.8 %, offices −30.0 %, moved −57.5 %; fixture 2 proposals +17.1 %, enacted +38.7 %,
       offices +7.7 %, moved +72.8 %. **Not yet:** fuel fetched from other settlements, or bought
       at a door there (the second half); a gasworks' coal kept and bought by its holder.
+    - *A reading aloud kept by case (2026-11-19): which finding was read at which hearing, and
+      by whom* (§9, "A reading aloud kept by case"; §8 19, first; the observer pass's "Not
+      sent, so not shown"). A finding read aloud from the page at a hearing was counted only on
+      the dashboard (`read_hearings`). **Built:** each finding read aloud is recorded with the
+      case heard, the case whose finding was read, the first there who read it and the day
+      (`Order::read_aloud`, appended within saves 220 as `read_aloud`, id 27), and the case's
+      words say so: "Ada read aloud the finding of case 3". For the record: no decision reads
+      it. No wire or content change. **Tested:** forum (26: the read-aloud scene now checks the
+      record, the case's words and that the record is kept across a save and load; it fails
+      without it), polity, council, faction, roundtrip (110), determinism, the civ-agents and
+      civ-sim unit tests; `gen-schema --check` clean; smoke; fmt and clippy clean. **The
+      notables' gate**, locally, against 3c0e3b5: passes, 0 of 40 runs changed (fixture 1
+      proposals +25.9 %, enacted +14.8 %, offices −30.0 %, moved −57.5 %; fixture 2 proposals
+      +17.1 %, enacted +38.7 %, offices +7.7 %, moved +72.8 %, as before).
     - *Backlog D, eighteenth item (2026-11-04): a household's line, wagons and trains pass on,
       and a line nobody holds is taken up* (the third and fourth items' "Not yet": a household's
       line, wagons and trains passing on; ADR-0034 §2, §3, §6; research 08-09 §1.2 and the
@@ -11614,7 +11628,8 @@ and M6a gives rivers a daily flow.
     1. *A per-case record of readings aloud* (question 18's observer pass: "Not sent, so not
        shown"). A hearing that recalls a finding only from the page is counted on the dashboard
        but not kept by case, so the observer cannot say which case was read to whom. Appending
-       it within saves 220 is a record no decision reads, so gate-neutral.
+       it within saves 220 is a record no decision reads, so gate-neutral. *Built 2026-11-19*,
+       gate-neutral (§7, "A reading aloud kept by case").
     2. *A coverage pass: the forum recall's choice, fuel weighed with hunger, and works' fuel*
        (the ninth pass's "Left"; §7's 2026-11-19 entries): for a forum of one holder, the choice
        between ending it and naming another hearer, set by both stakes in a scene; and fuel with
@@ -13425,3 +13440,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **NUDGE: fuel weighed with hunger's priors (2026-11-19; the entry above; time-boxed):** a day of the hearth's burning is taken to cook a day of the household's food (`fuel_kg_per_person_day` against `daily_kcal_per_person`); the food it unlocks is valued at the household's cheapest own cost of any food by energy, raised by how short it is as food bought is; and it is weighed only when nothing is eaten as it is and no fuel is held. Each is a design prior; revisit if lived worlds show households buying firewood with grain they need, or still going hungry beside grain with firewood on offer.
 - **A works' fuel bought as its input (2026-11-19; §8 18, eighth, first half; research 08-16 §1.4, 07-12):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** a works' fuel is an input as its ore is, and the works draws it from its owners' household. That household kept nothing for it, so since fuel came to market (4c66735) a forge's household could offer the charcoal its forge burns, and none could buy any, charcoal being a material. Through the existing keeping (`Holding`) and buying (`best_deal`'s fuel branch) the household now keeps what its workshops burn and buys it short, worth the hours it saves, with no new weight. How much is kept is a design prior: a session at the recipe's most units, for the hearth's days of fuel. No fixture world keeps a forge, so the notables' gate did not move (0 of 40). No save, wire or content change, and no ADR.
 - **NUDGE: a works' fuel kept (2026-11-19; the entry above; time-boxed):** a household keeps, of each good with a heat, a session at its recipe's most units for `fuel_target_days` (three days), the most over the recipes making each line that its members know. Revisit if lived works idle for want of fuel their households sold, or hoard more than they burn in a season.
+- **A reading aloud kept by case (2026-11-19; §8 19, first; ADR-0025's "Writing arrives"):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** the observer is to show what a world did, and the reading aloud of a written finding at a hearing (ADR-0025's "Writing arrives") was kept only as a count, so no case could say it was read to those who sat. A record appended within the unreleased saves 220 (as written findings and gleaners were) is the least that lets the case's words say it. Nothing reads it but the frames, so the notables' gate did not move (0 of 40 runs). Not expensive to reverse, so no ADR.

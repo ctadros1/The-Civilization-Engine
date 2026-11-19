@@ -2600,6 +2600,18 @@ table Order {
   // household's people gleaned, fading, by those who could earn the harvest wage and the others,
   // in household order; absent, none.
   gleaners: [GleanedBySave] (id: 26);
+  // Schema 220 (§8 19, first; appended within the unreleased saves 220): each finding read aloud
+  // from the page at a hearing, in the order read; absent, none.
+  read_aloud: [ReadAloudSave] (id: 27);
+}
+
+// A finding read aloud at a hearing (schema 220): the case heard, the case whose finding was
+// read, who read it and the day.
+struct ReadAloudSave {
+  case_number: uint;
+  finding: uint;
+  reader: ulong;
+  day: long;
 }
 
 // A finding written down (schema 220, ADR-0025's "Writing arrives"): the case's number, the

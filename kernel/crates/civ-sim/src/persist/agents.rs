@@ -7244,6 +7244,13 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
         .map(|g| save::GleanedBySave::new(g.household.get(), g.able_kg, g.other_kg, g.day))
         .collect();
     let gleaners = (!gleaners.is_empty()).then(|| fbb.create_vector(&gleaners));
+    // Findings read aloud at hearings (schema 220, §8 19, first).
+    let read_aloud: Vec<save::ReadAloudSave> = order
+        .read_aloud
+        .iter()
+        .map(|r| save::ReadAloudSave::new(r.case, r.finding, r.reader.get(), r.day))
+        .collect();
+    let read_aloud = (!read_aloud.is_empty()).then(|| fbb.create_vector(&read_aloud));
     let root = save::Order::create(
         &mut fbb,
         &save::OrderArgs {
@@ -7274,6 +7281,7 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
             gleaned_kg: order.gleaned.kg,
             gleaned_short_kg: order.gleaned.short_kg,
             gleaners,
+            read_aloud,
         },
     );
     finish(fbb, root)
@@ -7670,6 +7678,15 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
             able_kg: g.able_kg(),
             other_kg: g.other_kg(),
             day: g.day(),
+        });
+    }
+    // Findings read aloud at hearings (schema 220); none before.
+    for r in root.read_aloud().iter().flatten() {
+        order.read_aloud.push(civ_agents::crime::ReadAloud {
+            case: r.case_number(),
+            finding: r.finding(),
+            reader: required(r.reader(), "a reading's reader")?,
+            day: r.day(),
         });
     }
     // Coin issues and purses (schema 136); none before.

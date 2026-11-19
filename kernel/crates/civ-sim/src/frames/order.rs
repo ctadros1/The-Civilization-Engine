@@ -329,6 +329,19 @@ pub(crate) fn case_text(sim: &Sim, c: &civ_agents::crime::Case) -> String {
         ),
         None => decided,
     };
+    // Findings read aloud from the page at its hearing (§8 19, first).
+    let decided = pop
+        .order
+        .read_aloud
+        .iter()
+        .filter(|r| r.case == c.id)
+        .fold(decided, |d, r| {
+            format!(
+                "{d}; {} read aloud the finding of case {}",
+                pop.name_of(r.reader),
+                r.finding
+            )
+        });
     // Time to closure (M7b slice BR).
     let decided = match c.closure_days() {
         Some(d) if c.stage != CaseStage::Open => format!(

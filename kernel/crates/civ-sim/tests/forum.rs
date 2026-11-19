@@ -2138,6 +2138,22 @@ fn a_finding_kept_written_is_read_aloud_at_a_sitting_to_those_who_cannot_read() 
         "the listener holds its word now"
     );
     assert_eq!(pop.order.read_hearings, 1, "recalled from the page");
+    // The reading is kept by case (§8 19, first): which finding, read by whom at which hearing,
+    // told in the case's words, and kept across a save and load.
+    let read = pop.order.read_aloud.clone();
+    assert_eq!(read.len(), 1, "{read:?}");
+    assert_eq!(
+        (read[0].case, read[0].finding, read[0].reader),
+        (id, earlier, reader)
+    );
+    let told = civ_sim::frames::order::case_text_for_tests(&sim, id).expect("the case");
+    let name = sim.people().name_of(reader);
+    assert!(
+        told.contains(&format!("{name} read aloud the finding of case {earlier}")),
+        "{told}"
+    );
+    let loaded = reloaded(&mut sim);
+    assert_eq!(loaded.people().order.read_aloud, read);
 }
 
 /// A decision past memory kept written (ADR-0025's "Writing arrives"; plan §9 of 2026-11-19):

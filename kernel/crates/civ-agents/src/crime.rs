@@ -732,6 +732,10 @@ pub struct Order {
     /// Hearings at which one who sat recalled a finding they held only on the page, not by word
     /// (ADR-0025's "Writing arrives"): for the record. Saved.
     pub read_hearings: u32,
+    /// Each finding read aloud from the page at a hearing (ADR-0025's "Writing arrives"; §8 19,
+    /// first): by whom, at which case's hearing, and when, in the order read. For the record:
+    /// no decision reads it. Saved.
+    pub read_aloud: Vec<ReadAloud>,
     /// Grain gleaned, all told and by households short of food (research 08-22): for the
     /// record. Saved.
     pub gleaned: Gleaned,
@@ -739,6 +743,16 @@ pub struct Order {
     /// by the others (§8 17, fourth, slice 2), in household order: what a law keeping the stubble
     /// for those who cannot earn is weighed by. Saved.
     pub gleaners: Vec<GleanedBy>,
+}
+
+/// A finding read aloud from the page at a hearing (ADR-0025's "Writing arrives"): the case heard,
+/// the case whose finding was read, who read it and the day.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ReadAloud {
+    pub case: u32,
+    pub finding: u32,
+    pub reader: PermanentId,
+    pub day: i64,
 }
 
 /// What a household's people gleaned (research 08-22 §1, §4: the bylaws barred those who could

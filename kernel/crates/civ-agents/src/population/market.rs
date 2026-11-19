@@ -1301,13 +1301,9 @@ impl Population {
                     // Fuel its hearth burns, that it is short of (§8 17, fifth; research 08-16
                     // §1.4): what it lacks of its hearth's days in this fuel by heat, as much as
                     // one person carries, worth the hours of its own it saves (all a buyer would
-                    // give, for one past gathering it). Bought from its own neighbours, not at a
-                    // door elsewhere (a first slice).
-                    let neighbour = if firm {
-                        self.firm(seller).and_then(|f| f.settlement)
-                    } else {
-                        self.household(seller).and_then(|x| x.settlement)
-                    };
+                    // give, for one past gathering it). From its neighbours, or at a door
+                    // elsewhere as any good is, the walk there and back weighed with it (§8 19,
+                    // eighth).
                     // What its workshops burn of this fuel that it lacks (§8 18, eighth): their
                     // input, bought as their owners' household buys any.
                     let works_short = (holding.keep.get(g).copied().unwrap_or(0.0) - held(g))
@@ -1315,9 +1311,7 @@ impl Population {
                         .min(holding.works.get(g).copied().unwrap_or(0.0));
                     let hearth = d.purpose == GoodUse::Fuel
                         && d.fuel.and_then(|f| f.technique).is_none_or(knows);
-                    if (fuel_short <= 0.0 || !hearth) && works_short <= 0.0
-                        || neighbour != hh.settlement
-                    {
+                    if (fuel_short <= 0.0 || !hearth) && works_short <= 0.0 {
                         continue;
                     }
                     let ratio = crate::params::fuel_ratio(goods, g).max(1e-9);
@@ -2082,6 +2076,23 @@ impl Population {
         })
     }
 
+    /// The good, seller and walk of the best purchase household `household` could go and make in
+    /// another settlement it holds a report of ([`Self::best_fetch`]), from its settlement's
+    /// walking field as it stands: for tests.
+    #[doc(hidden)]
+    pub fn best_fetch_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+    ) -> Option<(usize, PermanentId, f64)> {
+        let hh = self.household(household)?;
+        let stores = stores_now(hh, ctx.now, ctx.params, &ctx.catalog.goods);
+        let key = hh.settlement.unwrap_or(hh.id);
+        let reach = self.homes.get(&key).map(|f| &f.reach);
+        self.best_fetch(ctx, hh, &stores, reach)
+            .map(|t| (t.good, t.seller, t.walk_min))
+    }
+
     /// Where `seller`, a household or workshop (`firm`) reported in `market`'s, now sells: its
     /// home, or its owners'. None if it no longer lives there, or the workshop closed.
     pub(super) fn seller_home(
@@ -2201,10 +2212,9 @@ impl Population {
             let (Some(d), Some(pd)) = (goods.get(g), goods.get(p)) else {
                 continue;
             };
-            // Something it can sell, and is not short of itself (that it buys for itself). Fuel
-            // is sold where it was gathered, not fetched to sell again (§8 17, fifth: a first
-            // slice; a bulky necessity every household gathers).
-            if !can_offer(d) || d.purpose == GoodUse::Fuel || held(g) < keep(g) {
+            // Something it can sell, and is not short of itself (that it buys for itself); fuel
+            // too, fetched to sell again as any good is (§8 19, eighth).
+            if !can_offer(d) || held(g) < keep(g) {
                 continue;
             }
             let Some(home_h) = market.unmet_worth(g).or_else(|| market.price_h(g)) else {

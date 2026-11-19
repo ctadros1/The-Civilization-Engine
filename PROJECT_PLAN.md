@@ -10506,6 +10506,28 @@ and M6a gives rivers a daily flow.
       settlements (a claim of its own, a slice of the word); deadwood (14 years to renew)
       remembered by what is left, as stocks that only fall are, not built: it renews, and its
       fading over the renewal time stands until a lived world shows it misleading.
+    - *Fuel fetched from other settlements (2026-11-19): the home-settlement limit lifted* (§9,
+      "Fuel fetched from other settlements"; §8 19, eighth; §8 18, eighth's second half; the
+      fuel-at-market entry's "Not yet"). 4c66735 bought fuel only from neighbours and never
+      fetched it to sell again, so that the fetch scenes' buyers ran the sickle errands they test.
+      **Built:** the limits are lifted. A household short of its hearth's or its workshops' fuel
+      weighs fuel offered in another settlement it holds a report of as it weighs any good
+      fetched from elsewhere (`best_fetch`: the report's weight, the walk there and back), and
+      buys it at a door there; and a household may fetch fuel to sell at home as any good. **The
+      fetch scenes' intent kept:** their buyer is now given firewood for weeks in the shared
+      setup, so that what it buys at a door elsewhere for its own need is only the sickle the
+      scenes are about; no assertion changed. **Tested:** fetch (26, one new: a household with no
+      firewood and nothing ready to eat, among neighbours offering none, told of firewood in the
+      other settlement, finds it its best purchase elsewhere, the walk weighed, and at the door
+      buys a carried load; it fails with the limit restored. Its people, able to gather wood
+      nearby, mostly do, which is the day's choice, so the scene pins the weighing, not a trip,
+      through a new test hook, `best_fetch_for_tests`); the whole civ-sim suite (88 targets), the
+      civ-agents and civ-host unit tests; smoke; fmt and clippy clean. **The notables' gate**,
+      locally, against 775bddd: passes, 0 of 40 runs changed (fixture 1 proposals +25.9 %,
+      enacted +14.8 %, offices −30.0 %, moved −57.5 %; fixture 2 proposals +17.1 %, enacted
+      +38.7 %, offices +7.7 %, moved +72.8 %, before and after). **Not yet:** no scene shows fuel
+      fetched to sell again; a fuel errand weighed against gathering it nearby is the decision's
+      as any errand's is.
       **Tested:** forum (27), faction (9), the civ-agents unit tests; fmt and clippy clean.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
@@ -11735,7 +11757,8 @@ and M6a gives rivers a daily flow.
        narrowest margin (fixture 2's enacted is +38.7 % against 55 %).
     8. *Fuel fetched from other settlements* (question 18, eighth, its second half; §7, "Fuel
        offered at market"): fuel carried to sell again, and bought at a door elsewhere. An
-       economy change with gate risk.
+       economy change with gate risk. *Built 2026-11-19*, gate-neutral (§7, "Fuel fetched from
+       other settlements").
     9. *Cooking fewer and quicker meals before hunger* (§7, "Fuel weighed with hunger", "Not
        built"; research 08-23 §4, §6): a hearth's burn that falls toward a floor as its fuel runs
        short. A new mechanism in every household's fuel accounting, so smoke and gate risk.
@@ -13530,3 +13553,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Sludge spread as dung (2026-11-19; §8 19, twelfth; ADR-0044 §7's deferral; research 12-10 §1.7):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** of the tips' and sewers' smaller deferrals, this one touches only households keeping a settling tank (a technique only the observer brings), so it is the least risk to anyone's days. 12-10 §1.7 names spreading among sludge's fates, and the manuring a household already does is the mechanism, so no new ADR: it narrows ADR-0044 §7's deferral list, recorded here. Compaction and burning tips wait on a roller and a fire model. Selling sewage waits on someone wanting it, now possible. A sewer rate needs a channel, and inspection waits on ADR-0044's own "Revisit when" (a demo showing sewers failing unseen). The keeper's books were missing the sludge they got, a latent accounting fault fixed here. Gate: 0 of 40 runs changed.
 - **NUDGE: sludge spread as dung's prior (2026-11-19; the entry above; time-boxed):** sludge is taken to carry the heap's nitrogen a kilogram (`midden.n_per_kg`) and to be spread at the heap's hours a kilogram. Sewage sludge is richer in nitrogen than a mixed heap by most accounts, and wetter; revisit if lived tank keepers' fields outgrow their neighbours' by more than dung explains.
 - **Ground looked over on errands (2026-11-19; §8 19, eleventh; ADR-0043 §2):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** ADR-0043 §2 keeps where a settlement's prospectors have looked so that they stop walking barren ground, while every walk already finds the bodies showing beside it. Counting only walks out to look left ground crossed daily, and so already known barren, as fresh hope. Marking every walk's ground is the same rule applied to what people already see: it narrows the "Not yet" of M11d's twelfth part, needs no ADR, and changes only where prospectors are drawn. The notables' gate did not move (0 of 40 runs), the whole suite passes, and smoke's figures are unchanged. Left: word of barren ground between settlements (a new kind of claim, its own slice), and deadwood judged by what is left (it renews, so ADR-0043 §1 keeps it fading over its renewal time until a world shows that misleads).
+- **Fuel fetched from other settlements (2026-11-19; §8 19, eighth; research 08-16 §1.4):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** 4c66735 kept fuel to the home settlement only so that the fetch scenes stayed about sickles: their buyer, short of firewood, bought firewood at the sickle seller's door. That is a scene's setup, not a rule of the world. Lifting the limit lets fuel be weighed as every good fetched from elsewhere already is, with the report's weight and the walk, through no new weight or prior. The fetch scenes keep their intent by giving their buyer firewood, with their assertions unchanged. The notables' fixtures trade with no other settlement in three years, so the gate did not move (0 of 40 runs).

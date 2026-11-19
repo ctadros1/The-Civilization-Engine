@@ -159,10 +159,16 @@ fn scene_in(seed: u64) -> Scene {
         );
     }
     let buyer = households_of(&sim, a)[0];
+    // Fed, and with firewood for weeks: what it would buy at the seller's door for its own need is
+    // only what the scene is about (fuel is bought elsewhere too since §8 19, eighth).
     set(
         &mut sim,
         buyer,
-        &[("core:good/grain", 3000.0), ("core:good/provisions", 60.0)],
+        &[
+            ("core:good/grain", 3000.0),
+            ("core:good/provisions", 60.0),
+            ("core:good/firewood", 400.0),
+        ],
     );
     let knapping = sim
         .rules()
@@ -303,6 +309,95 @@ fn saves_and_goes_on_alike(sim: &mut Sim, minutes: i64) {
     sim.advance_minutes(minutes).expect("advances");
     loaded.advance_minutes(minutes).expect("advances");
     same(sim, &loaded);
+}
+
+/// Fuel fetched from another settlement (§8 19, eighth; the 2026-11-19 fuel-at-market entry's "Not
+/// yet"): a household with no firewood, whose grain waits on a fire and whose neighbours offer
+/// none, told that a household of the other settlement offers firewood, weighs going for it as
+/// any good fetched from elsewhere is weighed, the walk there and back with it, and finds it its
+/// best purchase there; at the seller's door it buys a carried load. Before, fuel was bought only
+/// from neighbours, and no purchase elsewhere was weighed. (Whether someone goes is the day's
+/// choice: able to gather wood nearby, this household's people mostly do.)
+#[test]
+fn a_household_with_no_firewood_weighs_fetching_it_from_another_settlement_by_report() {
+    let Scene {
+        mut sim,
+        a,
+        seller,
+        buyer,
+        ..
+    } = scene();
+    let wood = good(&sim, "core:good/firewood");
+    let foods: Vec<String> = sim
+        .rules()
+        .catalog
+        .goods
+        .iter()
+        .filter(|g| g.purpose == civ_agents::params::GoodUse::Food && g.id != "core:good/grain")
+        .map(|g| g.id.clone())
+        .collect();
+    // Nobody at home has firewood to offer; the buyer has none, and nothing to eat but grain.
+    let cold = |sim: &mut Sim| {
+        for h in households_of(sim, a) {
+            set(sim, h, &[("core:good/firewood", 0.0)]);
+            if let Some(x) = sim
+                .people_mut_for_tests()
+                .households
+                .iter_mut()
+                .map(|(_, x)| x)
+                .find(|x| x.id == h)
+            {
+                x.offers.retain(|o| usize::from(o.good) != wood);
+            }
+        }
+        let empty: Vec<(&str, f64)> = foods.iter().map(|f| (f.as_str(), 0.0)).collect();
+        set(sim, buyer, &empty);
+    };
+    cold(&mut sim);
+    // The seller has firewood to spare and offers it.
+    set(&mut sim, seller, &[("core:good/firewood", 600.0)]);
+    for _ in 0..8 {
+        if sim
+            .people()
+            .household(seller)
+            .is_some_and(|h| h.offers.iter().any(|o| usize::from(o.good) == wood))
+        {
+            break;
+        }
+        sim.advance_minutes(DAY).expect("advances");
+        cold(&mut sim);
+        set(&mut sim, seller, &[("core:good/firewood", 600.0)]);
+    }
+    // What the seller offers is its firewood alone: the scene is about fuel.
+    let only_firewood = |sim: &mut Sim| {
+        if let Some(x) = sim
+            .people_mut_for_tests()
+            .households
+            .iter_mut()
+            .map(|(_, x)| x)
+            .find(|x| x.id == seller)
+        {
+            x.offers.retain(|o| usize::from(o.good) == wood);
+        }
+    };
+    only_firewood(&mut sim);
+    plant_reports(&mut sim, buyer, seller, wood);
+    // Its best purchase elsewhere is the firewood, the walk there and back weighed with it.
+    let fetch = sim.with_ctx_for_tests(|pop, ctx| pop.best_fetch_for_tests(ctx, buyer));
+    let (g, from, walk_min) = fetch.expect("a purchase elsewhere worth the walk");
+    assert_eq!((g, from), (wood, seller), "{fetch:?}");
+    assert!(
+        walk_min > 30.0,
+        "the other settlement is a walk away: {walk_min}"
+    );
+    // At the seller's door it buys firewood, as much as one person carries.
+    let at_door =
+        sim.with_ctx_for_tests(|pop, ctx| pop.neighbours_deal_for_tests(ctx, buyer, Some(seller)));
+    let carry = sim.rules().people.household.carry_kg;
+    assert!(
+        at_door.is_some_and(|(g, units, _)| g == wood && units >= 1.0 && units <= carry + 1e-9),
+        "{at_door:?}"
+    );
 }
 
 #[test]

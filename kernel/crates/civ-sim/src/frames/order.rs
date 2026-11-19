@@ -289,8 +289,17 @@ pub(crate) fn case_text(sim: &Sim, c: &civ_agents::crime::Case) -> String {
     };
     let accused = pop.name_of(c.accused);
     // What it says they did: took, or built on ground a plan reserves (M8c slice CV).
+    // Or gleaned the stubble a law keeps for those who cannot earn (§8 19, seventh, slice 2).
+    let stubble = pop
+        .polities
+        .iter()
+        .flat_map(|p| &p.laws)
+        .find(|l| l.id == c.law)
+        .is_some_and(|l| l.kind == civ_agents::polity::PolicyKind::KeepStubble);
     let did = if c.building.is_some() {
         format!("{accused}'s household built on ground the plan reserves")
+    } else if stubble {
+        format!("{accused} gleaned the stubble the law keeps for those who cannot earn")
     } else {
         format!("{accused} took")
     };

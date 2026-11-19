@@ -2984,6 +2984,9 @@ pub struct Polity {
     /// The buildings begun on ground a plan in force reserves (M8c slice CT, third part), in the
     /// order begun.
     pub encroachments: Vec<Encroachment>,
+    /// Gleanings taken against a law keeping the stubble for those who cannot earn, knowing it,
+    /// with who saw it, in the order taken (§8 19, seventh, slice 2). Saved.
+    pub stubble_breaches: Vec<StubbleBreach>,
     /// The settlements it holds besides its seat (`settlement`), in the order taken (M6c slice
     /// BM, ADR-0023 §9): their residents are its members too.
     pub held: Vec<HeldSettlement>,
@@ -3304,6 +3307,20 @@ pub struct Encroachment {
     pub order: Option<PlanOrder>,
 }
 
+/// Gleaning taken against a law keeping the stubble, knowing it (§8 19, seventh, slice 2;
+/// research 08-22 §1, §4: the bylaws' breaches came before the manor court): the day, the law, who
+/// gleaned and their household, who saw it (anyone else gleaning or working the same block that
+/// day, in id order), and the case brought of it, if any.
+#[derive(Clone, Debug, PartialEq)]
+pub struct StubbleBreach {
+    pub day: i64,
+    pub law: PermanentId,
+    pub person: PermanentId,
+    pub household: PermanentId,
+    pub seen_by: Vec<PermanentId>,
+    pub case: Option<u32>,
+}
+
 /// What a finding under a plan ordered for a building on its reserved ground (M8c slice CV,
 /// second part; ADR-0030 §5: removal, or regularisation for a yearly payment).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -3507,6 +3524,7 @@ impl Polity {
             rounds: Vec::new(),
             sewers: Vec::new(),
             sitting: None,
+            stubble_breaches: Vec::new(),
         }
     }
 

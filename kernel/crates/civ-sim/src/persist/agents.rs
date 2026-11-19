@@ -2383,6 +2383,28 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 })
                 .collect();
             let sewers = (!sewers.is_empty()).then(|| fbb.create_vector(&sewers));
+            // The stubble gleaned against its law (§8 19, seventh, slice 2; within saves 220).
+            let stubble_breaches: Vec<_> = p
+                .stubble_breaches
+                .iter()
+                .map(|b| {
+                    let seen: Vec<u64> = b.seen_by.iter().map(|q| q.get()).collect();
+                    let seen_by = fbb.create_vector(&seen);
+                    save::StubbleBreachSave::create(
+                        &mut fbb,
+                        &save::StubbleBreachSaveArgs {
+                            day: b.day,
+                            law: b.law.get(),
+                            person: b.person.get(),
+                            household: b.household.get(),
+                            seen_by: Some(seen_by),
+                            case_number: b.case.unwrap_or(0),
+                        },
+                    )
+                })
+                .collect();
+            let stubble_breaches =
+                (!stubble_breaches.is_empty()).then(|| fbb.create_vector(&stubble_breaches));
             // Its forum's sitting (ADR-0025 §1, appended within saves 220).
             let sitting = p.sitting.as_ref().map(|t| {
                 let cases: Vec<_> = t
@@ -2491,6 +2513,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     rounds,
                     sewers,
                     sitting,
+                    stubble_breaches,
                 },
             )
         })
@@ -3016,6 +3039,22 @@ fn decode_polities(
                 })
             }
         };
+        // The stubble gleaned against its law (§8 19, seventh, slice 2): none, in older saves.
+        let mut stubble_breaches = Vec::new();
+        for b in p.stubble_breaches().iter().flatten() {
+            let mut seen_by = Vec::new();
+            for raw in b.seen_by().iter().flatten() {
+                seen_by.push(required(raw, "one who saw the stubble gleaned")?);
+            }
+            stubble_breaches.push(civ_agents::polity::StubbleBreach {
+                day: b.day(),
+                law: required(b.law(), "a stubble breach's law")?,
+                person: required(b.person(), "who gleaned the stubble")?,
+                household: required(b.household(), "a stubble breach's household")?,
+                seen_by,
+                case: (b.case_number() != 0).then_some(b.case_number()),
+            });
+        }
         // Its forum's sitting (ADR-0025 §1, appended within saves 220): none, in older saves.
         let sitting = match p.sitting() {
             None => None,
@@ -4029,6 +4068,7 @@ fn decode_polities(
             rounds,
             sewers,
             sitting,
+            stubble_breaches,
         });
     }
     Ok(out)

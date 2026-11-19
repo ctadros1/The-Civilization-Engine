@@ -1753,6 +1753,20 @@ table PolitySave {
   // Schema 220 (ADR-0025 §1; appended within the unreleased saves 220): its forum's sitting
   // tonight, or the last one; absent, none.
   sitting: SittingSave (id: 53);
+  // Schema 220 (§8 19, seventh, slice 2; appended within the unreleased saves 220): the stubble
+  // gleaned against a law keeping it, with who saw it, in the order taken; absent, none.
+  stubble_breaches: [StubbleBreachSave] (id: 54);
+}
+
+// The stubble gleaned against a law keeping it (schema 220): the day, the law, who gleaned and
+// their household, who saw it (in id order), and the case brought of it (0: none).
+table StubbleBreachSave {
+  day: long (id: 0);
+  law: ulong (id: 1);
+  person: ulong (id: 2);
+  household: ulong (id: 3);
+  seen_by: [ulong] (id: 4);
+  case_number: uint (id: 5);
 }
 
 // A sewer a polity's law lays (schema 220, ADR-0041 §1-§4): its id (its settling tank's contagion

@@ -7,7 +7,7 @@
 //! force, one of an age to work for hire who knows it weighs keeping it when they would glean, as
 //! a curfew is kept, unless their household is going hungry.
 
-use civ_core::PermanentId;
+use civ_core::{Handle, PermanentId};
 
 use super::{Ctx, Population, may_eat_reserve, reapers};
 use crate::person::{Household, Person, Target};
@@ -134,6 +134,223 @@ impl Population {
                     .and_then(|x| x.settlement)
                     .is_some_and(|s| self.polities[pi].holds(Some(s)))
         })
+    }
+
+    /// Person `h` of `hh`, who could earn the harvest wage and knows a law keeping the stubble,
+    /// gleans the polity's own stubble at `target` against it (§8 19, seventh, slice 2): the law
+    /// counts a breach known, and, where anyone else was gleaning or working the same block just
+    /// then, records it with who saw it (in id order), to be brought as a case.
+    pub(super) fn stubble_breached(
+        &mut self,
+        ctx: &Ctx,
+        h: Handle<Person>,
+        hh: &Household,
+        target: Target,
+    ) {
+        let Some(who) = self.people.get(h).map(|p| p.id) else {
+            return;
+        };
+        let Some(pi) = hh.settlement.and_then(|s| self.polity_of(s)) else {
+            return;
+        };
+        let Some(li) = self.polities[pi].laws.iter().position(|l| {
+            l.kind == PolicyKind::KeepStubble
+                && (l.status == LawStatus::InForce || self.keeps_struck(ctx, who, l))
+        }) else {
+            return;
+        };
+        let Target::Patch(centre) = target else {
+            return;
+        };
+        let k = ctx
+            .catalog
+            .activities
+            .iter()
+            .filter_map(|a| a.resource)
+            .filter_map(|r| ctx.land_params.resources.get(r))
+            .filter(|r| r.reaped)
+            .map(|r| r.range_patches)
+            .max()
+            .unwrap_or(0);
+        let patches = &ctx.land.patches;
+        let cols = patches.cols.max(1);
+        let (cx, cy) = (centre % cols, centre / cols);
+        let in_block = |p: u32| (p % cols).abs_diff(cx) <= k && (p / cols).abs_diff(cy) <= k;
+        // Anyone else gleaning or working the same block (research 08-22 §4: the bylaws were
+        // kept by neighbours in the field).
+        let mut seen_by: Vec<PermanentId> = self
+            .people
+            .iter()
+            .filter(|(_, q)| q.id != who && q.household != hh.id)
+            .filter(|(_, q)| match q.act.target {
+                Target::Patch(p) => in_block(p),
+                Target::Field(f) => ctx.land.fields.iter().any(|x| {
+                    x.id == f && {
+                        let (fx, fy) = x.rect.centre_m();
+                        in_block(patches.of_point(fx, fy) as u32)
+                    }
+                }),
+                _ => false,
+            })
+            .map(|(_, q)| q.id)
+            .collect();
+        seen_by.sort_unstable();
+        let day = ctx.now.day_index();
+        let polity = &mut self.polities[pi];
+        let law = polity.laws[li].id;
+        polity.laws[li].compliance.broken += 1;
+        if !seen_by.is_empty() {
+            polity.stubble_breaches.push(crate::polity::StubbleBreach {
+                day,
+                law,
+                person: who,
+                household: hh.id,
+                seen_by,
+                case: None,
+            });
+        }
+    }
+
+    /// `person` gleans at `target` against a law keeping the stubble: for tests.
+    #[doc(hidden)]
+    pub fn stubble_breach_for_tests(&mut self, ctx: &Ctx, person: PermanentId, target: Target) {
+        let (Some(&h), Some(hh)) = (
+            self.index.get(&person),
+            self.person(person)
+                .and_then(|p| self.household(p.household))
+                .cloned(),
+        ) else {
+            return;
+        };
+        self.stubble_breached(ctx, h, &hh, target);
+    }
+
+    /// [`Population::weigh_stubble_cases`] at polity `pi`: for tests.
+    #[doc(hidden)]
+    pub fn weigh_stubble_cases_for_tests(&mut self, ctx: &mut Ctx, pi: usize) {
+        self.weigh_stubble_cases(ctx, pi);
+    }
+
+    /// Cases of the stubble gleaned against a law keeping it at polity `pi` (§8 19, seventh,
+    /// slice 2), weighed at each review as a plan's encroachments are: for each breach of a law
+    /// in force not yet brought, within the days a taking is remembered, each who saw it, grown,
+    /// of the polity, knowing the law and not of the gleaner's household, weighs bringing it: their
+    /// stance on the law and the norms they hold, less the cost of reporting and their regard for
+    /// the gleaner. What a finding imposes goes to the common store, so it gives their household
+    /// nothing. The keenest, if keen at all, brings it against the gleaner.
+    pub(super) fn weigh_stubble_cases(&mut self, ctx: &mut Ctx, pi: usize) {
+        use crate::crime::{Case, CaseStage};
+        let (now, params) = (ctx.now, ctx.params);
+        let (pp, cp, day) = (&params.polity, &params.crime, now.day_index());
+        let since = day - i64::from(cp.remember_days);
+        let pending: Vec<(usize, crate::polity::StubbleBreach)> = self.polities[pi]
+            .stubble_breaches
+            .iter()
+            .enumerate()
+            .filter(|(_, b)| b.case.is_none() && b.day >= since)
+            .filter(|(_, b)| {
+                self.polities[pi]
+                    .laws
+                    .iter()
+                    .any(|l| l.id == b.law && l.status == LawStatus::InForce)
+            })
+            .map(|(i, b)| (i, b.clone()))
+            .collect();
+        for (bi, b) in pending {
+            if self.person(b.person).is_none() {
+                continue;
+            }
+            let Some(law) = self.polities[pi]
+                .laws
+                .iter()
+                .find(|l| l.id == b.law)
+                .cloned()
+            else {
+                continue;
+            };
+            let mut best: Option<(f64, PermanentId, PermanentId)> = None;
+            for &w in &b.seen_by {
+                let Some(person) = self.person(w) else {
+                    continue;
+                };
+                let household = person.household;
+                if household == b.household
+                    || person.age_years(now) < params.family.independent_age
+                    || !self
+                        .household(household)
+                        .is_some_and(|x| self.polities[pi].holds(x.settlement))
+                    || !law.knows(w)
+                {
+                    continue;
+                }
+                let stance = law
+                    .stances
+                    .iter()
+                    .find(|r| r.person == w)
+                    .map_or(0.0, |r| r.stance.sign());
+                let norm = self.norm_points(ctx, w);
+                let regard = self
+                    .ties
+                    .regard(w, b.person, day, &params.ties)
+                    .clamp(0.0, 1.0);
+                let u = pp.w_stance * stance + norm - cp.report_cost - pp.w_regard * regard;
+                if u > 0.0 && best.is_none_or(|x| u > x.0) {
+                    best = Some((u, w, household));
+                }
+            }
+            let Some((_, by, household)) = best else {
+                continue;
+            };
+            let settlement = self.polities[pi].settlement;
+            let id = self.order.cases.last().map_or(1, |c| c.id + 1);
+            self.order.cases.push(Case {
+                id,
+                incident: 0,
+                settlement,
+                law: b.law,
+                accuser: household,
+                by,
+                accused: b.person,
+                accused_household: b.household,
+                kcal: 0.0,
+                leads: vec![by],
+                opened: day,
+                stage: CaseStage::Open,
+                heard: None,
+                eligible: 0,
+                stances: Vec::new(),
+                exiled: false,
+                forum: None,
+                challenge: None,
+                tags: 0,
+                departed: None,
+                loan: None,
+                building: None,
+            });
+            self.polities[pi].stubble_breaches[bi].case = Some(id);
+            let (place, name) = ctx
+                .land
+                .settlements
+                .iter()
+                .find(|s| s.id == settlement)
+                .map_or((None, String::new()), |s| {
+                    (Some(s.hearth_m), s.name.clone())
+                });
+            let words = format!(
+                "brought a case at {name} against {} for gleaning the stubble the law keeps for \
+                 those who cannot earn.",
+                self.name_of(b.person)
+            );
+            self.chronicle_push(
+                now,
+                crate::history::ChronicleKind::CaseBrought,
+                vec![by, b.person],
+                Some(settlement),
+                place,
+                0.0,
+                words,
+            );
+        }
     }
 
     /// What keeping the stubble for those who cannot earn weighs with `p` of `hh` now, points,

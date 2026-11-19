@@ -2081,13 +2081,13 @@ impl PolicyFile {
                     | PolicyKind::Privilege
                     | PolicyKind::Plan
                     | PolicyKind::AgainstCounterfeiting
+                    | PolicyKind::KeepStubble
             )
         ) && !self.bundles.is_empty()
         {
             p.push(
-                "only an `against_taking`, `against_raiding`, `privilege`, `plan` or \
-                 `against_counterfeiting` policy has \
-                 `bundles`"
+                "only an `against_taking`, `against_raiding`, `privilege`, `plan`, \
+                 `against_counterfeiting` or `keep_stubble` policy has `bundles`"
                     .to_owned(),
             );
         }

@@ -10582,10 +10582,37 @@ and M6a gives rivers a daily flow.
       member killed at midday, after the day's factions were kept, leaves no dead member when the
       world's checks are read, and is counted as leaving, and one sent off the map leaves at
       once; it fails without the fix); the whole civ-sim suite (88 targets), the civ-agents and
-      civ-host unit tests; smoke; fmt and clippy clean. **The notables' gate**, locally, against
+      civ-host unit tests; smoke; fmt and clippy clean. (The faction target holds 10 tests, the new
+      one among them, not 11.) **The notables' gate**, locally, against
       fdf9dcc: passes, 0 of 40 runs changed (fixture 1 proposals +25.9 %, enacted +14.8 %,
       offices −30.0 %, moved −57.5 %; fixture 2 proposals +17.1 %, enacted +38.7 %, offices
       +7.7 %, moved +72.8 %, before and after).
+    - *The stubble bar's breach, slice 2 (2026-11-19): a breach seen is heard as a case, its fine
+      to the store* (§9, "A stubble breach heard as a case"; §8 19, seventh; research 08-22 §1,
+      §4; the three choices decided in §9 the same day). **Built:** one who could earn,
+      gleaning the polity's own stubble knowing its law, breaks it: the law counts a breach
+      known, and where anyone else was gleaning or working the same block just then, the breach
+      is recorded with who saw it (`Polity::stubble_breaches`, appended within saves 220 as
+      `stubble_breaches`, id 54). At each review, as a plan's encroachments are, each who saw a
+      breach within the days a taking is remembered, grown, of the polity, knowing the law and
+      not of the gleaner's household, weighs bringing it (their stance and norms, less the cost of
+      reporting and their regard for the gleaner); the keenest brings it against the gleaner,
+      their household the accuser (`weigh_stubble_cases`). The hearing treats it as a breach
+      beside a plan's and a privilege's: what sitters weigh, and a finding imposes the law's
+      bundle, its fine to the common store. A stubble law now carries its template's first
+      bundle, and the core's names a day's fine and no compensation (content API 236). The
+      observer tells the case as "Ada gleaned the stubble the law keeps for those who cannot
+      earn". No wire change. **Tested:** polity (15, one new: a gleaner breaks the law, seen by a
+      neighbour gleaning the same block, and it is recorded; the neighbour, who stood for the law,
+      brings it with their household as the accuser; heard by the adults, all for the law, it is
+      found, the gleaner's household owing the fine to the store alone; the record is kept across
+      a save and load; it fails without the record and without the hearing's branch); civ-content
+      (83, its test pack at API 236); the whole civ-sim suite (88 targets), the civ-agents and
+      civ-host unit tests; `gen-schema --check` clean; smoke; fmt and clippy clean. **The
+      notables' gate**, locally, against 2c32a94: passes, 0 of 40 runs changed (fixture 1
+      proposals +25.9 %, enacted +14.8 %, offices −30.0 %, moved −57.5 %; fixture 2 proposals
+      +17.1 %, enacted +38.7 %, offices +7.7 %, moved +72.8 %, before and after). **Not yet:**
+      a forecast that weighs the fine a household of the able would owe.
       **Tested:** forum (27), faction (9), the civ-agents unit tests; fmt and clippy clean.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
@@ -13624,3 +13651,9 @@ One line each. Don't re-litigate without a reason written next to the entry.
   - (2) A finding imposes the law's `sanction.fine_days`, paid into the common store, and the accuser is a witness's household. *Reason:* the gleanings belong to no household, and manorial bylaw fines went to the court or common purse, not to a party (research 08-22 §1).
   - (3) The hearing gets a stubble branch beside the others, mirroring the building encroachment's for what sitters weigh and what is found.
   - Set aside for long run 82's red, which came first.
+- **A stubble breach heard as a case (2026-11-19; §8 19, seventh, slice 2; research 08-22 §1, §4):** Decided by Claude under standing owner authority (2026-11-19), on the three choices logged above. **Reason:** the bylaws keeping the stubble were enforced in the manor court, and the court fined those who gleaned against them, so a breach must come before the polity's hearing, or the law binds only by choice. The pieces are the encroachment case's: a record of who saw it, a witness who weighs bringing it, and a hearing that finds a breach. The fine goes to the store because the gleanings were no household's. Content API 236 lets the template name its fine. In the fixtures no stubble law passes, so nobody breaches one and the notables' gate did not move (0 of 40 runs). Appended within the unreleased saves 220; no ADR.
+- **NUDGE: the stubble breach's priors (2026-11-19; the entry above; time-boxed):**
+  - Its witnesses are those whose act is aimed at the same block (gathering there, or at work on a field in it) at the moment of the breach, standing for "that day".
+  - A breach is brought within the days a taking is remembered (`remember_days`).
+  - The fine is a day of the gleaner's household's food.
+  - Revisit if lived worlds show breaches brought by nobody, or every one brought.

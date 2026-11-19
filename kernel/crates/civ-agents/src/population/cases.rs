@@ -1311,8 +1311,16 @@ impl Population {
             .iter()
             .find(|l| l.id == c.law)
             .is_some_and(|l| l.kind == PolicyKind::AgainstCounterfeiting);
+        // Or the stubble gleaned against a law keeping it (§8 19, seventh, slice 2), which those
+        // there saw.
+        let stubble = self.polities[pi]
+            .laws
+            .iter()
+            .find(|l| l.id == c.law)
+            .is_some_and(|l| l.kind == PolicyKind::KeepStubble);
         let breach = c.building.is_some()
             || counterfeit
+            || stubble
             || self.polities[pi]
                 .laws
                 .iter()
@@ -1322,6 +1330,8 @@ impl Population {
             "the plan by building on ground it reserves".to_owned()
         } else if counterfeit {
             "the law against counterfeiting by passing false notes".to_owned()
+        } else if stubble {
+            "the law keeping the stubble for those who cannot earn by gleaning it".to_owned()
         } else if breach {
             self.law_words_of(ctx, pi, c.law)
         } else {

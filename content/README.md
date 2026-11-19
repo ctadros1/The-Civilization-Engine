@@ -2232,3 +2232,10 @@ washes any of it toward a well or a bank; it still seeps as before. A household 
 the rate refuse has come to the tip. The core's `policy/zestfully_zone_a_covered_tip` answers
 `source_suspected` with 220 kg, 0.15 (12-10 §5.4's 157–290 kg and §2.4's daily cover, priors) and a
 tenth (a design prior).
+
+Content API 236 (§8 19, seventh, slice 2; research 08-22 §1, §4) lets a `keep_stubble` policy
+name `bundles`: at most one is used, its first, what a finding of gleaning against the law
+imposes. Its `fine_days` go to the polity's common store (the bylaws' fines went to the court or
+the common purse, the gleanings being no household's); `compensation_days` would go to the
+household that brought the case. The core's `policy/zestfully_zone_the_stubble` names a day's fine
+and no compensation (a design prior).

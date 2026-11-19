@@ -1479,6 +1479,9 @@ impl Population {
                 // slice BX).
                 self.weigh_breaches(ctx, pi);
                 self.weigh_plan_cases(ctx, pi);
+                // Whether someone who saw the stubble gleaned against its law brings it (§8 19,
+                // seventh, slice 2).
+                self.weigh_stubble_cases(ctx, pi);
                 // Whether a creditor brings a loan refused or left unpaid (M7d slice CB).
                 self.weigh_debts(ctx, pi);
                 // Whether a household that found false notes brings their passer (M10d slice
@@ -4694,9 +4697,14 @@ impl Population {
                     PolicyKind::ClaimPlace => moves.push(blank),
                     // The stubble kept for those who cannot earn, where any of the settlement's
                     // people who could earn the harvest wage gleaned (§8 17, fourth, slice 2).
+                    // A finding of a breach imposes the template's bundle, if it names one (§8 19,
+                    // seventh, slice 2), as a plan's does.
                     PolicyKind::KeepStubble => {
                         if !fc.stubble.is_empty() {
-                            moves.push(blank);
+                            moves.push(MoveOption {
+                                sanction: def.bundles.first().copied().unwrap_or_default(),
+                                ..blank
+                            });
                         }
                     }
                     // A crossing at one of the sites their own household wades, the three it

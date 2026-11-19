@@ -1778,3 +1778,226 @@ fn a_household_short_of_food_proposes_to_keep_the_stubble_for_those_who_cannot_e
     let loaded = persist::load(&saved.path, content()).expect("loads");
     assert_eq!(loaded.people().order.gleaners, kept);
 }
+
+/// A breach of the stubble law heard as a case (§8 19, seventh, slice 2; research 08-22 §1, §4: the
+/// bylaws' breaches came before the manor court, and their fines went to the court or the common
+/// purse): one who could earn gleans the polity's own stubble knowing the law; a neighbour gleaning
+/// the same block sees it, and the breach is recorded with them; the neighbour, who stood for the
+/// law, brings it against the gleaner, with their household as the accuser; heard, it is found,
+/// and the gleaner's household owes the law's fine to the common store, and nothing to the
+/// household that brought it. The record and the case are kept across a save and load.
+#[test]
+fn a_breach_of_the_stubble_law_seen_is_brought_heard_and_fined_to_the_store() {
+    use civ_agents::polity::{IssueKind, Sanction, StanceRecord};
+    let mut sim = world_with(content(), 3);
+    sim.advance_minutes(30 * DAY).expect("advances");
+    // Bringing costs nothing here, so that the one who saw it and stood for the law brings it.
+    sim.rules_mut_for_tests()
+        .expect("rules of its own")
+        .people
+        .crime
+        .report_cost = 0.0;
+    let now = sim.now();
+    let age = |sim: &Sim, p: civ_core::PermanentId| {
+        sim.people().person(p).map_or(0.0, |q| q.age_years(now))
+    };
+    let mut grown: Vec<(civ_core::PermanentId, civ_core::PermanentId)> = sim
+        .people()
+        .people
+        .iter()
+        .filter(|(_, p)| (20.0..=60.0).contains(&p.age_years(now)))
+        .map(|(_, p)| (p.id, p.household))
+        .collect();
+    grown.sort_unstable();
+    let gleaner = grown[0];
+    let witness = *grown
+        .iter()
+        .find(|g| g.1 != gleaner.1)
+        .expect("a grown neighbour");
+    assert!(age(&sim, gleaner.0) >= 14.0);
+    let policy = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.kind == PolicyKind::KeepStubble)
+        .expect("the stubble law") as u16;
+    let fine_days = 1.0;
+    let law_id = civ_core::PermanentId::from_raw(sim.ids().peek_next() + 1_000_000).expect("id");
+    {
+        let pop = sim.people_mut_for_tests();
+        let mut known: Vec<_> = pop.people.iter().map(|(_, p)| (p.id, 0)).collect();
+        known.sort_unstable();
+        pop.polities[0].laws.push(Law {
+            id: law_id,
+            policy,
+            kind: PolicyKind::KeepStubble,
+            levy_share: 0.0,
+            holder: None,
+            relief_days: 0.0,
+            sanction: Sanction {
+                fine_days,
+                ..Default::default()
+            },
+            hours: (0, 0),
+            status: LawStatus::InForce,
+            sponsor: witness.0,
+            proposed: now,
+            issue: IssueKind::FoodShort,
+            meets_day: now.day_index(),
+            decided: Some(now),
+            outcome: Some(Outcome::Passed),
+            eligible: 0,
+            stances: vec![StanceRecord {
+                person: witness.0,
+                household: witness.1,
+                stance: Stance::Support,
+                gain: 0.0,
+                regard: 0.0,
+                opinion: 0.0,
+                values: 0.0,
+                view: 0.0,
+                owed: 0.0,
+            }],
+            known,
+            compliance: Default::default(),
+            watch: Default::default(),
+            body: None,
+            ends: None,
+            agreement: None,
+            target: None,
+        });
+    }
+    // The gleaner's household's field: its stubble is the polity's own.
+    let at = {
+        let land = sim.land();
+        let f = land
+            .fields
+            .iter()
+            .find(|f| {
+                sim.people()
+                    .household(f.household)
+                    .is_some_and(|x| x.settlement.is_some())
+            })
+            .expect("a field of the polity's households");
+        let (x, y) = f.rect.centre_m();
+        land.patches.of_point(x, y) as u32
+    };
+    // The neighbour is gleaning the same block just then.
+    {
+        let pop = sim.people_mut_for_tests();
+        let (_, p) = pop
+            .people
+            .iter_mut()
+            .find(|(_, p)| p.id == witness.0)
+            .expect("the neighbour");
+        p.act.target = civ_agents::Target::Patch(at);
+    }
+    sim.with_ctx_for_tests(|pop, ctx| {
+        pop.stubble_breach_for_tests(ctx, gleaner.0, civ_agents::Target::Patch(at))
+    });
+    let law = |sim: &Sim| {
+        sim.people().polities[0]
+            .laws
+            .iter()
+            .find(|l| l.id == law_id)
+            .cloned()
+            .expect("the law")
+    };
+    assert_eq!(law(&sim).compliance.broken, 1, "the breach is counted");
+    let breaches = sim.people().polities[0].stubble_breaches.clone();
+    assert_eq!(breaches.len(), 1, "{breaches:?}");
+    assert_eq!((breaches[0].person, breaches[0].household), gleaner);
+    assert!(breaches[0].seen_by.contains(&witness.0), "{breaches:?}");
+    // At the polity's review, the one who saw it brings it.
+    sim.with_ctx_for_tests(|pop, ctx| pop.weigh_stubble_cases_for_tests(ctx, 0));
+    let case = sim
+        .people()
+        .order
+        .cases
+        .iter()
+        .find(|c| c.law == law_id)
+        .cloned()
+        .expect("a case is brought");
+    assert_eq!((case.by, case.accuser), witness);
+    assert_eq!((case.accused, case.accused_household), gleaner);
+    assert_eq!(
+        sim.people().polities[0].stubble_breaches[0].case,
+        Some(case.id),
+        "brought once"
+    );
+    // Kept across a save and load.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(
+        &mut sim,
+        &saves,
+        commons_persist::SaveKind::Manual,
+        "breach",
+    )
+    .expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(
+        loaded.people().polities[0].stubble_breaches,
+        sim.people().polities[0].stubble_breaches
+    );
+    // Heard by every adult, all of whom stand for it as the witness did: found, and the gleaner's
+    // household owes the fine to the common store, and nothing to the household that brought it.
+    let heard: Vec<civ_core::PermanentId> = grown.iter().map(|g| g.0).collect();
+    {
+        let pop = sim.people_mut_for_tests();
+        let l = pop.polities[0]
+            .laws
+            .iter_mut()
+            .find(|l| l.id == law_id)
+            .expect("the law");
+        l.stances = grown
+            .iter()
+            .map(|g| StanceRecord {
+                person: g.0,
+                household: g.1,
+                stance: Stance::Support,
+                gain: 0.0,
+                regard: 0.0,
+                opinion: 0.0,
+                values: 0.0,
+                view: 0.0,
+                owed: 0.0,
+            })
+            .collect();
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.hear_case_for_tests(ctx, 0, &heard, case.id));
+    let heard_case = sim
+        .people()
+        .order
+        .cases
+        .iter()
+        .find(|c| c.id == case.id)
+        .cloned()
+        .expect("the case");
+    let polity = sim.people().polities[0].id;
+    let owed: Vec<_> = sim
+        .people()
+        .order
+        .obligations
+        .iter()
+        .filter(|o| o.case == Some(case.id))
+        .cloned()
+        .collect();
+    assert_eq!(
+        heard_case.stage,
+        civ_agents::crime::CaseStage::Found,
+        "{heard_case:?}"
+    );
+    {
+        assert!(
+            owed.iter()
+                .all(|o| o.beneficiary == polity && o.debtor == gleaner.1),
+            "owed to the store alone: {owed:?}"
+        );
+        assert!(owed.iter().any(|o| o.kcal > 0.0), "{owed:?}");
+    }
+    let words = civ_sim::frames::order::case_text_for_tests(&sim, case.id).expect("words");
+    assert!(words.contains("gleaned the stubble"), "{words}");
+}

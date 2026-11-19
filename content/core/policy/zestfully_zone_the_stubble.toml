@@ -22,3 +22,12 @@ answers = ["food_short"]
 # It bears on no value: who proposes it, and who stands for it, do so by what their own gleaning
 # would gain or lose (a design choice of the first slice, so that its sponsor is one who would
 # glean in the place of those it bars).
+
+# What a finding of a breach imposes (§8 19, seventh, slice 2; research 08-22 §1, §4: the bylaws
+# fined those who gleaned against them, the fine going to the court or the common purse, not to a
+# party, the gleanings being no household's): a day of the gleaner's household's food to the
+# common store, and nothing to the household that brought it. A design prior: the bylaws' fines
+# were small sums.
+[[bundles]]
+compensation_days = 0.0
+fine_days = 1.0

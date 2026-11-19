@@ -5900,6 +5900,18 @@ impl Population {
                 law.compliance.broken_unaware += 1;
             }
         }
+        // One who could earn gleans the polity's own stubble knowing a law keeps it: a breach,
+        // with who saw it (§8 19, seventh, slice 2).
+        if stubble.is_some()
+            && self.stubble_binds(
+                ctx,
+                &hh,
+                cands[choice].scored.def,
+                cands[choice].scored.target,
+            )
+        {
+            self.stubble_breached(ctx, h, &hh, cands[choice].scored.target);
+        }
         self.take_up(ctx, h, &cands[choice], site, &hh, block, Some(receipt));
         self.run_steps(ctx, h, depth + 1);
     }

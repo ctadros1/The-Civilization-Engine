@@ -45973,6 +45973,7 @@ impl<'a> PolitySave<'a> {
   pub const VT_ROUNDS: ::flatbuffers::VOffsetT = 106;
   pub const VT_SEWERS: ::flatbuffers::VOffsetT = 108;
   pub const VT_SITTING: ::flatbuffers::VOffsetT = 110;
+  pub const VT_STUBBLE_BREACHES: ::flatbuffers::VOffsetT = 112;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -45996,6 +45997,7 @@ impl<'a> PolitySave<'a> {
     builder.add_founded(args.founded);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.stubble_breaches { builder.add_stubble_breaches(x); }
     if let Some(x) = args.sitting { builder.add_sitting(x); }
     if let Some(x) = args.sewers { builder.add_sewers(x); }
     if let Some(x) = args.rounds { builder.add_rounds(x); }
@@ -46420,6 +46422,13 @@ impl<'a> PolitySave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<SittingSave>>(PolitySave::VT_SITTING, None)}
   }
+  #[inline]
+  pub fn stubble_breaches(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<StubbleBreachSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<StubbleBreachSave>>>>(PolitySave::VT_STUBBLE_BREACHES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolitySave<'_> {
@@ -46482,6 +46491,7 @@ impl ::flatbuffers::Verifiable for PolitySave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RefuseRoundSave>>>>("rounds", Self::VT_ROUNDS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<SewerSave>>>>("sewers", Self::VT_SEWERS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<SittingSave>>("sitting", Self::VT_SITTING, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<StubbleBreachSave>>>>("stubble_breaches", Self::VT_STUBBLE_BREACHES, false)?
      .finish();
     Ok(())
   }
@@ -46541,6 +46551,7 @@ pub struct PolitySaveArgs<'a> {
     pub rounds: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RefuseRoundSave<'a>>>>>,
     pub sewers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SewerSave<'a>>>>>,
     pub sitting: Option<::flatbuffers::WIPOffset<SittingSave<'a>>>,
+    pub stubble_breaches: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<StubbleBreachSave<'a>>>>>,
 }
 impl<'a> Default for PolitySaveArgs<'a> {
   #[inline]
@@ -46600,6 +46611,7 @@ impl<'a> Default for PolitySaveArgs<'a> {
       rounds: None,
       sewers: None,
       sitting: None,
+      stubble_breaches: None,
     }
   }
 }
@@ -46826,6 +46838,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolitySaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<SittingSave>>(PolitySave::VT_SITTING, sitting);
   }
   #[inline]
+  pub fn add_stubble_breaches(&mut self, stubble_breaches: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<StubbleBreachSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_STUBBLE_BREACHES, stubble_breaches);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolitySaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolitySaveBuilder {
@@ -46897,6 +46913,188 @@ impl ::core::fmt::Debug for PolitySave<'_> {
       ds.field("rounds", &self.rounds());
       ds.field("sewers", &self.sewers());
       ds.field("sitting", &self.sitting());
+      ds.field("stubble_breaches", &self.stubble_breaches());
+      ds.finish()
+  }
+}
+pub enum StubbleBreachSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct StubbleBreachSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for StubbleBreachSave<'a> {
+  type Inner = StubbleBreachSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> StubbleBreachSave<'a> {
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 4;
+  pub const VT_LAW: ::flatbuffers::VOffsetT = 6;
+  pub const VT_PERSON: ::flatbuffers::VOffsetT = 8;
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 10;
+  pub const VT_SEEN_BY: ::flatbuffers::VOffsetT = 12;
+  pub const VT_CASE_NUMBER: ::flatbuffers::VOffsetT = 14;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    StubbleBreachSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args StubbleBreachSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<StubbleBreachSave<'bldr>> {
+    let mut builder = StubbleBreachSaveBuilder::new(_fbb);
+    builder.add_household(args.household);
+    builder.add_person(args.person);
+    builder.add_law(args.law);
+    builder.add_day(args.day);
+    builder.add_case_number(args.case_number);
+    if let Some(x) = args.seen_by { builder.add_seen_by(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(StubbleBreachSave::VT_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(StubbleBreachSave::VT_LAW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn person(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(StubbleBreachSave::VT_PERSON, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(StubbleBreachSave::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn seen_by(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(StubbleBreachSave::VT_SEEN_BY, None)}
+  }
+  #[inline]
+  pub fn case_number(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(StubbleBreachSave::VT_CASE_NUMBER, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for StubbleBreachSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .visit_field::<u64>("law", Self::VT_LAW, false)?
+     .visit_field::<u64>("person", Self::VT_PERSON, false)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("seen_by", Self::VT_SEEN_BY, false)?
+     .visit_field::<u32>("case_number", Self::VT_CASE_NUMBER, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct StubbleBreachSaveArgs<'a> {
+    pub day: i64,
+    pub law: u64,
+    pub person: u64,
+    pub household: u64,
+    pub seen_by: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+    pub case_number: u32,
+}
+impl<'a> Default for StubbleBreachSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    StubbleBreachSaveArgs {
+      day: 0,
+      law: 0,
+      person: 0,
+      household: 0,
+      seen_by: None,
+      case_number: 0,
+    }
+  }
+}
+
+pub struct StubbleBreachSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> StubbleBreachSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(StubbleBreachSave::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn add_law(&mut self, law: u64) {
+    self.fbb_.push_slot::<u64>(StubbleBreachSave::VT_LAW, law, 0);
+  }
+  #[inline]
+  pub fn add_person(&mut self, person: u64) {
+    self.fbb_.push_slot::<u64>(StubbleBreachSave::VT_PERSON, person, 0);
+  }
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(StubbleBreachSave::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_seen_by(&mut self, seen_by: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(StubbleBreachSave::VT_SEEN_BY, seen_by);
+  }
+  #[inline]
+  pub fn add_case_number(&mut self, case_number: u32) {
+    self.fbb_.push_slot::<u32>(StubbleBreachSave::VT_CASE_NUMBER, case_number, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> StubbleBreachSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    StubbleBreachSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<StubbleBreachSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for StubbleBreachSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("StubbleBreachSave");
+      ds.field("day", &self.day());
+      ds.field("law", &self.law());
+      ds.field("person", &self.person());
+      ds.field("household", &self.household());
+      ds.field("seen_by", &self.seen_by());
+      ds.field("case_number", &self.case_number());
       ds.finish()
   }
 }

@@ -2589,6 +2589,9 @@ table Order {
   // Schema 220 (ADR-0025's "Writing arrives"; appended within the unreleased saves 220): the
   // findings written down, in the order written; absent, none.
   written: [WrittenFindingSave] (id: 22);
+  // Schema 220 (appended within the unreleased saves 220): hearings at which one who sat
+  // recalled a finding they held only on the page; absent, 0.
+  read_hearings: uint (id: 23);
 }
 
 // A finding written down (schema 220, ADR-0025's "Writing arrives"): the case's number, the

@@ -764,13 +764,21 @@ pub struct JusticeSeen {
     /// Days from brought to closed, summed over the closed, and how many closed.
     pub days: i64,
     pub closed: u32,
+    /// Findings written down and still kept (ADR-0025's "Writing arrives"), and the hearings at
+    /// which one who sat recalled a finding they held only on the page.
+    pub written: u32,
+    pub read_hearings: u32,
 }
 
 impl JusticeSeen {
     /// The tally of `order`'s cases.
     pub fn of(order: &civ_agents::crime::Order) -> JusticeSeen {
         use civ_agents::crime::CaseStage;
-        let mut j = JusticeSeen::default();
+        let mut j = JusticeSeen {
+            written: order.written.len() as u32,
+            read_hearings: order.read_hearings,
+            ..JusticeSeen::default()
+        };
         for c in &order.cases {
             if c.challenge.is_some() {
                 j.challenges += 1;
@@ -814,11 +822,14 @@ impl JusticeSeen {
         self.departed += o.departed;
         self.days += o.days;
         self.closed += o.closed;
+        self.written += o.written;
+        self.read_hearings += o.read_hearings;
     }
 
     /// In words: "12 cases before the gathering, 4 before forums; 7 found, 5 not found, 1
     /// unheard, 0 lapsed, 2 settled, 1 withdrawn; 1 challenge, 1 law struck down; 1 departure;
-    /// 2.3 days to closure on average".
+    /// 2.3 days to closure on average; 3 findings written and kept, 1 hearing recalled one only
+    /// from the page".
     pub fn words(&self) -> String {
         let days = if self.closed > 0 {
             format!(
@@ -831,7 +842,8 @@ impl JusticeSeen {
         format!(
             "{} cases before the gathering, {} before forums; {} found, {} not found, {} \
              unheard, {} lapsed, {} settled, {} withdrawn; {} challenges, {} laws struck down; \
-             {} departures; {days}",
+             {} departures; {days}; {} findings written and kept, {} hearings recalled one only \
+             from the page",
             self.gathering,
             self.forum,
             self.found,
@@ -843,6 +855,8 @@ impl JusticeSeen {
             self.challenges,
             self.struck,
             self.departed,
+            self.written,
+            self.read_hearings,
         )
     }
 }
@@ -3220,6 +3234,31 @@ mod tests {
         assert_eq!(all.closed, 8);
         assert!(
             all.words().contains("3.0 days to closure"),
+            "{}",
+            all.words()
+        );
+        // Findings written and still kept, and hearings that recalled one only from the page
+        // (ADR-0025's "Writing arrives").
+        let written = civ_agents::crime::WrittenFinding {
+            case: 1,
+            holder: id(9),
+            writer: id(10),
+            made: 13,
+        };
+        let order = Order {
+            written: vec![written, written],
+            read_hearings: 1,
+            ..order
+        };
+        let j = JusticeSeen::of(&order);
+        assert_eq!((j.written, j.read_hearings), (2, 1));
+        let mut all = JusticeSeen::default();
+        all.join(&j);
+        all.join(&j);
+        assert!(
+            all.words().ends_with(
+                "4 findings written and kept, 2 hearings recalled one only from the page"
+            ),
             "{}",
             all.words()
         );

@@ -1959,6 +1959,8 @@ fn a_hearer_who_writes_keeps_a_finding_past_the_word_of_it() {
     assert_eq!(written.len(), 1, "{written:?}");
     assert_eq!((written[0].case, written[0].writer), (first, hearer));
     assert_eq!(written[0].holder, hh[2].0);
+    // Nobody recalled anything from the page yet (the dashboard's count).
+    assert_eq!(sim.people().order.read_hearings, 0);
     let mut sim = reloaded(&mut sim);
     // The word of it goes, as it does after `remember_days`.
     let today = sim.now().day_index();
@@ -1973,6 +1975,10 @@ fn a_hearer_who_writes_keeps_a_finding_past_the_word_of_it() {
         .find(|r| r.person == hearer)
         .unwrap_or_else(|| panic!("the hearer sat: {c:?}"));
     assert_ne!(stance.precedent, 0.0, "{c:?}");
+    // That hearing recalled a finding only from the page, and the record says so.
+    assert_eq!(sim.people().order.read_hearings, 1);
+    let sim = reloaded(&mut sim);
+    assert_eq!(sim.people().order.read_hearings, 1);
 }
 
 /// A written finding goes with the household that keeps it (ADR-0025's "Writing arrives"; M10c

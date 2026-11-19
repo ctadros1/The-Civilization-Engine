@@ -52754,6 +52754,7 @@ impl<'a> Order<'a> {
   pub const VT_BROUGHT: ::flatbuffers::VOffsetT = 44;
   pub const VT_LAMP_FIRST_LIT: ::flatbuffers::VOffsetT = 46;
   pub const VT_WRITTEN: ::flatbuffers::VOffsetT = 48;
+  pub const VT_READ_HEARINGS: ::flatbuffers::VOffsetT = 50;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -52768,6 +52769,7 @@ impl<'a> Order<'a> {
     builder.add_lamp_first_lit(args.lamp_first_lit);
     builder.add_loans_refused(args.loans_refused);
     builder.add_loans_asked(args.loans_asked);
+    builder.add_read_hearings(args.read_hearings);
     if let Some(x) = args.written { builder.add_written(x); }
     if let Some(x) = args.brought { builder.add_brought(x); }
     if let Some(x) = args.purses { builder.add_purses(x); }
@@ -52953,6 +52955,13 @@ impl<'a> Order<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, WrittenFindingSave>>>(Order::VT_WRITTEN, None)}
   }
+  #[inline]
+  pub fn read_hearings(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Order::VT_READ_HEARINGS, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Order<'_> {
@@ -52984,6 +52993,7 @@ impl ::flatbuffers::Verifiable for Order<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, BroughtSave>>>("brought", Self::VT_BROUGHT, false)?
      .visit_field::<i64>("lamp_first_lit", Self::VT_LAMP_FIRST_LIT, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, WrittenFindingSave>>>("written", Self::VT_WRITTEN, false)?
+     .visit_field::<u32>("read_hearings", Self::VT_READ_HEARINGS, false)?
      .finish();
     Ok(())
   }
@@ -53012,6 +53022,7 @@ pub struct OrderArgs<'a> {
     pub brought: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, BroughtSave>>>,
     pub lamp_first_lit: i64,
     pub written: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, WrittenFindingSave>>>,
+    pub read_hearings: u32,
 }
 impl<'a> Default for OrderArgs<'a> {
   #[inline]
@@ -53040,6 +53051,7 @@ impl<'a> Default for OrderArgs<'a> {
       brought: None,
       lamp_first_lit: -1,
       written: None,
+      read_hearings: 0,
     }
   }
 }
@@ -53142,6 +53154,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> OrderBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Order::VT_WRITTEN, written);
   }
   #[inline]
+  pub fn add_read_hearings(&mut self, read_hearings: u32) {
+    self.fbb_.push_slot::<u32>(Order::VT_READ_HEARINGS, read_hearings, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> OrderBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     OrderBuilder {
@@ -53182,6 +53198,7 @@ impl ::core::fmt::Debug for Order<'_> {
       ds.field("brought", &self.brought());
       ds.field("lamp_first_lit", &self.lamp_first_lit());
       ds.field("written", &self.written());
+      ds.field("read_hearings", &self.read_hearings());
       ds.finish()
   }
 }

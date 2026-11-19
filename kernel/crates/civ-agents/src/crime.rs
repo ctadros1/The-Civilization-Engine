@@ -729,6 +729,9 @@ pub struct Order {
     /// Findings written down, in the order written (ADR-0025's "Writing arrives"; research 09-07
     /// §1.5, §6.4: oral memory keeps a selective few, writing expands persistence and reach).
     pub written: Vec<WrittenFinding>,
+    /// Hearings at which one who sat recalled a finding they held only on the page, not by word
+    /// (ADR-0025's "Writing arrives"): for the record. Saved.
+    pub read_hearings: u32,
 }
 
 /// A finding written down by one of those who heard the case, kept by their household as a

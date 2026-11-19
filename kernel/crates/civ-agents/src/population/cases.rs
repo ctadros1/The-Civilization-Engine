@@ -565,6 +565,28 @@ impl Population {
         out
     }
 
+    /// Whether any of findings `recalled` is one `p` recalls only from the page: their household
+    /// keeps it written, and they hold no word of it (ADR-0025's "Writing arrives").
+    fn recalled_from_page(&self, p: PermanentId, recalled: &[(u32, f64, f64)]) -> bool {
+        if self.order.written.is_empty() || recalled.is_empty() {
+            return false;
+        }
+        let Some(household) = self.person(p).map(|q| q.household) else {
+            return false;
+        };
+        recalled.iter().any(|&(id, _, _)| {
+            self.order
+                .written
+                .iter()
+                .any(|w| w.case == id && w.holder == household)
+                && !self.word.heard_by(p).iter().any(|h| {
+                    self.word.claim(h.claim).is_some_and(|c| {
+                        c.kind == crate::word::ClaimKind::Finding && c.event == Some(id)
+                    })
+                })
+        })
+    }
+
     /// Whether anyone of polity `pi` challenges a law in force that a limit in force forbids, at
     /// its review (M7b slice BT, ADR-0025 §4): only where its forum may review, and for a law no
     /// open challenge names. Standing comes from bearing the law: each adult whose household it
@@ -823,6 +845,9 @@ impl Population {
             }
         };
         let mut recalled_all: Vec<(u32, f64, f64)> = Vec::new();
+        // Whether one who sat recalled a finding they hold only on the page (ADR-0025's "Writing
+        // arrives"): for the record, it changes nothing.
+        let page = std::cell::Cell::new(false);
         let stances: Vec<CaseStance> = heard_by
             .iter()
             .filter_map(|&p| {
@@ -836,6 +861,7 @@ impl Population {
                     &recalled.iter().map(|r| (r.1, r.2)).collect::<Vec<_>>(),
                     cp,
                 );
+                page.set(page.get() || self.recalled_from_page(p, &recalled));
                 recalled_all.extend(recalled);
                 let s = stake + read + regard_points + precedent;
                 let stance = if s > pp.stance_margin {
@@ -856,6 +882,7 @@ impl Population {
                 })
             })
             .collect();
+        self.order.read_hearings += u32::from(page.get());
         let pairs: Vec<(PermanentId, Stance)> =
             stances.iter().map(|r| (r.person, r.stance)).collect();
         let decided = crate::forum::forum_decides(def, drawn, heard_by, &pairs);
@@ -1300,6 +1327,9 @@ impl Population {
         });
         // Every finding recalled, (case, direction, share of tags matched).
         let mut recalled_all: Vec<(u32, f64, f64)> = Vec::new();
+        // Whether one who sat recalled a finding they hold only on the page (ADR-0025's "Writing
+        // arrives"): for the record, it changes nothing.
+        let page = std::cell::Cell::new(false);
         let stances: Vec<CaseStance> = heard_by
             .iter()
             .filter_map(|&p| {
@@ -1332,6 +1362,7 @@ impl Population {
                     &recalled.iter().map(|r| (r.1, r.2)).collect::<Vec<_>>(),
                     cp,
                 );
+                page.set(page.get() || self.recalled_from_page(p, &recalled));
                 recalled_all.extend(recalled);
                 let stance = if p == c.by {
                     Stance::Support
@@ -1358,6 +1389,7 @@ impl Population {
                 })
             })
             .collect();
+        self.order.read_hearings += u32::from(page.get());
         let body = self.polities[pi].body;
         // A council counts those seated (research 09-05 §1.4, §2.1); a forum, those who sit.
         let eligible = match forum {

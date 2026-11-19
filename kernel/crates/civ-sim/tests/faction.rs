@@ -260,6 +260,50 @@ fn a_shared_grievance_founds_a_faction_and_those_who_know_its_members_join_for_t
     saves_and_goes_on_alike(&mut sim, content(), DAY);
 }
 
+/// The root of long run 82's red (world 5, year 38: "belongs to a faction but is not alive"): one
+/// who dies, or is sent off the map, leaves their faction at once, counted as leaving. Before,
+/// only the next midnight's keeping let a dead member go, so someone killed after the day's
+/// factions were kept (a taking or a band later that day) was a dead member until then, and the
+/// world's checks could read it.
+#[test]
+fn a_member_who_dies_or_is_sent_off_the_map_leaves_their_faction_at_once() {
+    let (mut sim, _) = aggrieved_village(5);
+    sim.advance_minutes(31 * DAY).expect("advances");
+    let members: Vec<PermanentId> = {
+        let pop = sim.people();
+        let f = pop
+            .factions
+            .list
+            .iter()
+            .find(|f| f.is_live())
+            .expect("a faction");
+        pop.factions.members_of(f.id).map(|m| m.person).collect()
+    };
+    assert!(members.len() >= 2, "{members:?}");
+    // Mid-day, past the midnight that kept the factions.
+    sim.advance_minutes(DAY / 2).expect("advances");
+    let left = sim.people().factions.left;
+    sim.die_for_tests(members[0]);
+    assert!(sim.people().factions.membership(members[0]).is_none());
+    assert!(
+        sim.people().problems(u64::MAX, usize::MAX).is_empty(),
+        "{:?}",
+        sim.people().problems(u64::MAX, usize::MAX)
+    );
+    assert_eq!(sim.people().factions.left, left + 1, "counted as leaving");
+    sim.exile_for_tests(members[1]);
+    let gone = sim.people().person(members[1]).is_none();
+    assert!(
+        !gone || sim.people().factions.membership(members[1]).is_none(),
+        "one sent off the map leaves at once"
+    );
+    assert!(
+        sim.people().problems(u64::MAX, usize::MAX).is_empty(),
+        "{:?}",
+        sim.people().problems(u64::MAX, usize::MAX)
+    );
+}
+
 #[test]
 fn a_members_household_short_of_food_is_given_from_its_store() {
     let (mut sim, _) = aggrieved_village(6);

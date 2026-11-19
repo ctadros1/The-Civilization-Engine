@@ -484,8 +484,9 @@ impl Population {
         let Some(p) = self.people.remove(h) else {
             return;
         };
-        // What they saw elsewhere goes with them (M5b slice AR).
+        // What they saw elsewhere goes with them (M5b slice AR); their faction, at once.
         self.seen_away.remove(&id);
+        self.drop_from_faction(id);
         let at = p.position_at(now.minutes() as f64);
         let age = p.age_years(now);
         let mut settlement = None;
@@ -547,6 +548,16 @@ impl Population {
         self.check_loss(ctx, settlement, &[(id, p.knows)], None);
     }
 
+    /// `id` is no longer in the world (dead, or gone off the map): they leave their faction at
+    /// once, counted as leaving, as [`Population::keep_factions`] counts those it lets go.
+    /// Before, they stayed a member until the next midnight, so someone killed after the day's
+    /// factions were kept was a dead member until then (long run 82, world 5, year 38).
+    pub(super) fn drop_from_faction(&mut self, id: PermanentId) {
+        if self.factions.leave(id).is_some() {
+            self.factions.left += 1;
+        }
+    }
+
     /// `id` is sent from the valley by a gathering's finding (M4b slice AB, ADR-0015 §5): they
     /// leave their household as the dead do (what they carried stays with it; their partner is
     /// left without them), their record says when they left, and the chronicle notes it as a
@@ -595,6 +606,8 @@ impl Population {
                     r.left = Some(now);
                 }
                 self.note_residence(id, None, now, ResidenceWhy::Exiled);
+                // Gone from the world, they leave their faction at once.
+                self.drop_from_faction(id);
             }
         }
         if let Some(q) = p.partner {
@@ -845,6 +858,7 @@ impl Population {
                 continue;
             };
             self.seen_away.remove(m);
+            self.drop_from_faction(*m);
             gone.push((*m, p.knows.clone()));
             if let Some(r) = self.records.get_mut(m) {
                 r.left = Some(now);

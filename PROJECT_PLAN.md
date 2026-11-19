@@ -10566,6 +10566,26 @@ and M6a gives rivers a daily flow.
       +17.1 %, enacted +38.7 %, offices +7.7 %, moved +72.8 %, before and after). **Not yet:**
       the forecast still counts gleaning by those who could earn wherever it was done; a breach
       heard as a case (slice 2).
+    - *Long run 82's red, fixed at its source (2026-11-19): one who dies or leaves the world
+      leaves their faction at once* (§9, "Long run 82's red"; homelab long run 82 on be2c2ec,
+      world 5, year 38: "1008 belongs to a faction but is not alive"). Dead members were let go
+      only by the next midnight's `keep_factions`, inside `factions_day` within `polity_day`;
+      the same day's `crime_day` and `band_day` run after it and a band can kill
+      (`Cause::Violence`), and a hearing within `polity_day` can exile, so one killed later that
+      day was a dead member until the next midnight, and a year's end check could land in that
+      window. **Fixed:** whoever dies (`die_named`), is sent off the map (`exile` with no
+      refuge) or leaves the world with their household (`leave`) leaves their faction at once,
+      counted as leaving, in the same place their household membership is dropped
+      (`drop_from_faction`). Those who move to another settlement, exiles to a refuge among
+      them, are still let go by `keep_factions`, which keeps an organization by stake's members
+      wherever they live. No save, wire or content change. **Tested:** faction (11, one new: a
+      member killed at midday, after the day's factions were kept, leaves no dead member when the
+      world's checks are read, and is counted as leaving, and one sent off the map leaves at
+      once; it fails without the fix); the whole civ-sim suite (88 targets), the civ-agents and
+      civ-host unit tests; smoke; fmt and clippy clean. **The notables' gate**, locally, against
+      fdf9dcc: passes, 0 of 40 runs changed (fixture 1 proposals +25.9 %, enacted +14.8 %,
+      offices −30.0 %, moved −57.5 %; fixture 2 proposals +17.1 %, enacted +38.7 %, offices
+      +7.7 %, moved +72.8 %, before and after).
       **Tested:** forum (27), faction (9), the civ-agents unit tests; fmt and clippy clean.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
@@ -13598,3 +13618,9 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **NUDGE: iron by trade's prior (2026-11-19; the entry above; time-boxed):** a "worked material" is one that some recipe outputs and no land resource yields; only those are bought toward tools. Revisit if lived worlds show households idle for want of a gathered material a neighbour offers (timber, stone), or buying worked materials they would sooner make.
 - **The stubble bar binds on the polity's own stubble (2026-11-19; §8 19, seventh, slice 1; research 08-22 §1, §2):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** 08-22 finds the bylaws barring the able from gleaning were the place's own, binding its fields' stubble, and gleaning was open only from the carrying to the plough, by day. The law bound a person on any stubble, even another settlement's. Limiting it to gleanings within reach of a field the polity's households hold is the bylaws' reach. The season is already the gleanings' own, since the bar weighs only on gleaning. Deliberation sees no change, because a law's forecast and keeping are as they were, and the notables' gate did not move (0 of 40 runs). No ADR.
 - **NUDGE: the stubble bar's reach (2026-11-19; the entry above; time-boxed):** the polity's own stubble is taken to be any gathering block within which a field of one of its households lies. A block can hold a neighbour's field beside the polity's, and the bar binds there too. Revisit if lived worlds show the bar keeping people off stubble that is mostly another settlement's.
+- **Long run 82's red: a dead faction member, fixed at its source (2026-11-19; homelab long run 82 on be2c2ec, world 5, year 38):** Decided by Claude under standing owner authority (2026-11-19). **Root cause:** a faction let go of its dead members only at the next midnight (`keep_factions`, in `factions_day` within `polity_day`). Deaths and exiles later the same day (a band's violence in `band_day`, a hearing's exile, any death after the factions were kept) left a dead member until then, and the dashboard's year-end check read one in world 5's year 38. That was the run's only failure; its other rows were 8 green, 3 amber, 0 red, and notables and consistency were clean. **Fixed:** the dead and those gone off the map leave their faction where they leave their household, counted as leaving, so no window remains. Moves within the world stay with `keep_factions`. The notables' gate did not move (0 of 40 runs). A fault, not a model change, so no ADR.
+- **The stubble breach's case, its three choices (2026-11-19; §8 19, seventh, slice 2; not yet built):** Decided under standing owner authority (2026-11-19), for the slice to come.
+  - (1) Breaches are recorded, appended within saves 220. The witnesses are anyone gleaning or working the same block that day. *Reason:* it is the same seen-by-someone-there rule the encroachment case uses (a NUDGE when built).
+  - (2) A finding imposes the law's `sanction.fine_days`, paid into the common store, and the accuser is a witness's household. *Reason:* the gleanings belong to no household, and manorial bylaw fines went to the court or common purse, not to a party (research 08-22 §1).
+  - (3) The hearing gets a stubble branch beside the others, mirroring the building encroachment's for what sitters weigh and what is found.
+  - Set aside for long run 82's red, which came first.

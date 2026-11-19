@@ -10528,6 +10528,26 @@ and M6a gives rivers a daily flow.
       +38.7 %, offices +7.7 %, moved +72.8 %, before and after). **Not yet:** no scene shows fuel
       fetched to sell again; a fuel errand weighed against gathering it nearby is the decision's
       as any errand's is.
+    - *Iron by trade (2026-11-19): a worked material kept toward a tool is bought* (§9, "Iron by
+      trade"; §8 19, tenth; M11d's fourteenth part's "Not yet"; research 08-03: a smithy keeps
+      metal stocks, and works from bar stock bought as working capital). The probes found a
+      dynamo's household keeping 208 kg of iron it could only make, and no household anywhere
+      buying a material: a weighing, not a fault, with no market for the iron. **Built:** a
+      household short of a worked material (one a recipe makes and no land gives: bar iron,
+      copper, steel; not timber, stone or ore) that it keeps toward a tool it lacks weighs
+      buying it, as much as it keeps beyond what it holds and one person carries, worth the hours
+      of its own it saves, as salvage toward a tool already is; at home or, through the fetch it
+      already weighs, from a report of another settlement. Those holding such a material beyond
+      what they keep already offer it. No save, wire or content change. **Tested:** telegraph
+      (19, one new: an office to be, short only of its instrument's iron, which it keeps, would
+      buy the bar iron a neighbour offers, no more than it keeps; it fails without the branch);
+      the whole civ-sim suite (88 targets), the civ-agents and civ-host unit tests; smoke; fmt and
+      clippy clean. **The notables' gate**, locally, against 0da2bc4: passes, 0 of 40 runs
+      changed (fixture 1 proposals +25.9 %, enacted +14.8 %, offices −30.0 %, moved −57.5 %;
+      fixture 2 proposals +17.1 %, enacted +38.7 %, offices +7.7 %, moved +72.8 %, before and
+      after). **Not yet:** a want weighed over its years of use rather than its next season
+      (the decision's horizon, a change to how every tool is weighed, so gated and larger); no
+      lived world has yet shown a household that makes iron to sell.
       **Tested:** forum (27), faction (9), the civ-agents unit tests; fmt and clippy clean.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
@@ -11764,7 +11784,8 @@ and M6a gives rivers a daily flow.
        short. A new mechanism in every household's fuel accounting, so smoke and gate risk.
     10. *Iron by trade, and a want weighed over years* (M11d's fourteenth part's "Not yet"): no
         settlement sells iron; a wanter weighs its shortfall by the day. Larger, an economy and
-        decision change.
+        decision change. Iron by trade *built 2026-11-19*, gate-neutral (§7, "Iron by trade");
+        the want over years left.
     11. *Prospecting's leftovers* (ADR-0043's "Not yet"): ground looked over on errands, word of
         barren ground between settlements, and deadwood under the new memory.
     12. *Tips and sewers' smaller deferrals* (ADR-0038 §6, ADR-0044 §7): compaction and burning
@@ -13554,3 +13575,6 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **NUDGE: sludge spread as dung's prior (2026-11-19; the entry above; time-boxed):** sludge is taken to carry the heap's nitrogen a kilogram (`midden.n_per_kg`) and to be spread at the heap's hours a kilogram. Sewage sludge is richer in nitrogen than a mixed heap by most accounts, and wetter; revisit if lived tank keepers' fields outgrow their neighbours' by more than dung explains.
 - **Ground looked over on errands (2026-11-19; §8 19, eleventh; ADR-0043 §2):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** ADR-0043 §2 keeps where a settlement's prospectors have looked so that they stop walking barren ground, while every walk already finds the bodies showing beside it. Counting only walks out to look left ground crossed daily, and so already known barren, as fresh hope. Marking every walk's ground is the same rule applied to what people already see: it narrows the "Not yet" of M11d's twelfth part, needs no ADR, and changes only where prospectors are drawn. The notables' gate did not move (0 of 40 runs), the whole suite passes, and smoke's figures are unchanged. Left: word of barren ground between settlements (a new kind of claim, its own slice), and deadwood judged by what is left (it renews, so ADR-0043 §1 keeps it fading over its renewal time until a world shows that misleads).
 - **Fuel fetched from other settlements (2026-11-19; §8 19, eighth; research 08-16 §1.4):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** 4c66735 kept fuel to the home settlement only so that the fetch scenes stayed about sickles: their buyer, short of firewood, bought firewood at the sickle seller's door. That is a scene's setup, not a rule of the world. Lifting the limit lets fuel be weighed as every good fetched from elsewhere already is, with the report's weight and the walk, through no new weight or prior. The fetch scenes keep their intent by giving their buyer firewood, with their assertions unchanged. The notables' fixtures trade with no other settlement in three years, so the gate did not move (0 of 40 runs).
+- **Selling sludge blocked, not built (2026-11-19; §8 19, twelfth; ADR-0044 §7):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** a tank's disease load lies at its node and follows the keeper's sludge as it is spread. Sludge sold would have to carry its share of that load, and no node holds a load for sludge in a holder's keeping (`Store` doses eaters; `Food` is for food). That is a disease-model decision at ADR scale, and this milestone's ADR budget is spent (ADR-0046 is still with the owner). Passed over, not built. *Revisit when* the owner takes up the disease model or the next milestone opens.
+- **Iron by trade (2026-11-19; §8 19, tenth; M11d's fourteenth part; research 08-03):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** M11d's probes answered iron as a weighing: a household wanting a dynamo kept its iron and could only make it, and no settlement sold any, because no household ever bought a material. Smiths worked from bar stock bought as working capital (08-03). The smallest grounded slice is the rule salvage toward a tool already follows: a worked material kept toward a tool the household lacks is bought, worth the hours it saves, at home or by the existing fetch. It is limited to goods a recipe makes and no land gives, so the everyday materials households gather or dig (timber, stone, ore) are not bought, and no early world's trade moves. The notables' gate did not move (0 of 40 runs). The want weighed over years is left: it is the decision's horizon for every tool, a gated change of its own.
+- **NUDGE: iron by trade's prior (2026-11-19; the entry above; time-boxed):** a "worked material" is one that some recipe outputs and no land resource yields; only those are bought toward tools. Revisit if lived worlds show households idle for want of a gathered material a neighbour offers (timber, stone), or buying worked materials they would sooner make.

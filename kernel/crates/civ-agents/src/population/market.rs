@@ -1238,6 +1238,14 @@ impl Population {
             - crate::person::fuel_kg(stores, goods))
         .max(0.0);
         let knows = |t: usize| self.household_knows(&hh.members, t);
+        // A worked good: one a recipe makes and no land gives (§8 19, tenth).
+        let worked = |g: usize| {
+            ctx.catalog
+                .recipes
+                .iter()
+                .any(|r| r.outputs.iter().any(|&(o, _)| o == g))
+                && !ctx.land_params.resources.iter().any(|r| r.good == g)
+        };
         // Whether its food waits on a fire (it holds no fuel and nothing it eats as it is, but
         // food a fire makes a meal of), asked only of a fuel offer (§8 18, sixth).
         let waits_on_fire = std::cell::OnceCell::new();
@@ -1287,6 +1295,24 @@ impl Population {
                     // What a heap or a tip holds, that it is short of toward the tools it lacks
                     // (ADR-0044 §2): as much as it keeps beyond what it holds, and one person
                     // carries, worth the hours of its own it saves.
+                    let short = (holding.keep.get(g).copied().unwrap_or(0.0) - held(g)).max(0.0);
+                    let units = short.min(params.household.carry_kg).min(f64::from(o.units));
+                    if units <= 1e-6 {
+                        continue;
+                    }
+                    let own = costs()[g].unwrap_or(f64::INFINITY) * units;
+                    (units, TradeWorth::Goods { hours: 0.0 }, own)
+                } else if d.purpose == GoodUse::Material
+                    && d.fuel.is_none()
+                    && worked(g)
+                    && held(g) < holding.keep.get(g).copied().unwrap_or(0.0)
+                {
+                    // A worked material (bar iron, copper, steel: made, not gathered or dug) that
+                    // it keeps toward a tool it lacks and is short of (§8 19, tenth; M11d's
+                    // fourteenth part's "Not yet": iron by trade; research 08-03: a smith works
+                    // from bar stock bought as working capital): as much as it keeps beyond what it
+                    // holds and one person carries, worth the hours of its own it saves, as
+                    // salvage toward a tool is.
                     let short = (holding.keep.get(g).copied().unwrap_or(0.0) - held(g)).max(0.0);
                     let units = short.min(params.household.carry_kg).min(f64::from(o.units));
                     if units <= 1e-6 {

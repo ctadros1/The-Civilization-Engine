@@ -861,6 +861,63 @@ fn an_office_to_be_short_of_iron_keeps_bog_ore_toward_its_instrument_once_it_kno
     assert!(k[charcoal] > 0.0, "the charcoal: {}", k[charcoal]);
 }
 
+/// Iron by trade (§8 19, tenth; M11d's fourteenth part's "Not yet": no settlement sells any; research
+/// 08-03: a smith works from bar stock bought as working capital): an office to be, short only of
+/// its instrument's iron, which it keeps and cannot make, weighs the bar iron a neighbour offers
+/// as salvage toward a tool is weighed, and would buy what it is short of, a load at a time.
+/// Before, no household bought a worked material: iron was kept toward the instrument but only
+/// ever made.
+#[test]
+fn an_office_to_be_short_of_iron_buys_the_bar_iron_a_neighbour_offers() {
+    let mut sim = world();
+    let [(a, sa, _), (b, _, _)] = pair(&sim);
+    let [copper, timber, iron, grain] = [
+        "core:good/copper",
+        "core:good/timber",
+        "core:good/iron",
+        "core:good/grain",
+    ]
+    .map(|id| good(&sim, id));
+    for t in [
+        "core:technique/telegraphy",
+        "core:technique/writing",
+        "core:technique/bloomery",
+        "core:technique/forging",
+    ] {
+        teach(&mut sim, a, t);
+    }
+    teach(&mut sim, b, "core:technique/telegraphy");
+    for (g, kg) in [(copper, 10.0), (timber, 4.0), (iron, 0.0), (grain, 800.0)] {
+        set(&mut sim, a, g, kg);
+    }
+    let k = sim.with_ctx_for_tests(|pop, ctx| pop.keep_for_tests(ctx, a));
+    assert!(k[iron] >= 8.0, "its iron is kept: {}", k[iron]);
+    // A neighbour holds bar iron and offers it for grain.
+    let seller = another(&sim, sa, a);
+    set(&mut sim, seller, iron, 50.0);
+    if let Some(h) = sim
+        .people_mut_for_tests()
+        .households
+        .iter_mut()
+        .map(|(_, h)| h)
+        .find(|h| h.id == seller)
+    {
+        h.offers = vec![civ_agents::market::Offer {
+            good: iron as u16,
+            payment: grain as u16,
+            price: 2.0,
+            units: 50.0,
+            ask_h: 1.0,
+        }];
+    }
+    let deal =
+        sim.with_ctx_for_tests(|pop, ctx| pop.neighbours_deal_for_tests(ctx, a, Some(seller)));
+    assert!(
+        deal.is_some_and(|(g, units, _)| g == iron && units >= 1.0 && units <= k[iron] + 1e-6),
+        "it would buy the iron it is short of: {deal:?}"
+    );
+}
+
 /// Prospecting (M11d): an office to be short of its instrument's copper, whose settlement knows no
 /// body of copper ore, sends someone to look over the kind of ground it lies in, and finds an
 /// outcrop where they look; the same household without the want does not go, and in the same days

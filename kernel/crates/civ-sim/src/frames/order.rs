@@ -172,6 +172,17 @@ pub(crate) fn case_words(sim: &Sim, incident: u32) -> String {
         .map_or_else(String::new, |c| case_text(sim, c))
 }
 
+/// A case in words, as the observer reads it: for tests.
+#[doc(hidden)]
+pub fn case_text_for_tests(sim: &Sim, case: u32) -> Option<String> {
+    sim.people
+        .order
+        .cases
+        .iter()
+        .find(|c| c.id == case)
+        .map(|c| case_text(sim, c))
+}
+
 /// A challenge of a law under a limit, in words (M7b slice BU): who challenged what before whom,
 /// and how it closed.
 pub(crate) fn challenge_text(sim: &Sim, c: &civ_agents::crime::Case) -> String {
@@ -306,6 +317,16 @@ pub(crate) fn case_text(sim: &Sim, c: &civ_agents::crime::Case) -> String {
     // A finding against a remembered one of the same facts (M7b slice BS).
     let decided = match c.departed {
         Some(n) => format!("{decided}; it departed from case {n}, of the same facts"),
+        None => decided,
+    };
+    // Its finding written down, and by whose household it is kept (ADR-0025's "Writing
+    // arrives"; §8 18's observer pass): what later hearings may read when the word is gone.
+    let decided = match pop.order.written.iter().find(|w| w.case == c.id) {
+        Some(w) => format!(
+            "{decided}; {} wrote its finding down, kept by {}",
+            pop.name_of(w.writer),
+            super::people::household_name(sim, w.holder)
+        ),
         None => decided,
     };
     // Time to closure (M7b slice BR).

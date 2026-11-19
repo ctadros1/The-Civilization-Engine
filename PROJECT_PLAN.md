@@ -10365,6 +10365,25 @@ and M6a gives rivers a daily flow.
       fuel by the meals it makes possible, and cooking adapts before hunger (a design prior);
       fuel by right or relief is the polity's to make; fuel to works belongs to 08-16 and 07-12.
       No code.
+    - *Backlog E, the observer's states (2026-11-19): what landed on 2026-11-19, as the observer
+      shows it* (§9, "The observer's states of the 2026-11-19 slices"). Read against the frames
+      and the web shell, which shows the kernel's words: gleaning is told by its activity
+      ("gleaning"); hired reaping now names whose field (§7 above); fuel trades are among each
+      market's trades and offers by good, as any good's are; the forum recall reads "an end to
+      Ada's hearing of cases". **Fixed (kernel words):** (1) the stubble law read through the
+      levy's words, "a the stubble kept for those who cannot earn, taking nothing of each
+      harvest"; it now reads as what it asks, "that nobody of an age to work for hire gleans the
+      stubble: what reaping leaves is for those who cannot earn the harvest wage" (civ-agents
+      `law_words`, in the government panel and the chronicle alike); (2) a case whose finding was
+      written down now says so, "Ada wrote its finding down, kept by Bryn's household" (frames
+      `case_text`). No wire change: both are kernel strings. **Not sent, so not shown:** a
+      reading aloud at a hearing is kept only as the dashboard's count, not by case, and a breach
+      of the stubble law is not counted (§8 18, seventh's "a breach heard as a case"). **Tested:**
+      the civ-agents unit tests (309: the law-words test now reads the stubble law; it fails
+      without the branch), forum (26: the writer's scene now reads its case's words; it fails
+      without them), polity, determinism, roundtrip (110), the civ-sim unit tests; smoke; fmt
+      and clippy clean; the web shell builds, its unit tests pass (223), and its browser tests
+      pass on the container's own Chromium (31 passed, 16 skipped, none failed).
     - *Backlog D, eighteenth item (2026-11-04): a household's line, wagons and trains pass on,
       and a line nobody holds is taken up* (the third and fourth items' "Not yet": a household's
       line, wagons and trains passing on; ADR-0034 §2, §3, §6; research 08-09 §1.2 and the
@@ -13285,3 +13304,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **The ninth coverage pass (2026-11-19; §8 18, third; backlog E: test coverage):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** ten slices landed on 2026-11-19 with the notables' gate's margins narrowing, so their untested branches were read before more is built on them. Three were real gaps, each now pinned by a test that fails without its line: what makes the stubble law weigh nothing (not heard of, a hungry household, a law superseded), a household with no grain hiring no reapers, and what the harvest margins row reads from a world. Tests only, so nothing people do changes and the gate is not needed. Left, and said so: the forum recall's choice between ending a forum of one holder and another hearer, which needs a scene that sets both stakes.
 - **A hired reaper's doing (2026-11-19; §8 18, fourth; the observer):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** the observer is the only place a person's day is read, and a reaper hired onto another's field was told in a workshop hand's words, at a field that read as their own, so hired reaping (§8 17, fourth) was invisible as what it is. Naming the field's household for any field not the person's own also tells a tenant or a helper truly. The words are built in the kernel's frames and sent as strings, so no wire change; frames change nothing in the world, so no gate.
 - **Research 08-23 (2026-11-19; §8 18, fifth; backlog E: gaps in the research index):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** fuel weighed with hunger (§8 18, sixth) and fuel sold to works (eighth) were next in line with no report to design against; 08-16 is about cities and 03-06 about the woodland. A short note in 08-22's form, every figure marked by how it was reached (most by search summary, none load-bearing) and what is uncertain, so that the next slice is designed against a source. It proposes that a household short of fuel and food weighs fuel by the meals it makes possible and cooks fewer, quicker meals before going hungry, both design priors.
+\n- **The observer's states of the 2026-11-19 slices (2026-11-19; backlog E: the observer's empty and error states):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** ten slices landed in a day, and the observer is how they are seen. The web shell shows the words the kernel renders, so the faults were in the kernel's words: the stubble law levies nothing and read as a levy, and a written finding was nowhere in its case's words. Both are fixed as strings, so no wire change. What the kernel does not keep is not shown (a reading aloud by case, a breach of the stubble law); the first would need a saved record and the second is §8 18's seventh item. The words reach the chronicle too, but no decision reads them.

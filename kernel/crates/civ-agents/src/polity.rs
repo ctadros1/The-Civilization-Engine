@@ -2605,6 +2605,13 @@ pub fn law_words(
             law.hours.0, law.hours.1
         );
     }
+    // The stubble kept for those who cannot earn (§8 17, fourth, slice 2): it levies nothing, so
+    // the levy's words would misread it (§8 18's observer pass).
+    if def.is_some_and(|d| d.kind == PolicyKind::KeepStubble) {
+        return "that nobody of an age to work for hire gleans the stubble: what reaping leaves is \
+                for those who cannot earn the harvest wage"
+            .to_owned();
+    }
     if law.ends.is_some() {
         return replacing_words(def, law.levy_share);
     }
@@ -4713,6 +4720,19 @@ pub(crate) mod tests {
         assert_eq!(
             law_words(&law, &policies, &name_of),
             "Ada to keep watch over the stores at night"
+        );
+        // The stubble kept for those who cannot earn levies nothing, and reads as what it asks.
+        let stubble = [def(
+            PolicyKind::KeepStubble,
+            "The stubble kept for those who cannot earn",
+        )];
+        law.policy = 0;
+        law.holder = None;
+        law.levy_share = 0.0;
+        assert_eq!(
+            law_words(&law, &stubble, &name_of),
+            "that nobody of an age to work for hire gleans the stubble: what reaping leaves is for \
+             those who cannot earn the harvest wage"
         );
     }
 

@@ -1959,6 +1959,13 @@ fn a_hearer_who_writes_keeps_a_finding_past_the_word_of_it() {
     assert_eq!(written.len(), 1, "{written:?}");
     assert_eq!((written[0].case, written[0].writer), (first, hearer));
     assert_eq!(written[0].holder, hh[2].0);
+    // The observer reads the case with its finding written down, and whose household keeps it.
+    let told = civ_sim::frames::order::case_text_for_tests(&sim, first).expect("the case");
+    let writer = sim.people().name_of(hearer);
+    assert!(
+        told.contains(&format!("{writer} wrote its finding down, kept by ")),
+        "{told}"
+    );
     // Nobody recalled anything from the page yet (the dashboard's count).
     assert_eq!(sim.people().order.read_hearings, 0);
     let mut sim = reloaded(&mut sim);

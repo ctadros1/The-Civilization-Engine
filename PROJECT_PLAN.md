@@ -11382,6 +11382,52 @@ and M6a gives rivers a daily flow.
        offered; research 08-16 §1.4: fuel a household necessity and an input): a household with
        wood to spare posts it as it posts food; helps the dying-worlds red; economy, smoke risk.
        *Built 2026-11-19* (§7, "Fuel offered at market").
+18. **What is open next, ranked (2026-11-19 survey of §7's "Not yet", the ADRs' deferrals, this
+    list, the improvement passes of `AGENTS.md`'s autonomous mode and long run 80; Unreal work
+    and ADR-0046 left out):** gleaning, hired reaping and fuel at market are not yet measured by
+    a long run, and the notables' gate's margins are narrowing (fixture 2's enacted +38.7 %
+    against 55 %, its moved +72.8 % against 95 %; §7, "Fuel offered at market"). So the work
+    with little risk to the gate comes first: research gaps, coverage passes, the observer,
+    report-only measures and speed. The rest is ranked by grounding, value and risk.
+    1. *The harvest's margins, reported by the dashboard* (§4.7's reported rows, as Land and
+       Travel are): gleaning by those who could earn the harvest wage and by the others, reaping
+       hired (hours and grain paid), fuel sold and bartered, and stubble laws enacted and in
+       force, for each world and never graded, so the next long run measures what the notables'
+       gate cannot. They are counters that no decision reads, so the item is gate-neutral and
+       exact.
+    2. *Long run 80's wall time* (§9, "Verification at d42c873 promoted": 70,792 s, against
+       long run 79's 14,501 s for its slowest world): check first that the two figures are
+       measured alike. If they are, measure which world is slow and why on its saves (ADR-0045's
+       food-borne disease slices are the new work in between). Only exact changes, as the
+       landmarks' were (§9, "Landmarks over the same ground are taken up again").
+    3. *A ninth coverage pass: the 2026-11-19 slices* (gleaning slice 1, hired reaping slices 1
+       and 2, fuel at market): each "Tested:" list read against the code, as the eighth pass
+       did. Tests only, and gate-neutral unless a fault is found. Paths to look at: a reaper's
+       pay capped by the grain its employer holds; a stubble law struck or ended; a household
+       whose hearth burns only a fuel nobody offers.
+    4. *A hired reaper's doing names whose field it is*: the observer's people frame tells a
+       reaper on another household's field as "working for wages, the field east of home", which
+       reads as their own field and does not say it is reaping. Frames only, so gate-neutral.
+    5. *A research note on household fuel: gathering, buying and going without* (the fuel
+       item's "Not yet"): fuel weighed with hunger when food waits on a fire, and coal and
+       charcoal sold to works, need grounding the index lacks (08-16 is about cities'
+       hinterlands, 03-06 about foraging). A research gap, so gate-neutral.
+    6. *A written finding read by the review and a sponsor's "seen"* (17, second, carried):
+       gate-neutral where nobody writes. Check first that neither fixture writes.
+    7. *Fuel weighed with hunger when food waits on a fire* (the fuel item's "Not yet"; after 5):
+       an economy change, with smoke and gate risk.
+    8. *The stubble bar's limits and its breach* (slice 2's "Not yet"; research 08-22 §1, §4):
+       the bar limited to the harvest weeks and the polity's own fields, the employers' gain in
+       hands in the forecast, and a breach heard as a case. Deliberation, gated, against the
+       narrowest margin.
+    9. *A council's evenings counted by evening, not by decision* (17, first, carried):
+       deliberation, gated.
+    10. *A recall that ends a forum without naming another* (17, third, carried): deliberation,
+        gated.
+    11. *A crop left standing by a household that went* (16, fifth's remainder; research 08-22):
+        it changes people's days, with smoke risk.
+    12. *Coal and charcoal sold to works, and fuel fetched from other settlements* (the fuel
+        item's "Not yet"; after 5): an economy change, larger, with gate risk.
 
 ---
 

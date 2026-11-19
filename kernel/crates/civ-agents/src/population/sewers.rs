@@ -728,15 +728,20 @@ impl Population {
             return;
         }
         let keeper = self.polities[pi].sewers[si].keeper;
-        let store = match keeper {
-            Some(h) => self.household_mut(h).map(|x| &mut x.stores),
-            None => Some(&mut self.polities[pi].stores),
+        let books = match keeper {
+            Some(h) => self.household_mut(h).map(|x| (&mut x.stores, &mut x.flows)),
+            None => {
+                let p = &mut self.polities[pi];
+                Some((&mut p.stores, &mut p.flows))
+            }
         };
-        if let Some(store) = store {
+        if let Some((store, flows)) = books {
             if store.len() <= good {
                 store.resize(ctx.catalog.goods.len().max(good + 1), 0.0);
             }
             store[good] += kg;
+            // Got, as a gatherer's goods are: the books balance (ADR-0006 §3).
+            flows.add(Flow::Got, good, kg);
         }
     }
 

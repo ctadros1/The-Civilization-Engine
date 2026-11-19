@@ -10470,6 +10470,25 @@ and M6a gives rivers a daily flow.
       another hearer: "an end only if it brings any" holds the end to a gain but not the
       replacement. **Not yet** (a gated change): whether a replacement, too, must bring the
       faction's members a gain before it is asked for.
+    - *Sludge spread as dung (2026-11-19): a tank's keeper manures with what it settled* (§9,
+      "Sludge spread as dung"; §8 19, twelfth; ADR-0044 §7's deferral; research 12-10 §1.7). A
+      settling tank's sludge sat in its keeper's store for ever. **Built:** a household keeping
+      a tank weighs manuring with its heap's dung and the sludge it holds together (the farm
+      view's dung), and spreads its heap first, then sludge, at the heap's nitrogen a kilogram;
+      the share of each disease the tank held for the sludge spread goes with it to the field's
+      node, as carried (`sludge_spread`), so mass and loads are conserved. **A fault fixed on
+      the way:** the sludge a tank gave its keeper entered the keeper's store with no flow, so its
+      books would not have balanced; it is now got (as a gatherer's goods are), and sludge spread
+      is used. No save, wire or content change. **Tested:** sewers (22, one new: a keeper with
+      its heap empty spreads sludge on its field, whose soil takes it, the tank's load passing to
+      the field in the share spread, nothing lost, the sludge got and used on its books, and a
+      save and load goes on alike; it fails without the spreading), contagion, people, soil,
+      tips, rounds, determinism, roundtrip (110) and the civ-agents unit tests; smoke; fmt and
+      clippy clean. **The notables' gate**, locally, against 7e9a5c8: passes, 0 of 40 runs
+      changed (fixture 1 proposals +25.9 %, enacted +14.8 %, offices −30.0 %, moved −57.5 %;
+      fixture 2 proposals +17.1 %, enacted +38.7 %, offices +7.7 %, moved +72.8 %, before and
+      after). **Not yet:** sludge sold or given to other households' fields; a polity's store
+      keeping a tank spreads nothing.
       **Tested:** forum (27), faction (9), the civ-agents unit tests; fmt and clippy clean.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
@@ -13491,3 +13510,5 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Research 12-12 (2026-11-19; §8 19, fifth; backlog E: gaps in the research index; ADR-0044 §7):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** ADR-0044's revisit condition for a farm's produce and pickers' exposure (a food or handling route) is met by ADR-0045's food route, so item 6 needed grounding before design. The note finds the larger risk is to those who work the farm, by hands and soil, which no existing route carries. The produce route matters little for TCE's crops, which are all eaten cooked. So item 6 is not buildable from existing mechanisms alone: the workers' half needs a new disease route (a model decision under ADR-0021, likely an amendment), and the produce half would add a field-to-harvest load that cooking all but removes.
 - **A sewage farm's exposure blocked, not built (2026-11-19; §8 19, sixth; research 12-12; ADR-0044 §7):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** research 12-12 finds the larger risk of a sewage farm is to those who work it, by hands and soil. No existing route carries that: the content's diseases pass by water, within a household and in company. A handling route would be a new disease route, a model decision under ADR-0021 needing an amendment, and this milestone's ADR budget is spent (ADR-0046 still awaits the owner). The produce route could be built on ADR-0045's food route, but it would show almost nothing while every core crop is grain eaten cooked. Passed over, not built. *Revisit when* a crop eaten raw is authored, or the owner takes up ADR-0021's routes.
 - **A faction with no stake asking for another hearer: recorded as "Not yet" (2026-11-19; the forum recall's choice, pinned):** Decided by Claude under standing owner authority (2026-11-19). The pinning scene showed a faction of a household with no stake weighing an end of a forum of one holder at 0 and another hearer at −0.25, its own evenings, and still asking for the other hearer: "an end only if it brings any" binds the end but not the replacement. Whether a replacement too must bring a gain is a behaviour change to how factions petition, so it waits for its own gated slice. Not built now.
+- **Sludge spread as dung (2026-11-19; §8 19, twelfth; ADR-0044 §7's deferral; research 12-10 §1.7):** Decided by Claude under standing owner authority (2026-11-19). **Reason:** of the tips' and sewers' smaller deferrals, this one touches only households keeping a settling tank (a technique only the observer brings), so it is the least risk to anyone's days. 12-10 §1.7 names spreading among sludge's fates, and the manuring a household already does is the mechanism, so no new ADR: it narrows ADR-0044 §7's deferral list, recorded here. Compaction and burning tips wait on a roller and a fire model. Selling sewage waits on someone wanting it, now possible. A sewer rate needs a channel, and inspection waits on ADR-0044's own "Revisit when" (a demo showing sewers failing unseen). The keeper's books were missing the sludge they got, a latent accounting fault fixed here. Gate: 0 of 40 runs changed.
+- **NUDGE: sludge spread as dung's prior (2026-11-19; the entry above; time-boxed):** sludge is taken to carry the heap's nitrogen a kilogram (`midden.n_per_kg`) and to be spread at the heap's hours a kilogram. Sewage sludge is richer in nitrogen than a mixed heap by most accounts, and wetter; revisit if lived tank keepers' fields outgrow their neighbours' by more than dung explains.

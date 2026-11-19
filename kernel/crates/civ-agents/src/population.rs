@@ -4396,7 +4396,10 @@ impl Population {
             peak_ratio: peak_ratio(params),
             climatology: Some(&ctx.land.climatology),
             manuring: Some(farm::Manuring {
-                midden_kg: hh.midden.at_time(now, member_count, &params.midden),
+                // Its heap's dung, and the sludge it keeps of a settling tank, spread as dung
+                // (§8 19, twelfth; ADR-0044 §7).
+                midden_kg: hh.midden.at_time(now, member_count, &params.midden)
+                    + Self::sludge_held(ctx, &hh),
                 grain_per_kg: manure_grain_per_kg(params, ctx.land_params, c),
                 midden: &params.midden,
             }),
@@ -7867,16 +7870,95 @@ impl Population {
             return;
         };
         x.midden.settle(ctx.now, members, &params.midden);
-        let kg = (hours / params.midden.h_per_kg(walk).max(1e-9)).clamp(0.0, x.midden.kg);
+        let want = (hours / params.midden.h_per_kg(walk).max(1e-9)).max(0.0);
+        let heap = want.min(x.midden.kg);
+        x.midden.kg -= heap;
+        // Then the sludge it keeps of a settling tank, spread as dung, its load with it (§8 19,
+        // twelfth; ADR-0044 §7; research 12-10 §1.7: sludge is carried, dried, spread, dumped or
+        // burned).
+        let sludge = Self::sewer_def(ctx).and_then(|d| d.sludge);
+        let mut spread = 0.0;
+        if let Some(g) = sludge {
+            let held = x.stores.get(g).copied().unwrap_or(0.0).max(0.0);
+            spread = (want - heap).clamp(0.0, held);
+            if spread > 0.0 {
+                x.stores[g] -= spread;
+                x.flows.add(Flow::Used, g, spread);
+                let (household, field) = (x.id, ctx.land.fields[fi].id);
+                self.sludge_spread(ctx, household, field, spread / held);
+            }
+        }
+        let kg = heap + spread;
         if kg <= 0.0 {
             return;
         }
-        x.midden.kg -= kg;
         let f = &mut ctx.land.fields[fi];
         let ha = f.area_ha();
         if ha > 0.0 {
             f.soil
                 .manured(&ctx.land_params.soil, kg * params.midden.n_per_kg() / ha);
+        }
+    }
+
+    /// `hours` of a capable adult's manuring of field `field` by household `household`: for tests.
+    #[doc(hidden)]
+    pub fn manure_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        household: PermanentId,
+        field: PermanentId,
+        hours: f64,
+    ) {
+        let (Some(&hh), Some(fi)) = (
+            self.hh_index.get(&household),
+            ctx.land.fields.iter().position(|f| f.id == field),
+        ) else {
+            return;
+        };
+        self.manure_field(ctx, hh, fi, hours);
+    }
+
+    /// The sludge household `hh` keeps, kilograms: what a settling tank gave it (ADR-0041 §4).
+    fn sludge_held(ctx: &Ctx, hh: &Household) -> f64 {
+        Self::sewer_def(ctx)
+            .and_then(|d| d.sludge)
+            .and_then(|g| hh.stores.get(g).copied())
+            .unwrap_or(0.0)
+            .max(0.0)
+    }
+
+    /// `share` of the sludge household `household` keeps has been spread on field `field`: that
+    /// share of each disease held at the tanks it keeps goes to the field's node, as carried (§8
+    /// 19, twelfth; mass and loads conserved, ADR-0041 §4).
+    fn sludge_spread(&mut self, ctx: &Ctx, household: PermanentId, field: PermanentId, share: f64) {
+        let tanks: Vec<PermanentId> = self
+            .polities
+            .iter()
+            .flat_map(|p| p.sewers.iter())
+            .filter(|s| s.keeper == Some(household))
+            .map(|s| s.id)
+            .collect();
+        let day = ctx.now.day_index();
+        for id in tanks {
+            for disease in 0..ctx.catalog.diseases.len() as u16 {
+                let from = crate::contagion::Node::Sewer(id);
+                let amount = self.contagion.take(from, disease, share.clamp(0.0, 1.0));
+                if amount <= 0.0 {
+                    continue;
+                }
+                let to = crate::contagion::Node::Field(field);
+                self.contagion.add(to, disease, amount);
+                if amount > crate::contagion::NEGLIGIBLE {
+                    self.contagion.record(crate::contagion::Move {
+                        day,
+                        disease,
+                        how: crate::contagion::How::Carried,
+                        from,
+                        to,
+                        amount,
+                    });
+                }
+            }
         }
     }
 

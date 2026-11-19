@@ -2144,3 +2144,88 @@ fn a_sewer_below_the_water_table_leaks_nothing_there() {
     );
     saves_and_goes_on_alike(&mut sim, DAY);
 }
+
+/// Sludge spread as dung (§8 19, twelfth; ADR-0044 §7's deferral; research 12-10 §1.7: sludge is
+/// "carried, dried, spread, dumped or burned"): a household keeping a settling tank, its heap
+/// empty, manures its field with the sludge the tank gave it, as it would with its heap's dung, at
+/// the heap's nitrogen a kilogram; the share of each disease the tank held for that sludge goes
+/// with it to the field, as carried, and nothing is lost. Its books balance: the sludge got, then
+/// used.
+#[test]
+fn sludge_a_tank_keeper_holds_is_spread_on_its_field_as_dung_its_load_with_it() {
+    let (mut sim, _, homes, sewer) = a_sewer_marked_out(2);
+    lay_whole(&mut sim, homes[0], sewer);
+    let (tank, sludge) = (
+        index(&sim, "core:good/settling_tank"),
+        index(&sim, "core:good/sludge"),
+    );
+    let keeper = homes[0];
+    sim.people_mut_for_tests().polities[0].sewers[0].keeper = Some(keeper);
+    set(&mut sim, keeper, tank, 1.0);
+    let d = cholera(&sim);
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewer_day_for_tests(ctx, &[(homes[1], d, 800.0)]));
+    let held = |sim: &Sim| {
+        sim.people()
+            .household(keeper)
+            .map_or(0.0, |x| x.stores[sludge])
+    };
+    let before = held(&sim);
+    assert!(before > 0.0, "the keeper holds the tank's sludge");
+    let got = sim
+        .people()
+        .household(keeper)
+        .map_or(0.0, |x| x.flows.get(civ_agents::person::Flow::Got, sludge));
+    assert!(
+        (got - before).abs() < 1e-9,
+        "the sludge is got, on the books: {got}"
+    );
+    // Its own field, its heap empty.
+    let home = sim.people().household(keeper).expect("keeper").home;
+    let c = civ_agents::population::cell_of(sim.map(), home) as u32;
+    let year = this_year(&sim);
+    let f = a_field(&mut sim, keeper, c, 30.0, Limit::Soil, year);
+    sim.people_mut_for_tests()
+        .households
+        .iter_mut()
+        .find(|(_, x)| x.id == keeper)
+        .map(|(_, x)| x.midden.kg = 0.0)
+        .expect("keeper");
+    sim.advance_minutes(DAY).expect("lives");
+    let n = |sim: &Sim| {
+        let s = field(sim, f).soil;
+        s.fast_n + s.slow_n
+    };
+    let (n0, tank0) = (n(&sim), sim.people().contagion.load(Node::Sewer(sewer), d));
+    let field0 = sim.people().contagion.load(Node::Field(f), d);
+    let left = held(&sim);
+    assert!(left > 0.0);
+    sim.people_mut_for_tests()
+        .households
+        .iter_mut()
+        .find(|(_, x)| x.id == keeper)
+        .map(|(_, x)| x.midden.kg = 0.0)
+        .expect("keeper");
+    sim.with_ctx_for_tests(|pop, ctx| pop.manure_for_tests(ctx, keeper, f, 2.0));
+    let spread = left - held(&sim);
+    assert!(spread > 0.0, "sludge is spread: {left} to {}", held(&sim));
+    assert!(n(&sim) > n0, "the field's soil takes it as dung");
+    let (tank1, field1) = (
+        sim.people().contagion.load(Node::Sewer(sewer), d),
+        sim.people().contagion.load(Node::Field(f), d),
+    );
+    let moved = tank0 - tank1;
+    assert!(
+        (moved - tank0 * spread / left).abs() < 1e-6,
+        "its share of the tank's load goes with it: {moved} of {tank0}"
+    );
+    assert!(
+        (field1 - field0 - moved).abs() < 1e-6,
+        "to the field, nothing lost"
+    );
+    let used = sim
+        .people()
+        .household(keeper)
+        .map_or(0.0, |x| x.flows.get(civ_agents::person::Flow::Used, sludge));
+    assert!((used - spread).abs() < 1e-9, "used, on the books: {used}");
+    saves_and_goes_on_alike(&mut sim, DAY);
+}

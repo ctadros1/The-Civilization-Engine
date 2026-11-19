@@ -11229,6 +11229,27 @@ and M6a gives rivers a daily flow.
        (research 08-22; §9, "Gleaning, slice 1"): what reaping leaves on the stubble, gleaned by
        those short of food; a crop left standing by a household that went is not gleaning and stays
        open.
+17. **What is open next, ranked (2026-11-19 survey of §7's "Not yet", the ADRs' deferrals and
+    "Revisit when" lines, this list and the research gaps the 2026-11-18/19 work found; Unreal
+    work and ADR-0046 left out):** by grounding, self-containment, value and risk to the gates.
+    1. *A council's evenings counted by evening, not by decision* (§9, "An evening at the hearth
+       is given once": its "Recorded, not chased"): the council's `Evenings` charge and credit a
+       sitting per decision, where one evening serves all decided at it; the record (laws'
+       decided days and stances) grounds it as it did the forum's; self-contained, deliberation,
+       gated.
+    2. *A written finding read by the review and a sponsor's "seen"* (Written findings' "Not
+       yet"; research 09-07 §1.5, §6.4): precedent and the sponsor's expected success reach back
+       past the word where the page keeps it; small, and gate-neutral where nobody writes.
+    3. *A recall that ends a forum without naming another* (backlog D, thirteenth item's "Not
+       yet"): the gathering hears cases again; an existing law kind ended by petition, as the
+       thirteenth item's removal is; deliberation, gated.
+    4. *Hired field work at the harvest* (gleaning slice 3's block; research 08-10 §1.3:
+       households allocate labour across their own land and wage work by season): a household short of hands hires reapers as a
+       workshop hires; it unblocks the bylaws' wage test for gleaning; larger, an economy change,
+       smoke and gate risk.
+    5. *Fuel offered at market* (the 2026-11-03 lone-elders entry's "Not yet": firewood is never
+       offered; research 08-16 §1.4: fuel a household necessity and an input): a household with
+       wood to spare posts it as it posts food; helps the dying-worlds red; economy, smoke risk.
 
 ---
 

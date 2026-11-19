@@ -1618,7 +1618,7 @@ fn a_household_short_of_food_proposes_to_keep_the_stubble_for_those_who_cannot_e
         l.status = LawStatus::InForce;
         l.decided = Some(now);
         l.outcome = Some(Outcome::Passed);
-        l.known = everyone;
+        l.known = everyone.clone();
         pop.polities[0].gathering = None;
     }
     let grown = able
@@ -1636,6 +1636,77 @@ fn a_household_short_of_food_proposes_to_keep_the_stubble_for_those_who_cannot_e
         let points = sim.with_ctx_for_tests(|pop, ctx| pop.stubble_points_for_tests(ctx, child));
         assert!(points.is_none(), "a child gleans as before");
     }
+    // Only a law they know of weighs with them (the ninth coverage pass, §8 18, third).
+    let set_known = |sim: &mut Sim, known: Vec<(civ_core::PermanentId, i64)>| {
+        let l = sim.people_mut_for_tests().polities[0]
+            .laws
+            .iter_mut()
+            .find(|l| l.id == law)
+            .expect("the law");
+        l.known = known;
+    };
+    set_known(
+        &mut sim,
+        everyone.iter().copied().filter(|k| k.0 != grown).collect(),
+    );
+    let points = sim.with_ctx_for_tests(|pop, ctx| pop.stubble_points_for_tests(ctx, grown));
+    assert!(
+        points.is_none(),
+        "a law they have not heard of weighs nothing"
+    );
+    set_known(&mut sim, everyone.clone());
+    // Need over the gathering's word: while someone of their household goes hungry, it weighs
+    // nothing, and they glean as before.
+    let energy: Vec<(civ_core::PermanentId, f32, civ_core::SimTime)> = {
+        let now = sim.now();
+        let params = sim.rules().people.clone();
+        let pop = sim.people_mut_for_tests();
+        let members = pop
+            .person(grown)
+            .and_then(|p| pop.household(p.household))
+            .map(|x| x.members.clone())
+            .expect("their household");
+        let mut was = Vec::new();
+        for (_, p) in pop
+            .people
+            .iter_mut()
+            .filter(|(_, p)| members.contains(&p.id))
+        {
+            was.push((p.id, p.energy_kcal, p.needs_at));
+            let reserve = population::reserve_kcal(p, now, &params);
+            p.energy_kcal = -(0.8 * reserve) as f32;
+            p.needs_at = now;
+        }
+        was
+    };
+    let points = sim.with_ctx_for_tests(|pop, ctx| pop.stubble_points_for_tests(ctx, grown));
+    assert!(points.is_none(), "a household going hungry still gleans");
+    {
+        let pop = sim.people_mut_for_tests();
+        for (_, p) in pop.people.iter_mut() {
+            if let Some(&(_, kcal, at)) = energy.iter().find(|e| e.0 == p.id) {
+                (p.energy_kcal, p.needs_at) = (kcal, at);
+            }
+        }
+    }
+    let points = sim.with_ctx_for_tests(|pop, ctx| pop.stubble_points_for_tests(ctx, grown));
+    assert!(
+        points.is_some(),
+        "fed again, the law weighs with them again"
+    );
+    // A law no longer in force (here repealed) weighs nothing.
+    let set_status = |sim: &mut Sim, status: LawStatus| {
+        sim.people_mut_for_tests().polities[0]
+            .laws
+            .iter_mut()
+            .find(|l| l.id == law)
+            .expect("the law")
+            .status = status;
+    };
+    set_status(&mut sim, LawStatus::Superseded);
+    let points = sim.with_ctx_for_tests(|pop, ctx| pop.stubble_points_for_tests(ctx, grown));
+    assert!(points.is_none(), "a law superseded weighs nothing");
+    set_status(&mut sim, LawStatus::InForce);
     // The record of who gleaned is kept across a save and load.
     let kept = sim.people().order.gleaners.clone();
     let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");

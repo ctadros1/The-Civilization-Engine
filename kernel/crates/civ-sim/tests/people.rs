@@ -1530,13 +1530,13 @@ fn a_crop_nobody_is_left_to_reap_is_left_to_be_gleaned() {
     );
 }
 
-/// Hired field work at the harvest (§8 17, fourth; research 08-10 §1.3: a household allocates
-/// its hands across its own land and wage work by season): a household whose ripe crop has stood
-/// so long that its own hands cannot reap it before it loses a quarter of itself hires reapers, as
-/// a workshop hires hands, and pays them in grain; a neighbour with its own harvest in and its food
-/// gone, for whom the wage is worth more than what the time would do at home, reaps for it.
-#[test]
-fn a_household_short_of_hands_at_the_harvest_hires_reapers() {
+/// The hired reapers' scene (§8 17, fourth): a household whose ripe crop has stood all but a day
+/// and a half of its grace, holding `pay_kg` of its grain to pay with, among neighbours whose
+/// harvest is in and whose food is gone. Gives the world, the household, its neighbours, its
+/// fields and the activity of working for hire.
+fn short_of_hands_at_the_harvest(
+    pay_kg: f64,
+) -> (Sim, PermanentId, Vec<PermanentId>, Vec<PermanentId>, usize) {
     let mut sim = new_world(3, 0);
     let rules = sim.rules().clone();
     let crop = rules.catalog.crops[rules.people.farm.crop].clone();
@@ -1586,7 +1586,7 @@ fn a_household_short_of_hands_at_the_harvest_hires_reapers() {
             if x.id == employer {
                 // The grain to pay with.
                 if let Some(kg) = x.stores.get_mut(crop.good) {
-                    *kg = kg.max(400.0);
+                    *kg = pay_kg;
                 }
             } else if x.settlement == Some(settlement) {
                 // The neighbours' harvest is in and their food is gone.
@@ -1621,6 +1621,46 @@ fn a_household_short_of_hands_at_the_harvest_hires_reapers() {
         .filter(|f| f.household == employer)
         .map(|f| f.id)
         .collect();
+    (sim, employer, neighbours, fields, hire)
+}
+
+/// A household with no grain to pay reapers with hires none, however short of hands (the ninth
+/// coverage pass, §8 18, third; slice 1: no more than the grain it holds pays for).
+#[test]
+fn a_household_with_no_grain_to_pay_hires_no_reapers() {
+    let (mut sim, _, neighbours, fields, hire) = short_of_hands_at_the_harvest(0.0);
+    for _ in 0..3 * 24 {
+        sim.advance_minutes(60).expect("advances");
+        let hired = sim
+            .people()
+            .people
+            .iter()
+            .filter(|(_, p)| neighbours.contains(&p.household))
+            .any(|(_, p)| {
+                p.receipts.iter().any(|r| {
+                    usize::from(r.chosen.def) == hire
+                        && matches!(r.chosen.target, civ_agents::person::Target::Field(f)
+                            if fields.contains(&f))
+                })
+            });
+        assert!(
+            !hired,
+            "nobody sets out to reap for a household that cannot pay"
+        );
+    }
+    assert_eq!(sim.people().margins.reapings, 0);
+}
+
+/// Hired field work at the harvest (§8 17, fourth; research 08-10 §1.3: a household allocates
+/// its hands across its own land and wage work by season): a household whose ripe crop has stood
+/// so long that its own hands cannot reap it before it loses a quarter of itself hires reapers, as
+/// a workshop hires hands, and pays them in grain; a neighbour with its own harvest in and its food
+/// gone, for whom the wage is worth more than what the time would do at home, reaps for it.
+#[test]
+fn a_household_short_of_hands_at_the_harvest_hires_reapers() {
+    let (mut sim, employer, neighbours, fields, hire) = short_of_hands_at_the_harvest(400.0);
+    let rules = sim.rules().clone();
+    let crop = rules.catalog.crops[rules.people.farm.crop].clone();
     let worked = |sim: &Sim| -> f64 {
         sim.land()
             .fields

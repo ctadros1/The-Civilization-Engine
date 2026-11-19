@@ -3184,6 +3184,126 @@ mod tests {
         );
     }
 
+    /// What the harvest margins row reads from a world (the ninth coverage pass, §8 18, third):
+    /// the counters as they stand, fuel by sale and barter and no other good, and the laws
+    /// keeping the stubble on record, passed and in force each counted by its own mark.
+    #[test]
+    fn the_harvest_margins_are_read_from_the_counters_the_fuel_traded_and_the_laws_on_record() {
+        use civ_agents::ledger::Channel;
+        use civ_agents::params::GoodUse;
+        use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome, PolicyKind};
+        let root = civ_content::find_content_root(Path::new(env!("CARGO_MANIFEST_DIR")))
+            .expect("content/ is above the crate");
+        let content = civ_content::load(&root).registry.expect("content loads");
+        let mut sim = Sim::create_for_tests(
+            &NewWorld {
+                name: "Margins".into(),
+                seed: 1,
+                preset_id: PRESET.to_owned(),
+                size_cells: 512,
+                band_size: 30,
+                neighbours: Vec::new(),
+                neighbours_known: true,
+                regime_id: String::new(),
+            },
+            &content,
+            [9; 16],
+        )
+        .expect("world");
+        // A month on, the settlement has its polity; what it has done so far is the base.
+        sim.advance_minutes(30 * 24 * 60).expect("advances");
+        let base = MarginsSeen::of(&sim);
+        let rules = sim.rules().clone();
+        let goods = &rules.catalog.goods;
+        let fuel = goods
+            .iter()
+            .position(|g| g.purpose == GoodUse::Fuel)
+            .expect("a fuel");
+        let food = goods
+            .iter()
+            .position(|g| g.purpose == GoodUse::Food)
+            .expect("a food");
+        let policy = rules
+            .catalog
+            .policies
+            .iter()
+            .position(|p| p.kind == PolicyKind::KeepStubble)
+            .expect("the core keeps the stubble") as u16;
+        let now = sim.now();
+        let ids: Vec<civ_core::PermanentId> = (1..=3)
+            .map(|n| civ_core::PermanentId::from_raw(u64::MAX - n).expect("non-zero"))
+            .collect();
+        let pop = sim.people_mut_for_tests();
+        let sponsor = pop
+            .people
+            .iter()
+            .next()
+            .map(|(_, p)| p.id)
+            .expect("someone");
+        let law = |id, status, outcome| Law {
+            id,
+            policy,
+            kind: PolicyKind::KeepStubble,
+            levy_share: 0.0,
+            holder: None,
+            relief_days: 0.0,
+            sanction: Default::default(),
+            hours: (0, 0),
+            status,
+            sponsor,
+            proposed: now,
+            issue: IssueKind::FoodShort,
+            meets_day: now.day_index(),
+            decided: Some(now),
+            outcome,
+            eligible: 0,
+            stances: Vec::new(),
+            known: Vec::new(),
+            compliance: Default::default(),
+            watch: Default::default(),
+            body: None,
+            ends: None,
+            agreement: None,
+            target: None,
+        };
+        let polity = pop.polities.first_mut().expect("a polity");
+        polity
+            .laws
+            .push(law(ids[0], LawStatus::InForce, Some(Outcome::Passed)));
+        polity
+            .laws
+            .push(law(ids[1], LawStatus::Superseded, Some(Outcome::Passed)));
+        polity
+            .laws
+            .push(law(ids[2], LawStatus::Rejected, Some(Outcome::Failed)));
+        pop.transfers.add(Channel::Sale, fuel, 10.0);
+        pop.transfers.add(Channel::Barter, fuel, 5.0);
+        pop.transfers.add(Channel::Gift, fuel, 7.0);
+        pop.transfers.add(Channel::Sale, food, 100.0);
+        pop.margins = civ_agents::ledger::Margins::default();
+        pop.margins.reapings = 2;
+        pop.margins.reaped_h = 3.5;
+        pop.margins.reaped_paid_kg = 4.0;
+        pop.margins.gleaned_able_kg = 1.0;
+        pop.margins.gleaned_other_kg = 6.0;
+        let seen = MarginsSeen::of(&sim);
+        assert_eq!(
+            seen,
+            MarginsSeen {
+                reapings: 2,
+                reaped_h: 3.5,
+                reaped_paid_kg: 4.0,
+                gleaned_able_kg: 1.0,
+                gleaned_other_kg: 6.0,
+                fuel_sold_kg: base.fuel_sold_kg + 10.0,
+                fuel_bartered_kg: base.fuel_bartered_kg + 5.0,
+                stubble_proposed: base.stubble_proposed + 3,
+                stubble_passed: base.stubble_passed + 2,
+                stubble_in_force: base.stubble_in_force + 1,
+            }
+        );
+    }
+
     #[test]
     fn the_harvest_margins_row_reports_each_world_and_is_never_graded() {
         let mut worlds = vec![world(1, &[40]), world(2, &[40])];

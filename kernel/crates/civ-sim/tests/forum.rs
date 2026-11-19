@@ -2132,3 +2132,86 @@ fn a_finding_kept_written_is_read_aloud_at_a_sitting_to_those_who_cannot_read() 
     );
     assert_eq!(pop.order.read_hearings, 1, "recalled from the page");
 }
+
+/// A decision past memory kept written (ADR-0025's "Writing arrives"; plan §9 of 2026-11-19):
+/// what an amendment's sponsor and each household judge a body by is what was decided within
+/// memory (`vote_memory_days`), and a case whose finding a household keeps written, with a reader
+/// in it, stays seen beyond it, for that household alone, by the stances its own people took.
+#[test]
+fn a_decision_kept_written_stays_seen_past_memory_for_its_keeper() {
+    use civ_agents::crime::{CaseStance, WrittenFinding};
+    use civ_agents::person::KnowSource;
+    let mut sim = world(3);
+    let hh = households(&sim);
+    assert!(hh.len() >= 3, "three households: {hh:?}");
+    let hearer = hh[2].1[0];
+    let forum = law(&mut sim, "core:policy/name_a_hearer", Some(hearer));
+    // Memory of a decision is one day here.
+    sim.rules_mut_for_tests()
+        .expect("rules not yet shared")
+        .people
+        .polity
+        .vote_memory_days = 1;
+    let id = case(&mut sim, &hh[0], &hh[1]);
+    let now = sim.now();
+    let heard = civ_core::SimTime::from_minutes(now.minutes() - 2 * DAY);
+    {
+        let pop = sim.people_mut_for_tests();
+        let c = pop
+            .order
+            .cases
+            .iter_mut()
+            .find(|c| c.id == id)
+            .expect("the case");
+        (c.stage, c.heard, c.forum) = (CaseStage::Found, Some(heard), Some(forum));
+        let stance = |person: PermanentId, household: PermanentId| CaseStance {
+            person,
+            household,
+            stance: Stance::Support,
+            stake: 0.0,
+            belief: 0.0,
+            regard: 0.0,
+            precedent: 0.0,
+        };
+        c.stances = vec![stance(hh[0].1[0], hh[0].0), stance(hearer, hh[2].0)];
+        c.stances.sort_by_key(|r| r.person);
+    }
+    let seen = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.decisions_seen_for_tests(ctx, 0))
+            .into_iter()
+            .filter(|(passed, stances)| {
+                *passed && stances.iter().any(|r| r.0 == hearer || r.0 == hh[0].1[0])
+            })
+            .map(|(_, stances)| stances)
+            .collect::<Vec<_>>()
+    };
+    assert!(seen(&mut sim).is_empty(), "past memory, it is not seen");
+    // The hearer's household keeps it written; the hearer can read.
+    let reading = sim
+        .rules()
+        .catalog
+        .technique_index("core:technique/reading")
+        .expect("reading");
+    {
+        let pop = sim.people_mut_for_tests();
+        pop.order.written.push(WrittenFinding {
+            case: id,
+            holder: hh[2].0,
+            writer: hearer,
+            made: heard.day_index(),
+        });
+        let p = pop
+            .people
+            .iter_mut()
+            .find(|(_, p)| p.id == hearer)
+            .expect("the hearer")
+            .1;
+        p.come_to_know(reading, KnowSource::Observer, now);
+    }
+    let kept = seen(&mut sim);
+    assert_eq!(
+        kept,
+        vec![vec![(hearer, hh[2].0)]],
+        "seen by its keeper alone"
+    );
+}

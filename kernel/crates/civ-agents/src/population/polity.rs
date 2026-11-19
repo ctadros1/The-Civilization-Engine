@@ -3393,6 +3393,20 @@ impl Population {
     /// them). Only decisions the present custom made count: a change of custom is judged by how
     /// the custom it would replace has decided, so a newly amended custom is not undone on the
     /// strength of what an older one did (that let two camps toggle the custom week by week).
+    /// The decisions polity `pi`'s gatherings and forums made that are seen (`decisions_seen`):
+    /// each as whether it passed and who took which stance, by person and household: for tests.
+    #[doc(hidden)]
+    pub fn decisions_seen_for_tests(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+    ) -> Vec<(bool, Vec<(PermanentId, PermanentId)>)> {
+        self.decisions_seen(ctx, pi)
+            .into_iter()
+            .map(|s| (s.passed, s.stances.iter().map(|r| (r.0, r.1)).collect()))
+            .collect()
+    }
+
     pub(super) fn decisions_seen(&self, ctx: &Ctx, pi: usize) -> Vec<Seen> {
         let pp = &ctx.params.polity;
         let day = ctx.now.day_index();
@@ -3420,21 +3434,64 @@ impl Population {
                 night: l.decided.map_or(0, |t| t.day_index() - 1),
             })
             .collect();
+        // A case decided under the present custom but past memory stays seen by a household that
+        // keeps its finding written and has a reader in it (ADR-0025's "Writing arrives"; plan §9
+        // of 2026-11-19): for it alone, by the stances its own people took.
+        let reading = Self::letter_technique(ctx.catalog, crate::params::Behavior::Read);
+        let keepers = |case: u32| -> Vec<PermanentId> {
+            let Some(t) = reading else {
+                return Vec::new();
+            };
+            let mut out: Vec<PermanentId> = self
+                .order
+                .written
+                .iter()
+                .filter(|w| w.case == case)
+                .filter(|w| {
+                    self.household(w.holder).is_some_and(|x| {
+                        x.members
+                            .iter()
+                            .any(|&m| self.person(m).is_some_and(|p| p.knows(t)))
+                    })
+                })
+                .map(|w| w.holder)
+                .collect();
+            out.sort_unstable();
+            out.dedup();
+            out
+        };
         decisions.extend(
             self.order
                 .cases
                 .iter()
-                .filter(|c| recent(c.heard) && !c.stances.is_empty())
+                .filter(|c| !c.stances.is_empty())
+                .filter(|c| c.heard.is_some_and(|t| t >= custom_since))
                 .filter(|c| polity.laws.iter().any(|l| l.id == c.law))
-                .map(|c| Seen {
-                    stances: c
+                .filter_map(|c| {
+                    let kept = if recent(c.heard) {
+                        None
+                    } else {
+                        let k = keepers(c.id);
+                        if k.is_empty() {
+                            return None;
+                        }
+                        Some(k)
+                    };
+                    let stances: Vec<(PermanentId, PermanentId, Stance, f64)> = c
                         .stances
                         .iter()
+                        .filter(|r| {
+                            kept.as_ref()
+                                .is_none_or(|k| k.binary_search(&r.household).is_ok())
+                        })
                         .map(|r| (r.person, r.household, r.stance, f64::from(r.stake)))
-                        .collect(),
-                    passed: c.stage == crate::crime::CaseStage::Found,
-                    gathered: c.forum.is_none(),
-                    night: c.heard.map_or(0, |t| t.day_index() - 1),
+                        .collect();
+                    (!stances.is_empty()).then(|| Seen {
+                        stances,
+                        passed: c.stage == crate::crime::CaseStage::Found,
+                        gathered: c.forum.is_none(),
+                        night: c.heard.map_or(0, |t| t.day_index() - 1),
+                    })
                 }),
         );
         decisions

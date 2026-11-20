@@ -747,6 +747,10 @@ pub struct CrimeSeen {
     /// gleaned (research 08-22): what the poor got without taking.
     pub gleaned_kg: f64,
     pub gleaned_short_kg: f64,
+    /// Breaches of a stubble law seen (§8 20, first; research 08-22 §1, §4: gleaning against the
+    /// bylaws), and those brought as cases.
+    pub stubble_breaches: u32,
+    pub stubble_brought: u32,
 }
 
 /// A world's cases and challenges (M7b slice BU): by forum or gathering, how each closed.
@@ -891,6 +895,18 @@ impl CrimeSeen {
         c
     }
 
+    /// Counts `breaches` of a stubble law: each kept is one seen, and those with a case were
+    /// brought (§8 20, first). The polities keep every one, so a run's end reads them all.
+    pub fn count_breaches<'a>(
+        &mut self,
+        breaches: impl IntoIterator<Item = &'a civ_agents::polity::StubbleBreach>,
+    ) {
+        for b in breaches {
+            self.stubble_breaches += 1;
+            self.stubble_brought += u32::from(b.case.is_some());
+        }
+    }
+
     fn join(&mut self, other: &CrimeSeen) {
         self.attempts.join(other.attempts);
         self.takings.join(other.takings);
@@ -898,6 +914,8 @@ impl CrimeSeen {
         self.cases.join(other.cases);
         self.gleaned_kg += other.gleaned_kg;
         self.gleaned_short_kg += other.gleaned_short_kg;
+        self.stubble_breaches += other.stubble_breaches;
+        self.stubble_brought += other.stubble_brought;
     }
 
     /// In words: "34 attempts, 0.71 of their neighbours richer on average; 12 takings (0.68), 8
@@ -931,8 +949,22 @@ impl CrimeSeen {
         } else {
             "nothing gleaned".to_owned()
         };
+        // Said only where a stubble law was broken, as few worlds keep one.
+        let breaches = match self.stubble_breaches {
+            0 => String::new(),
+            n => format!(
+                "; {n} {} of a stubble law seen, {} brought as {}",
+                if n == 1 { "breach" } else { "breaches" },
+                self.stubble_brought,
+                if self.stubble_brought == 1 {
+                    "a case"
+                } else {
+                    "cases"
+                }
+            ),
+        };
         format!(
-            "{attempts}; {}, {}, {}; {gleaned}",
+            "{attempts}; {}, {}, {}; {gleaned}{breaches}",
             one(&self.takings, "taking", "takings", "no takings"),
             one(&self.seen, "seen", "seen", "none seen"),
             one(
@@ -1670,6 +1702,12 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
     }
     world.gini = by_year.into_iter().map(|(y, (g, p))| (y, g, p)).collect();
     world.crime = CrimeSeen::of(&sim.people().order);
+    world.crime.count_breaches(
+        sim.people()
+            .polities
+            .iter()
+            .flat_map(|p| &p.stubble_breaches),
+    );
     world.justice = JusticeSeen::of(&sim.people().order);
     world.water = WaterSeen::of(sim);
     world.fires.count(sim);
@@ -3669,6 +3707,29 @@ mod tests {
         assert!(
             row.text
                 .ends_with("40 kg gleaned, 20 kg of it by households short of food"),
+            "{}",
+            row.text
+        );
+        // Breaches of a stubble law, seen and brought, read from what the polities keep and
+        // summed over the worlds (§8 20, first); said only where there were any.
+        let breach = |case: Option<u32>| civ_agents::polity::StubbleBreach {
+            day: 10,
+            law: civ_core::PermanentId::from_raw(7).expect("an id"),
+            person: civ_core::PermanentId::from_raw(8).expect("an id"),
+            household: civ_core::PermanentId::from_raw(9).expect("an id"),
+            seen_by: Vec::new(),
+            case,
+        };
+        a.crime.count_breaches(&[breach(Some(3)), breach(None)]);
+        b.crime.count_breaches(&[breach(None)]);
+        assert_eq!((a.crime.stubble_breaches, a.crime.stubble_brought), (2, 1));
+        let row = crime(&[a.clone(), b.clone()]);
+        assert_eq!(row.grade, Grade::Green, "{}", row.text);
+        assert!(
+            row.text.ends_with(
+                "20 kg of it by households short of food; 3 breaches of a stubble law seen, 1 \
+                 brought as a case"
+            ),
             "{}",
             row.text
         );

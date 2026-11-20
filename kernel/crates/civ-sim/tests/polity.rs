@@ -1952,6 +1952,30 @@ fn a_breach_of_the_stubble_law_seen_is_brought_heard_and_fined_to_the_store() {
     assert_eq!(breaches.len(), 1, "{breaches:?}");
     assert_eq!((breaches[0].person, breaches[0].household), gleaner);
     assert!(breaches[0].seen_by.contains(&witness.0), "{breaches:?}");
+    // Out again the same day, seen by another (§8 21, run 84's red): one breach a person a day,
+    // with both who saw it, brought once; the law still counts each time it was broken.
+    let second = *grown
+        .iter()
+        .find(|g| g.1 != gleaner.1 && g.1 != witness.1)
+        .expect("a grown neighbour of a third household");
+    {
+        let pop = sim.people_mut_for_tests();
+        for (_, p) in pop.people.iter_mut() {
+            if p.id == second.0 {
+                p.act.target = civ_agents::Target::Patch(at);
+            }
+        }
+    }
+    sim.with_ctx_for_tests(|pop, ctx| {
+        pop.stubble_breach_for_tests(ctx, gleaner.0, civ_agents::Target::Patch(at))
+    });
+    assert_eq!(law(&sim).compliance.broken, 2);
+    let breaches = sim.people().polities[0].stubble_breaches.clone();
+    assert_eq!(breaches.len(), 1, "one breach a person a day: {breaches:?}");
+    assert!(
+        breaches[0].seen_by.contains(&witness.0) && breaches[0].seen_by.contains(&second.0),
+        "{breaches:?}"
+    );
     // The same breach seen longer ago than a taking is remembered is never brought (§8 20,
     // second): only the fresh one is weighed.
     let remember = i64::from(sim.rules().people.crime.remember_days);
@@ -2033,6 +2057,11 @@ fn a_breach_of_the_stubble_law_seen_is_brought_heard_and_fined_to_the_store() {
             })
             .collect();
     }
+    // What gleaning against it weighs with the gleaner before any finding.
+    let points = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.stubble_points_for_tests(ctx, gleaner.0))
+    };
+    let before = points(&mut sim).expect("the gleaner weighs the law");
     sim.with_ctx_for_tests(|pop, ctx| pop.hear_case_for_tests(ctx, 0, &heard, case.id));
     let heard_case = sim
         .people()
@@ -2055,6 +2084,15 @@ fn a_breach_of_the_stubble_law_seen_is_brought_heard_and_fined_to_the_store() {
         heard_case.stage,
         civ_agents::crime::CaseStage::Found,
         "{heard_case:?}"
+    );
+    // Fined, the gleaner's household learns what gleaning against it costs (§8 21, run 84's red):
+    // one finding in the two times it was broken, a day's food each, weighed as a plan's sanction
+    // is.
+    let after = points(&mut sim).expect("the gleaner weighs the law");
+    let expected = sim.rules().people.crime.w_demand_loss * 0.5 * f64::from(fine_days);
+    assert!(
+        (after - before - expected).abs() < 1e-9,
+        "{before} before the finding, {after} after, {expected} expected"
     );
     {
         assert!(

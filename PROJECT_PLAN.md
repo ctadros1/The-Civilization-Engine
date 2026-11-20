@@ -10815,6 +10815,31 @@ and M6a gives rivers a daily flow.
       unmeasured:** no figure for fish boiled on an open fire was found; cooking as quickly as greens
       argues for about 0.4 against TCE's 0.6, but with nothing measured to correct it to, the figure
       stays a prior. No content changed, so no gate. **Not yet:** a measured figure for fish.
+    - *Long run 84's red answered at its source (2026-11-20): one stubble breach a person a day, and
+      the fine weighed by the gleaner* (§9, "Long run 84: stubble breaches answered at their source";
+      §7, "the stubble law's forecast of the fine", "Not yet"). Run 84 on 9ed0acf failed Food prices
+      in world 2 and counted 970 cases before the gathering (run 82: 173), 1,140 stubble breaches
+      seen, 792 brought; by world, 844 and 694 of those were world 3's (636 found), world 2's only 64
+      and 25. **Found:** a breach was recorded at every choice to glean against the law, and a bout
+      is one to four hours, so one who went out again the same day broke it afresh, each seen breach
+      its own case and each finding a day's food fined; and the gleaner weighed the law by their
+      stance and norms only, never the fine, so findings taught nobody. **Built:** a seen breach is
+      recorded once a person a day under a law, a later bout adding who saw it to that day's (the law
+      still counts each time it is broken, as a curfew's does); and the gleaner weighs the expected
+      fine as a plan's sanction is weighed (M8c slice CV, third part): `w_demand_loss` times the
+      chance that breaking it is found (the findings under it they have heard of, or against their
+      own household, over the times it has been broken) times its days, so a household fined
+      learns it. **Not the price red:** world 2's 27 findings in 50 years, a day of one household's
+      food each, cannot move its grain over 52 harvests; that red is open. **Tested:** polity (16,
+      one extended: a second bout the same day is one breach with both who saw it, failing without
+      the fix at two; after a finding against the gleaner's household gleaning weighs with them
+      by w_demand_loss times a half times its day, failing without the fine at no change); the
+      whole civ-sim suite (88 targets), the unit tests; smoke (all 10 pass); fmt and clippy clean.
+      **The notables' gate**, locally, against 1952095: passes, 1 of 40 runs changed (fixture 1
+      proposals +47.5 %, enacted +22.5 %, offices +0.0 %, moved −3.9 %, before and after; fixture 2
+      proposals +36.9 % to +35.7 %, enacted +46.0 % to +44.4 %, offices +14.3 % to +7.1 %, moved
+      +50.0 %). The gate's worlds seldom keep a stubble law; the next long run measures it. **Not
+      yet:** world 2's food prices red, read on its own.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
@@ -14032,3 +14057,5 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **The twelfth coverage pass (2026-11-20; §8 21, third):** Decided by Claude under standing owner authority (2026-11-20). The slices since the eleventh pass (9ed0acf, fdb2232, e202c37) were read against the code. One fault was found and fixed: the dishes' credit was dropped when a household moved or merged. It now goes with the wood it is owed against. Three edges were pinned: a credit saved mid-day, a lean household with no boiled dish, and a stubble fine dearer than the gleaning. **Reason** for the fix: the credit is wood owed back to the burn, so it belongs with the stores it adjusts. Behaviour, so gated: 0 of 40 runs changed.
 - **Why Sedgehollow dug less copper (2026-11-20; §8 21, fourth):** Decided by Claude under standing owner authority (2026-11-20). Probed on the demo's world, not kept: on today's head Sedgehollow never found the showing body of copper ore 2.2 km out in three years, which the sixth run (9b7f3a8) found and dug. Its copper came only from ore picked where it weathers out (93 kg of ore, 4.67 kg of copper, all used), and fuel never held it back. **Reason** nothing was changed: finding a body depends on whose walks pass within 50 m of it (ADR-0010 §1), and a month of slices since 9b7f3a8 moved those walks. That is emergence, not a fault. Nothing nudged.
 - **The dishes' figures checked (2026-11-20; §8 21, sixth; research 08-24 §7; against "NUDGE: the dishes' wood a kilogram, as measured"):** Decided by Claude under standing owner authority (2026-11-20). The NUDGE's revisit condition, a meal tied to its fuel built, came true with e202c37, and the figures were read again. Groats' 1.4 kg of wood a dry kilogram and its four parts cooked to one dry **hold**: a thin porridge is 5.3 to one by USDA's energy figures and a stiff one about 3, and 08-24's measured range then gives 0.4-1.9 kg a dry kilogram. Meat's 0.75 **holds** against beef's measured 0.76. Fish's 0.6 has **no measure** behind it: cooking time argues for about 0.4, but it is kept, since replacing one unmeasured figure with another earns nothing a gate could weigh. The NUDGE stands for fish alone.
+- **Long run 84: stubble breaches answered at their source (2026-11-20; homelab long run 84 on 9ed0acf; 3c040ea, fdb2232):** Decided by Claude under standing owner authority (2026-11-20), at the coordinator's direction. Run 84 failed one row, Food prices in world 2, and counted 970 cases before the gathering and 1,140 stubble breaches (844 in world 3 alone). Two sources were fixed. A seen breach was recorded at each choice to glean, so a gleaner going out again the same day made a fresh case and a fresh day's fine; now it is one a person a day, a later bout adding its witnesses. And the gleaner never weighed the fine; now they weigh its expected cost as a plan's sanction is weighed, from the findings they know of over the times the law was broken, their own household's always known. **Reason:** fix the source, not the dashboard: the hearings were filling with the same people's same days, and nobody learned from being fined. The price red is not explained by it (world 2: 27 findings in 50 years) and stays open. The gate: 1 of 40 runs changed, all within tolerance.
+- **NUDGE: a stubble breach once a person a day, and the fine's chance from findings over breakings (2026-11-20; the entry above; time-boxed):** one breach a person a day under a law is a design choice (the bylaws presented a gleaner, not each trip to the field); the chance of a finding is the findings one knows of over every time the law was broken, seen or not, as a plan's is over its encroachments. Revisit when a long run keeps a stubble law for years: if its findings still recur for the same households, the chance may need to be the gleaner's own record rather than the law's.

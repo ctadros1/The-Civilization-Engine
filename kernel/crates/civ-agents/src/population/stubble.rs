@@ -205,6 +205,21 @@ impl Population {
         let polity = &mut self.polities[pi];
         let law = polity.laws[li].id;
         polity.laws[li].compliance.broken += 1;
+        // One breach a person a day (§8 21, run 84's red): a gleaner who goes out again the same
+        // day is not seen to break it afresh, so another bout adds who saw it to that day's
+        // breach, which is brought once.
+        if let Some(b) = polity
+            .stubble_breaches
+            .iter_mut()
+            .rev()
+            .take_while(|b| b.day == day)
+            .find(|b| b.person == who && b.law == law)
+        {
+            b.seen_by.extend(seen_by);
+            b.seen_by.sort_unstable();
+            b.seen_by.dedup();
+            return;
+        }
         if !seen_by.is_empty() {
             polity.stubble_breaches.push(crate::polity::StubbleBreach {
                 day,
@@ -392,7 +407,48 @@ impl Population {
             .ties
             .regard(p.id, law.sponsor, now.day_index(), &params.ties);
         let norm = self.norm_points(ctx, p.id);
-        Some(crate::polity::comply_points(norm, stance, regard, 0.0, &params.polity).max(0.0))
+        let deterred = self.stubble_sanction_points(ctx, p.id, hh.id, law);
+        Some(crate::polity::comply_points(norm, stance, regard, -deterred, &params.polity).max(0.0))
+    }
+
+    /// What `person` of household `household` expects gleaning against stubble law `l` to cost
+    /// their household, in the points a day of its food is worth in a dispute (§8 21, run 84's
+    /// red; as a plan's sanction is weighed, M8c slice CV, third part): the chance they believe
+    /// that a breach is seen, brought and found, from the findings under the law they have heard
+    /// of or that were against their own household, over the times it has been broken, times what
+    /// a finding imposes in days (its fine and compensation). Nothing before any finding.
+    fn stubble_sanction_points(
+        &self,
+        ctx: &Ctx,
+        person: PermanentId,
+        household: PermanentId,
+        l: &crate::polity::Law,
+    ) -> f64 {
+        use crate::crime::CaseStage;
+        let broken = l.compliance.broken;
+        let days = f64::from(l.sanction.fine_days) + f64::from(l.sanction.compensation_days);
+        if broken == 0 || days <= 0.0 {
+            return 0.0;
+        }
+        let found = self
+            .order
+            .cases
+            .iter()
+            .filter(|c| c.law == l.id && c.stage == CaseStage::Found)
+            .filter(|c| {
+                c.accused_household == household
+                    || self.word.claims.iter().any(|k| {
+                        k.kind == crate::word::ClaimKind::Finding
+                            && k.event == Some(c.id)
+                            && self.word.has_heard(person, k.id)
+                    })
+            })
+            .count();
+        if found == 0 {
+            return 0.0;
+        }
+        let chance = (found as f64 / f64::from(broken)).min(1.0);
+        ctx.params.crime.w_demand_loss * chance * days
     }
 
     /// What a law keeping the stubble for those who cannot earn would bring each household of

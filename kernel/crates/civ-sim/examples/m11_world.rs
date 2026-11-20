@@ -339,13 +339,19 @@ fn way_there(sim: &mut Sim, s: PermanentId, known: &[usize]) -> String {
     )
 }
 
+/// A body of ore as [`copper_near`] weighs it: metres from the hearth, whether it shows at the
+/// surface, minutes' walk within the digging walk, and its cell.
+type OreBody = (f64, bool, Option<f32>, usize);
+
 /// Where the copper lies from settlement `s`'s hearth, in words: the nearest body of copper ore,
 /// how far and whether it shows at the surface (where a walker passing within
 /// `civ_agents::population::deposits::FIND_M` finds it), whether it lies within the digging
 /// walk (`core:activity/dig_ore`'s longest walk, off the trails) and, if not, the nearest that
 /// does; and how many lie on the map. A body beyond water nobody can ford is near only on the map
-/// (M11d, ninth part: Stonefield's, 0.5 km off, was out of reach on foot). Copper is also picked
-/// where it weathers out on upland ground, which this does not measure.
+/// (M11d, ninth part: Stonefield's, 0.5 km off, was out of reach on foot), so the walk to the
+/// nearest body beyond the digging walk is given, however far round, and one no walk reaches is
+/// said to be (§8 21, second). Copper is also picked where it weathers out on upland ground,
+/// which this does not measure.
 fn copper_near(sim: &Sim, s: PermanentId) -> String {
     let Some(copper) = sim.rules().catalog.good_index("core:good/copper_ore") else {
         return "no copper ore in the content".to_owned();
@@ -373,7 +379,7 @@ fn copper_near(sim: &Sim, s: PermanentId) -> String {
         (f64::from(walk_min) * 60.0) as f32,
         &|_| 0.0,
     );
-    let mut bodies: Vec<(f64, bool, Option<f32>)> = sim
+    let mut bodies: Vec<OreBody> = sim
         .land()
         .deposits
         .iter()
@@ -385,6 +391,7 @@ fn copper_near(sim: &Sim, s: PermanentId) -> String {
                 (at.0 - f64::from(hearth.0)).hypot(at.1 - f64::from(hearth.1)),
                 d.body.exposed,
                 reach.seconds_to(cell).map(|t| t / 60.0),
+                cell,
             )
         })
         .collect();
@@ -396,19 +403,39 @@ fn copper_near(sim: &Sim, s: PermanentId) -> String {
             "buried"
         }
     };
-    let Some(&(m, exposed, walk)) = bodies.first() else {
+    let Some(&(m, exposed, walk, _)) = bodies.first() else {
         return "copper: no body of its ore on the map".to_owned();
     };
     let reached = match walk {
         Some(w) => format!("{w:.0} minutes' walk"),
         None => {
-            let beyond = format!("beyond a walk of {walk_min} minutes from it");
+            // How long a walk the nearest body is, however far round (Stonefield's, 0.5 km off
+            // across water nobody fords, is 7.8 hours': §8 21, second), and a body no walk
+            // reaches at all, told apart from one too far to dig from.
+            let anywhere = sim.nav().travel_field(
+                &map.elevation,
+                civ_agents::population::cell_of(map, hearth),
+                f32::INFINITY,
+                &|_| 0.0,
+            );
+            let walk_any = bodies.first().map(|b| anywhere.seconds_to(b.3));
+            let unreached = walk_any.is_some_and(|t| t.is_none());
+            let beyond = match walk_any.flatten() {
+                Some(t) => format!(
+                    "beyond a walk of {walk_min} minutes from it ({:.1} hours' walk)",
+                    t / 3600.0
+                ),
+                None => "which no walk from it reaches".to_owned(),
+            };
             match bodies.iter().find(|b| b.2.is_some()) {
-                Some(&(m, exposed, Some(w))) => format!(
+                Some(&(m, exposed, Some(w), _)) => format!(
                     "{beyond}; the nearest within one {:.1} km, {w:.0} minutes' walk, {}",
                     m / 1000.0,
                     shows(exposed)
                 ),
+                _ if unreached => {
+                    format!("{beyond}, and every other lies beyond a walk of {walk_min} minutes")
+                }
                 _ => format!("{beyond}, as is every other"),
             }
         }

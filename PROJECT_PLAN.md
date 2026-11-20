@@ -12057,7 +12057,8 @@ and M6a gives rivers a daily flow.
     9. *A firing's wood gathered as its own errand* (§7, "The hearth's fuel kept from the kiln",
        "Not yet"): a household wanting to fire pots, its wood all kept for the hearth, weighs
        gathering toward the firing as a material is weighed toward a tool. Economy, gated: pottery
-       fell 13 % on seed 1 when the kiln stopped taking the hearth's wood.
+       fell 13 % on seed 1 when the kiln stopped taking the hearth's wood. *Deferred 2026-11-20* (§9, "A firing's wood as its own
+       errand, deferred"): two forms tried, neither committed.
     10. *Fuel weighed with hunger when some is held but too little* (§7, "Fuel weighed with
         hunger", "Not yet"): food waits on a fire only while no fuel at all is held. Economy,
         gated.
@@ -12090,6 +12091,58 @@ and M6a gives rivers a daily flow.
         blocked").
     Not carried from 19: its first, second, fifth, seventh, eighth and twelfth's sludge as dung,
     all built or written (§9); its sixth, blocked (§9, "A sewage farm's exposure blocked").
+21. **What is open next, ranked (2026-11-20 survey, made as 16 to 20 were: question 20's
+    leftovers, §7's "Not yet" lines of 2026-11-19 and 2026-11-20, the ADRs' "Revisit when"
+    sections, research gaps, and the improvement passes; Unreal work, ADR-0046, the walking
+    ground's flood-driven rebuilds and the speed pass, all the owner's, left out):** each item was
+    checked against `git log` (to 7c4db53) and §9. Question 20 is spent but for its fifth (a
+    measurement waiting on a long run, carried), its ninth (deferred, carried) and its eighth,
+    tenth and twelfth to seventeenth (gated, carried). **The ADRs' revisit conditions:** none has
+    newly come true since question 20; the one read today (ADR-0024 §1: only seat-holders propose,
+    an empty seat stays empty until its election) held as designed (§9, "The contagion scene
+    keeps its founding custom"). Gate-neutral items come first.
+    **Ranked:**
+    1. *A finding of a stubble breach counted apart* (§7, "a stubble breach counted on the
+       dashboard", "Not yet"): the justice row counts the breaches' findings apart from the
+       gathering's other cases. Report-only, gate-neutral.
+    2. *The demo's words for a body no walk reaches* (§7, "the m11 demo lived again on e209207",
+       "Not yet"): `m11_world` says "beyond a walk of 60 minutes" both of a body too far and of one
+       across water no walk crosses (Stonefield's, 0.5 km off). The example's words only:
+       gate-neutral, and the next record reads differently.
+    3. *The twelfth coverage pass: the 2026-11-20 slices* (§7's "Tested:" lists read against the
+       code): the hearth's credit for dishes skipped across a household's moving, splitting or
+       ending; the credit saved and loaded mid-day; a lean household with no boiled dish to skip.
+       Tests only, gate-neutral unless a fault is found.
+    4. *Why Sedgehollow dug less copper than in the sixth run* (§7, "the m11 demo lived again on
+       e209207", "Not yet"): 12 kg by year 7 on e209207 against 121 kg by year 5 on 9b7f3a8. A
+       probe on the demo world, report-only.
+    5. *The harvest margins row read against a long run* (question 20, fifth, carried): long run
+       84 on 9ed0acf, past f1706c6, has not reported. Report-only.
+    6. *Research: the dishes' wood a kilogram grounded* (§9, "NUDGE: the dishes' wood a kilogram,
+       as measured", whose revisit condition, the meal built, has come true): the porridge's water
+       ratio and fish's figure on an open hearth. A research gap, gate-neutral.
+    7. *Fuel weighed with hunger when some is held but too little* (question 20, tenth): food
+       waits on a fire only while no fuel at all is held. Economy, gated. Its scene,
+       `with_some_firewood_held_it_is_weighed_by_the_gathering_it_saves`, says it changes with
+       this item; it is the scene the firing's wood moved (next).
+    8. *A firing's wood as its own errand* (question 20, ninth; §9, "A firing's wood as its own
+       errand, deferred"): after 7, whose scene it moved; the narrow form's gate passed.
+       Economy, gated.
+    9. *A faction with no stake asking for another hearer* (question 20, eighth). Factions, gated.
+    10. *The one removed by a recall barred from the next lot* (§7, "a recall told as one", "Not
+        yet"). Deliberation, gated.
+    11. *A want weighed over years* (question 20, twelfth). Larger, gated.
+    12. *Hired field work's leftovers* (question 20, thirteenth). Economy, gated, each its own
+        slice.
+    13. *Word of barren ground between settlements* (question 20, fourteenth). Gated.
+    14. *Deliberation's term leftovers* (question 20, fifteenth). Gated.
+    15. *Writing's leftovers* (question 20, sixteenth). Larger, an ADR-0025 slice.
+    16. *Tips' and sewers' smaller deferrals* (question 20, seventeenth). Selling sludge is
+        blocked (§9, "Selling sludge blocked").
+    17. *The lean hearth* (question 20, eleventh's remainder): cooking leaner when short, on top
+        of the dishes skipped. Economy, gated.
+    Not carried from 20: its first to fourth, sixth, seventh and eleventh, all built, written or
+    lived (§9).
 
 ---
 
@@ -13902,3 +13955,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Dishes skipped when the hearth is short (2026-11-20; §8 20, eleventh; research 08-23 §4, 08-24; content API 237; appended within saves 220):** Decided by the coordinator (2026-11-20), the form the entry above left. A good eaten `cooked` may name `cook_wood_kg`, the wood a kilogram of it takes cooked; the core's groats 1.4, meat 0.75, fish 0.6. The hearth's daily burn is unchanged and holds the day's dishes. A household holding less than a day's burning eats what needs no fire first and its boiled dishes cheapest in wood a kcal first; the wood of the dishes it so skips is credited (`fuel_credit_kg`, saved) and its hearth burns that much less. Where nothing is skipped the burn is the old one to the bit (a unit test over uneven days and odd cuts). A scene: a household with half a day's wood eats its provisions, keeps its groats, and burns less by 1.4 kg a kilogram of groats it would have boiled; it fails without the change. The world moves wherever a household runs under a day's wood: the notables' gate against e209207 passed with all 40 runs changed (fixture 2's enacted, the nearest its tolerance, +38.7 % to +46.0 % against 55 %). Two scenes moved and were reworked: the vaccinator scene missed a call made and answered within one of its three-hour steps, and now looks each minute; the contagion scene met a council awaiting its first election, by design (ADR-0024 §1), and keeps the founding custom (f176257).
 - **NUDGE: a day's burning as the edge of a short hearth (2026-11-20; the entry above; time-boxed):** `LEAN_FUEL_DAYS` = 1.0: below a day's wood a household eats what needs no fire first. A design prior. Revisit with the lean hearth, or if households in lived worlds sit under a day's wood for long stretches.
 - **The m11 demo on e209207 (2026-11-20; homelab run 86; §8 20, fourth):** Recorded by Claude under standing owner authority, the coordinator's run. Eight years on e209207 built and proposed nothing of M11 in any taught settlement. Read against the sixth run (9b7f3a8): Sedgehollow dug less copper (12 kg by year 7, against 121 by year 5) and never wanted a dynamo; Thorndale and Stonefield as before. **Reason** nothing was changed: Stonefield's copper ore "0.5 km from the hearth, beyond a walk of 60 minutes" is terrain, a river no walk crosses (no walk of four hours reaches it, on any trails), not a fault in the reach or the words' units. Iron by trade could not reach Sedgehollow, nor copper Thorndale: a purchase needs an offer at home or a reported one within the settlement's walking field (144 minutes), and Stonefield and Sedgehollow reach no other hearth within it; the only iron held beyond its keep was Stonefield's, from year 6. Why Sedgehollow dug less copper is left open.
+- **A firing's wood as its own errand, deferred (2026-11-20; §8 20, ninth; §7, "The hearth's fuel kept from the kiln", "Not yet"):** Decided by the coordinator's rule (2026-11-20): commit only if every aggregate stays within tolerance and no scene fails. **The gap, found:** a pot's firing wood was wanted as a material, counted against wood that included the hearth's keep, and a firewood patch never reads a material's want; so the kiln's wood weighed toward nothing, and a firing took only what gathering for the hearth left beyond its days. **First form** (on e202c37; branch `wip/firing-wood-errand`, 3b25e64; `/home/user/tce-pop-patches/firing-wood-errand-on-e202c37.patch`): for every pot a roofed household wants, the firing's fuel short beyond the hearth's keep was counted toward gathering as a tool's charcoal wood is (`tool_fuel`). Its scene (a roofed household of seed 1 with clay and only the hearth's days of wood fired 2.8 pots the first day and 30.9 in ten, against 0 and 15.7 without; it fails without the change) passed, and smoke. Two scenes failed: `with_some_firewood_held_it_is_weighed_by_the_gathering_it_saves` and `a_building_found_on_a_plan_s_ground_may_stand_for_a_yearly_payment`. The gate against e202c37 **failed**, all 40 runs changed: fixture 2's every-adult differences went from proposals +36.9 % to +105.2 % (tolerance 105 %) and enacted +46.0 % to +70.6 % (55 %), offices +14.3 % to +54.5 %, moved +50.0 % to +18.8 %; fixture 1's from +47.5, +22.5, +0.0 and −3.9 % to +40.0, +12.5, −30.0 and −23.2 %. **Second form, narrow** (on 7c4db53; branch `wip/firing-wood-narrow`, 50d346f; `/home/user/tce-pop-patches/firing-wood-narrow-on-7c4db53.patch`): counted only when the firing waits on its fuel alone (the way known, its tools held, its clay and every other input for one session's units held, and the fuel beyond the keep short), for that session. Its scene passed, the rent scene passed unchanged, smoke passed, and the gate against 7c4db53 **passed**, 20 of 40 runs changed: fixture 1's every-adult differences from +47.5, +22.5, +0.0 and −3.9 % to +40.0, +12.5, −30.0 and −23.2 % (all within 105, 55, 85 and 95 %), fixture 2 unchanged. `with_some_firewood_held_it_is_weighed_by_the_gathering_it_saves` still failed. **Reason** it is deferred: pots' wood reaches every roofed household's gathering, and through what households hold, its neighbours' offers and deals. The first form moved deliberation past the gate; the narrow one still changes the scene's world over the 200 days it lives before its setup. Its woman never met the narrow condition, but her neighbours' firewood offers moved, and she would buy 1.9 units of firewood for 0.11 hours saved. The scene's own words say it changes with fuel weighed with hunger when some is held (§8 21, seventh), so the firing's wood follows that item (§8 21, eighth).

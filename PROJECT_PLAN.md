@@ -10656,6 +10656,22 @@ and M6a gives rivers a daily flow.
       proposals +50.0 %, enacted +25.0 %, offices +0.0 %, moved −4.4 %; fixture 2 proposals
       +17.1 %, enacted +38.7 %, offices +7.7 %, moved +72.8 %, before and after). **Not yet:** a
       breach's finding counted apart from the gathering's other cases in the justice row.
+    - *Backlog E, coverage, eleventh pass (2026-11-20): the 2026-11-19 and 2026-11-20 slices* (§9,
+      "The eleventh coverage pass"; §8 20, second). Each "Tested:" list of the day's slices was
+      read against the code for a line no test would miss. Three were real gaps, now each pinned
+      by a test that fails without its line. Tests only; no code changed, so no gate. **Fuel
+      fetched to sell again:** fetch (28, one new: a household holding what it keeps of firewood,
+      told of firewood in the other settlement, with neighbours on record wanting firewood
+      nobody at home offers, plans the errand at its review; it fails with fuel kept out of the
+      resell errand as before §8 19, eighth). **Each fuel kept from the kiln:** coal (15, one new:
+      holding the hearth's days of coal by heat and half a kilogram more, a coking takes only the
+      half kilogram where the household knows how to burn coal at its hearth, and more where it
+      does not; it fails without the session's set-aside and with the hearth's technique
+      ignored, and passes through the batch a coking starts). **A breach never brought:** polity
+      (15, one extended: the same stubble breach seen longer ago than a taking is remembered is
+      not brought beside the fresh one, which is, once; it fails without the remembered days'
+      filter). fmt and clippy clean. **Left:** a breach of a stubble law no longer in force (the
+      other filter of the same line), read and judged a guard of the same kind, not pinned.
       **Tested:** forum (27), faction (9), the civ-agents unit tests; fmt and clippy clean.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
@@ -11938,7 +11954,8 @@ and M6a gives rivers a daily flow.
        fetched from other settlements", "Not yet"); a household whose hearth burns two fuels,
        each kept from the kiln (§7, "The hearth's fuel kept from the kiln"); a stubble breach
        outside the days a taking is remembered, never brought. Tests only, gate-neutral unless a
-       fault is found.
+       fault is found. *Done 2026-11-20* (§7, "coverage, eleventh pass"): three gaps pinned, no
+       fault.
     3. *A recall's chronicle words* (§7, "A faction may recall a forum", "Not yet"): a forum
        ended on a faction's petition is told as any law's end is. Frames only, gate-neutral.
     4. *The `m11_world` demo lived again on the current head* (question 19, third, carried):
@@ -13791,3 +13808,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Households short of fuel at night: the pottery fire took the hearth's wood (2026-11-20; the lean-hearth deferral's probe; research 08-23 §1, §6):** Decided by Claude under standing owner authority (2026-11-20), on the coordinator's time-boxed diagnosis. **Reason:** the probe behind the deferral (9.4 % of household-days with no fuel at midnight, 13.5 % under a day, against a three-day target) was read against the fuel code. The units were right: `fuel_days` is heat held over the day's burn, and gathering is weighed toward the target, twice over below a day. Gathering was not crowded out either: firewood was chosen or runner-up in about half the choices made by members of short households. The fault was the kiln. Making counted all the fuel held as an input, and a session took what its hours allowed, so a pot firing burned the hearth's wood to the last stick, and every cold night followed one. Keeping the hearth's days from a recipe that makes no food is the same keep the market already holds back from sale, so it adds no new prior. Measured on three seeds, it takes cold nights from 61–81 to none, and leaves short days at 1–4 %, which is gathering when low as 08-23 §1 finds. It changes people's days, so the gate moved: 20 of 40 runs changed, all in fixture 1, within tolerance (fixture 1 proposals +25.9 % → +50.0 %, enacted +14.8 % → +25.0 %, offices −30.0 % → +0.0 %, moved −57.5 % → −4.4 %; fixture 2 unchanged). No ADR. It narrows nothing in ADR-0033: it is the hearth's need met first, as ADR-0033 §1 orders. The lean hearth stays deferred on its own grounds: with cold nights gone, a household short of a day's fuel is still ordinary between gatherings.
 - **NUDGE: the hearth's fuel kept from the kiln (2026-11-20; the entry above; time-boxed):** what a recipe may not burn is `fuel_target_days` (three days) of the hearth's burning for each fuel the household can use at its hearth, the keep held back from sale. Recipes whose first output is food (baking bread, drying fish or meat) take the hearth's fuel as before. Revisit if lived potters or smiths idle for want of wood they hold, or cold hearths come back by another route.
 - **A stubble breach counted on the dashboard (2026-11-20; §8 20, first; the observer's states' "Not yet"):** Decided by Claude under standing owner authority (2026-11-20). **Reason:** the stubble law's breaches are now seen and heard as cases, but the dashboard said only what was gleaned, so a long run could not show whether the law was broken or brought. Counting the records each polity already keeps for good needs no new counter or saved state. Saying them only where a law was broken keeps every other world's words as they were. Report-only, so the notables' gate did not move (0 of 40 runs). No ADR.
+- **The eleventh coverage pass (2026-11-20; §8 20, second; backlog E: test coverage):** Decided by Claude under standing owner authority (2026-11-20). **Reason:** three of the newest lines could change and no test would notice. Fuel fetched to sell again had no scene since the limit was lifted. The kiln's keep was pinned for firewood only, so the per-fuel keep and its technique test went unseen, and so did the batch path. The stubble breach's remembered-days filter was likewise unpinned. Each is now pinned by a test that fails without its line. Tests only, so nothing people do changes and the gate is not needed. Left, and said so: the law-in-force half of the breach filter, the same kind of guard.

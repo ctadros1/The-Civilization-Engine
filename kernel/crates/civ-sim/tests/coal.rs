@@ -641,3 +641,56 @@ fn a_wheel_by_its_holders_flooded_pit_pumps_it_and_no_other_wheel_does() {
         "another household's wheel"
     );
 }
+
+/// Each fuel's hearth days kept from the kiln (§8 20, second; §7, "The hearth's fuel kept from the
+/// kiln"): coal a household's hearth can burn is kept from a coking as its firewood is from a pot
+/// firing, its keep by its heat; coal nobody of it knows how to burn at a hearth is the coking's
+/// to take. Both ways through the batch a coking starts, holding the hearth's days of coal and
+/// half a kilogram more.
+#[test]
+fn coal_its_hearth_burns_is_kept_from_a_coking_and_coal_it_cannot_burn_is_not() {
+    let coked = |knows: bool| {
+        let mut sim = world(3);
+        let (coal, wood) = (
+            good(&sim, "core:good/coal"),
+            good(&sim, "core:good/firewood"),
+        );
+        let coking = sim
+            .rules()
+            .catalog
+            .activities
+            .iter()
+            .position(|a| a.id == "core:activity/coke_coal")
+            .expect("coking");
+        let (household, members) = first_household(&sim);
+        if knows {
+            let burning = technique(&sim, "core:technique/coal_burning");
+            teach(&mut sim, &members, burning);
+        }
+        // The hearth's days by heat, in coal.
+        let ratio = civ_agents::params::fuel_ratio(&sim.rules().catalog.goods, coal);
+        let days =
+            sim.with_ctx_for_tests(|pop, ctx| pop.keep_for_tests(ctx, household))[wood] / ratio;
+        for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+            if x.id == household {
+                x.stores[coal] = days + 0.5;
+                x.stores[wood] = 400.0;
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.make_work_for_tests(ctx, members[0], coking, 120));
+        let x = sim.people().household(household).expect("household");
+        assert_eq!(x.batches.len(), 1, "a coking is under way");
+        (x.stores[coal], days)
+    };
+    let (left, days) = coked(true);
+    assert!(days > 1.0, "{days}");
+    assert!(
+        (left - days).abs() < 1e-9,
+        "the hearth's days are kept: {left} kg left of {days}"
+    );
+    let (left, days) = coked(false);
+    assert!(
+        left < days - 0.5,
+        "coal it cannot burn at its hearth is the coking's: {left} kg left of {days}"
+    );
+}

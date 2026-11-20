@@ -3558,3 +3558,103 @@ fn a_households_long_way_for_its_carts_is_told_once_cleared_and_a_short_one_is_n
     assert_eq!(way_entries(&sim).len(), entries_before + 1);
     saves_and_goes_on_alike(&mut sim, 60);
 }
+
+/// Fuel fetched to sell again (§8 20, second; §7, "Fuel fetched from other settlements", "Not
+/// yet": no scene showed it): since §8 19, eighth, fuel is fetched to sell at home as any good is.
+/// The buyer, holding what it keeps of firewood and a little more, has heard of the seller's
+/// firewood in the other settlement; its neighbours are on record as wanting firewood nobody at
+/// home offers. At its review it plans the errand. With fuel kept to where it was gathered, as
+/// before, it plans none.
+#[test]
+fn a_household_fetches_firewood_to_sell_at_home_where_its_neighbours_want_it() {
+    let Scene {
+        mut sim,
+        a,
+        b,
+        seller,
+        buyer,
+        ..
+    } = scene();
+    let wood = good(&sim, "core:good/firewood");
+    let rules = sim.rules_mut_for_tests().expect("rules of its own");
+    rules.people.decision.w_walk_hour = 0.5;
+    rules.people.reports.share_told = 0.0;
+    // The seller has firewood to spare and offers it, and only it.
+    set(&mut sim, seller, &[("core:good/firewood", 600.0)]);
+    let offers_wood = |sim: &Sim| {
+        sim.people()
+            .household(seller)
+            .is_some_and(|h| h.offers.iter().any(|o| usize::from(o.good) == wood))
+    };
+    for _ in 0..8 {
+        if offers_wood(&sim) {
+            break;
+        }
+        sim.advance_minutes(DAY).expect("advances");
+        set(&mut sim, seller, &[("core:good/firewood", 600.0)]);
+    }
+    assert!(offers_wood(&sim), "the seller offers its firewood");
+    if let Some(x) = sim
+        .people_mut_for_tests()
+        .households
+        .iter_mut()
+        .map(|(_, x)| x)
+        .find(|x| x.id == seller)
+    {
+        x.offers.retain(|o| usize::from(o.good) == wood);
+    }
+    plant_reports(&mut sim, buyer, seller, wood);
+    // Nobody at home offers firewood, and the buyer's hands have their tools: a trip is for the
+    // errand alone. What it keeps of firewood is learnt from what it offers of plenty.
+    let none_at_home = |sim: &mut Sim| {
+        for h in households_of(sim, a) {
+            if let Some(x) = sim
+                .people_mut_for_tests()
+                .households
+                .iter_mut()
+                .map(|(_, x)| x)
+                .find(|x| x.id == h)
+            {
+                x.offers.retain(|o| usize::from(o.good) != wood);
+            }
+        }
+    };
+    set(&mut sim, buyer, &[("core:good/hoe", 10.0)]);
+    review_holding_with(&mut sim, buyer, 20.0, |sim| {
+        set(sim, buyer, &[("core:good/firewood", 400.0)]);
+    });
+    let spare = offered(&sim, buyer, wood);
+    assert!(
+        spare > 1.0,
+        "it offers the firewood it holds beyond its keep"
+    );
+    let keep = 400.0 - f64::from(spare);
+    none_at_home(&mut sim);
+    let day = sim.now().day_index();
+    let pop = sim.people_mut_for_tests();
+    let goods = pop
+        .markets
+        .first()
+        .map_or(0, |m| m.sold.len())
+        .max(wood + 1);
+    if !pop.markets.iter().any(|m| m.settlement == a) {
+        pop.markets
+            .push(civ_agents::market::Market::new(a, goods, day));
+    }
+    pop.markets
+        .iter_mut()
+        .find(|m| m.settlement == a)
+        .expect("the buyer's market")
+        .record_unmet(wood, 40.0, 40.0 * 2.0);
+    // At its next review, holding what it keeps and a little (the hearth burns some of it before
+    // the review settles its stores), it plans to fetch firewood to sell.
+    review_holding_with(&mut sim, buyer, 20.0, |sim| {
+        set(sim, buyer, &[("core:good/firewood", keep + 2.0)]);
+        none_at_home(sim);
+    });
+    let errand = sim.people().reports.errands.get(&buyer).copied();
+    let errand = errand.expect("an errand to fetch firewood is planned");
+    assert_eq!((errand.seller, errand.market), (seller, b), "{errand:?}");
+    assert_eq!(usize::from(errand.good), wood, "{errand:?}");
+    assert!(errand.units >= 1.0, "{errand:?}");
+}

@@ -1909,6 +1909,15 @@ fn a_breach_of_the_stubble_law_seen_is_brought_heard_and_fined_to_the_store() {
     assert_eq!(breaches.len(), 1, "{breaches:?}");
     assert_eq!((breaches[0].person, breaches[0].household), gleaner);
     assert!(breaches[0].seen_by.contains(&witness.0), "{breaches:?}");
+    // The same breach seen longer ago than a taking is remembered is never brought (§8 20,
+    // second): only the fresh one is weighed.
+    let remember = i64::from(sim.rules().people.crime.remember_days);
+    {
+        let p = &mut sim.people_mut_for_tests().polities[0];
+        let mut old = p.stubble_breaches[0].clone();
+        old.day -= remember + 1;
+        p.stubble_breaches.push(old);
+    }
     // At the polity's review, the one who saw it brings it.
     sim.with_ctx_for_tests(|pop, ctx| pop.weigh_stubble_cases_for_tests(ctx, 0));
     let case = sim
@@ -1925,6 +1934,20 @@ fn a_breach_of_the_stubble_law_seen_is_brought_heard_and_fined_to_the_store() {
         sim.people().polities[0].stubble_breaches[0].case,
         Some(case.id),
         "brought once"
+    );
+    assert_eq!(
+        sim.people().polities[0].stubble_breaches[1].case,
+        None,
+        "one forgotten is not brought"
+    );
+    assert_eq!(
+        sim.people()
+            .order
+            .cases
+            .iter()
+            .filter(|c| c.law == law_id)
+            .count(),
+        1
     );
     // Kept across a save and load.
     let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");

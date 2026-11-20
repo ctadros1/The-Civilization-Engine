@@ -10613,6 +10613,35 @@ and M6a gives rivers a daily flow.
       proposals +25.9 %, enacted +14.8 %, offices −30.0 %, moved −57.5 %; fixture 2 proposals
       +17.1 %, enacted +38.7 %, offices +7.7 %, moved +72.8 %, before and after). **Not yet:**
       a forecast that weighs the fine a household of the able would owe.
+    - *The hearth's fuel kept from the kiln (2026-11-20): a recipe that makes no food burns only
+      the fuel beyond the hearth's days* (§9, "Households short of fuel at night: the pottery
+      fire took the hearth's wood"; the lean-hearth deferral's probe; research 08-23 §1, §6).
+      The lean hearth's probe found 9.4 % of household-days holding no fuel at midnight in a
+      lived world, against a target of three days. Looked into: every one of those nights came
+      after a firing. Making counted every stick held as an input, and a session's units were set
+      by its time, so a pot firing (12 kg of wood a pot, up to five a firing) took the household's
+      last wood and left its hearth cold that night; from the third month, when pottery starts,
+      cold nights ran 10 to 13 hours. **Built:** a recipe whose output is not food may take only
+      what lies beyond the hearth's days of each fuel (`hearth_keep`, `fuel_target_days`, the
+      same keep that is held back from sale), both when the making is weighed (`best_make`'s
+      inputs) and in the session (the keep set aside while its inputs are taken). Cooking,
+      baking and keeping food take the hearth's fuel as before. **Measured** (a probe, not kept;
+      30 people, 120 days, three seeds): household-days with no fuel at midnight went from 61,
+      81 and 74 to 0, 0 and 0, and those under a day's burning from 94, 98 and 97 to 30, 11 and
+      16 (of 732, 960 and 840). Pottery made 13 % fewer hours on seed 1. What is left under a day
+      is gathering when low, which 08-23 §1 finds (most women collected twice a week). **Tested:**
+      people (32, one new: with the hearth's days and 2 kg more firewood, six hours of making pots
+      burn only the 2 kg and the hearth's days are left; and lived, river_valley seed 1 with 30
+      people over 120 days, cold hearths are no more than one household-night in a hundred,
+      against 61 of 732 before; both parts fail without the fix); word (3: its store scene set
+      aside the plans the village had put forward meanwhile, and now also an amendment of who sits
+      that the lived village passed, its assertions unchanged); the whole civ-sim suite (88
+      targets), the civ-agents and civ-host unit tests; smoke (all 10 pass); fmt and clippy clean.
+      **The notables' gate**, locally, against 3c040ea: passes, with 20 of 40 runs changed, all in
+      fixture 1. Fixture 1 moved from proposals +25.9 %, enacted +14.8 %, offices −30.0 %, moved
+      −57.5 % to +50.0 %, +25.0 %, +0.0 %, −4.4 %, all within tolerance. Fixture 2 is unchanged
+      (+17.1 %, +38.7 %, +7.7 %, +72.8 %). **Not yet:** a firing's wood gathered for it as its
+      own errand; the hearth's keep is counted for each fuel apart, as in sale.
       **Tested:** forum (27), faction (9), the civ-agents unit tests; fmt and clippy clean.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
@@ -13661,3 +13690,5 @@ One line each. Don't re-litigate without a reason written next to the entry.
   - The fine is a day of the gleaner's household's food.
   - Revisit if lived worlds show breaches brought by nobody, or every one brought.
 - **A hearth short of fuel cooking leaner, deferred (2026-11-20; §8 19, ninth; research 08-23 §4, §6):** Decided by the coordinator under standing owner authority (2026-11-20), on Claude's built and gated slice. **Reason:** the smallest form was built and was exact where fuel is not short. Below one day of the hearth's burning it burned half the rate, walked a day at a time, and was bit-identical to the full rate while what was held stayed a day's burning above each day's burn. Its scene and unit tests passed and smoke passed. The notables' gate against 3c040ea failed, with 38 of 40 runs changed. Fixture 1 moved from proposals +25.9 %, enacted +14.8 %, offices −30.0 %, moved −57.5 % to +69.4 %, +44.4 %, −60.0 %, −68.4 %. Fixture 2 moved from +17.1 %, +38.7 %, +7.7 %, +72.8 % to +80.3 %, +71.2 % (enacted, out of its 55 % tolerance), +40.0 %, −1.0 %. The civ-sim suite's bottlenecks scene of a year's ground rent also went another way. A probe of a lived world (river_valley seed 1, 30 people, 120 days, read at midnight) found the premise wrong: 99 of 732 household-days (13.5 %) held under a day's burning, 69 (9.4 %) held none, and all six households were short at some time, one on 27 days. Being short is ordinary there, so halving the burn moved every household's gathering. Tying the burn to the dish waiting on the fire keeps households with enough exact by construction, so the item waits on that mechanism. A lean rate only for those unable to fetch or gather would be a decision change that moves politics as the first form did. Not built. The patch is kept at the session scratchpad's `lean-hearth.patch` (`lean_burned_kg`, `lean_burned_over`, `LEAN_FUEL_DAYS` 1.0, `LEAN_BURN_SHARE` 0.5, and both tests). *Revisit when* a meal is tied to its fuel.
+- **Households short of fuel at night: the pottery fire took the hearth's wood (2026-11-20; the lean-hearth deferral's probe; research 08-23 §1, §6):** Decided by Claude under standing owner authority (2026-11-20), on the coordinator's time-boxed diagnosis. **Reason:** the probe behind the deferral (9.4 % of household-days with no fuel at midnight, 13.5 % under a day, against a three-day target) was read against the fuel code. The units were right: `fuel_days` is heat held over the day's burn, and gathering is weighed toward the target, twice over below a day. Gathering was not crowded out either: firewood was chosen or runner-up in about half the choices made by members of short households. The fault was the kiln. Making counted all the fuel held as an input, and a session took what its hours allowed, so a pot firing burned the hearth's wood to the last stick, and every cold night followed one. Keeping the hearth's days from a recipe that makes no food is the same keep the market already holds back from sale, so it adds no new prior. Measured on three seeds, it takes cold nights from 61–81 to none, and leaves short days at 1–4 %, which is gathering when low as 08-23 §1 finds. It changes people's days, so the gate moved: 20 of 40 runs changed, all in fixture 1, within tolerance (fixture 1 proposals +25.9 % → +50.0 %, enacted +14.8 % → +25.0 %, offices −30.0 % → +0.0 %, moved −57.5 % → −4.4 %; fixture 2 unchanged). No ADR. It narrows nothing in ADR-0033: it is the hearth's need met first, as ADR-0033 §1 orders. The lean hearth stays deferred on its own grounds: with cold nights gone, a household short of a day's fuel is still ordinary between gatherings.
+- **NUDGE: the hearth's fuel kept from the kiln (2026-11-20; the entry above; time-boxed):** what a recipe may not burn is `fuel_target_days` (three days) of the hearth's burning for each fuel the household can use at its hearth, the keep held back from sale. Recipes whose first output is food (baking bread, drying fish or meat) take the hearth's fuel as before. Revisit if lived potters or smiths idle for want of wood they hold, or cold hearths come back by another route.

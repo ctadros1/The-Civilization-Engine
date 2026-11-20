@@ -1929,3 +1929,105 @@ fn a_lone_elder_with_no_firewood_buys_it_from_a_neighbour_with_wood_to_spare() {
     let traded = t.get(civ_agents::Channel::Sale, wood) + t.get(civ_agents::Channel::Barter, wood);
     assert!(traded >= bought - 1e-6, "{traded} traded, {bought} bought");
 }
+
+/// The hearth's fuel kept from the kiln (§9, "Households short of fuel at night: the pottery
+/// fire took the hearth's wood"; research 08-23 §6): a recipe that makes no food may burn only the
+/// fuel beyond the hearth's days (`fuel_target_days`), as only that is offered for sale; cooking
+/// takes it as before. Before, a pot firing (12 kg of wood a pot) took every stick, and the
+/// household sat the night with a cold hearth: about one household-night in twelve, lived.
+#[test]
+fn the_hearth_s_days_of_firewood_are_kept_from_the_pottery_fire() {
+    let mut sim = new_world(1, 30);
+    let params = sim.rules().people.clone();
+    let goods = sim.rules().catalog.goods.clone();
+    let index = |id: &str| goods.iter().position(|g| g.id == id).expect(id);
+    let (wood, clay) = (index("core:good/firewood"), index("core:good/clay"));
+    let pots = sim
+        .rules()
+        .catalog
+        .activities
+        .iter()
+        .position(|a| a.id == "core:activity/make_pots")
+        .expect("pots");
+    let now = sim.now();
+    let (hh, who, members) = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| !x.members.is_empty())
+        .min_by_key(|(_, x)| x.id)
+        .map(|(_, x)| {
+            let who = x
+                .members
+                .iter()
+                .copied()
+                .find(|&m| {
+                    sim.people()
+                        .person(m)
+                        .is_some_and(|p| p.age_years(now) >= 20.0)
+                })
+                .expect("an adult");
+            (x.id, who, x.members.len())
+        })
+        .expect("a household");
+    let keep = params.household.fuel_target_days
+        * population::fuel_per_day(&params, members, now.day_index());
+    // Firewood for the hearth's days and 2 kg more, clay for many: six hours of making, a pot's
+    // work and 12 kg of its wood, burn only the 2 kg, and the hearth's days are left.
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == hh {
+            x.settle_stores(now, &goods, &|d| {
+                population::fuel_per_day(&params, members, d)
+            });
+            for (g, d) in goods.iter().enumerate() {
+                if d.purpose == civ_agents::params::GoodUse::Fuel {
+                    x.stores[g] = 0.0;
+                }
+            }
+            x.stores[wood] = keep + 2.0;
+            x.stores[clay] = 200.0;
+        }
+    }
+    let used_before = sim
+        .people()
+        .household(hh)
+        .expect("household")
+        .flows
+        .get(Flow::Used, wood);
+    sim.with_ctx_for_tests(|pop, ctx| pop.make_work_for_tests(ctx, who, pots, 360));
+    let x = sim.people().household(hh).expect("household");
+    let used = x.flows.get(Flow::Used, wood) - used_before;
+    assert!(
+        used > 0.0 && used <= 2.0 + 1e-9,
+        "a share of a pot fired: {used} kg"
+    );
+    assert!(
+        x.stores[wood] >= keep - 1e-9,
+        "the hearth's days are kept: {} of {keep}",
+        x.stores[wood]
+    );
+    // Lived: the hearth holds fuel at every midnight but a rare few, where the kiln's firings
+    // emptied it on 61 of 732 household-nights before.
+    let mut sim = new_world(1, 30);
+    let (mut nights, mut cold) = (0, 0);
+    for _ in 0..120 {
+        sim.advance_minutes(24 * 60).expect("lives");
+        let now = sim.now();
+        for (_, x) in sim
+            .people()
+            .households
+            .iter()
+            .filter(|(_, x)| !x.members.is_empty())
+        {
+            let held = population::stores_now(x, now, &params, &goods);
+            nights += 1;
+            if civ_agents::person::fuel_kg(&held, &goods) <= 0.0 {
+                cold += 1;
+            }
+        }
+    }
+    assert!(
+        cold * 100 <= nights,
+        "{cold} cold hearths in {nights} household-nights"
+    );
+}

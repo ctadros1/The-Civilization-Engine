@@ -87,9 +87,10 @@ fn a_store(sim: &mut Sim, known: &[PermanentId]) -> PermanentId {
     let id = PermanentId::from_raw(sim.ids().peek_next() + 1_000_000).expect("non-zero");
     let pop = sim.people_mut_for_tests();
     let p = &mut pop.polities[0];
-    // A plan the village put forward meanwhile (M8c slice CT) is set aside: this stages a law
-    // of its own before an empty gathering.
-    p.laws.retain(|l| l.kind != PolicyKind::Plan);
+    // A plan the village put forward meanwhile (M8c slice CT), or an amendment of who sits that
+    // it passed, is set aside: this stages a law of its own before an empty gathering.
+    p.laws
+        .retain(|l| !matches!(l.kind, PolicyKind::Plan | PolicyKind::AmendBody));
     let kept: Vec<PermanentId> = p.laws.iter().map(|l| l.id).collect();
     p.plans.retain(|(law, _)| kept.contains(law));
     if p.gathering

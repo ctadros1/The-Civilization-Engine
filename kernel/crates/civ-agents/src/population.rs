@@ -5269,7 +5269,20 @@ impl Population {
                     site: None,
                 });
             }
-            let have = |g: usize| make::available(&stores, goods, g, reserve_ok, protected);
+            // The hearth's days of a fuel are kept from a recipe that makes no food, as they are
+            // kept from sale: a household does not fire its pots with tonight's wood (research
+            // 08-23 §6, `fuel_target_days`). Cooking and keeping food are what the hearth's fuel
+            // is for, and take it as before.
+            let hearth_kept = out_good.purpose != GoodUse::Food;
+            let have = |g: usize| {
+                let held = make::available(&stores, goods, g, reserve_ok, protected);
+                if hearth_kept {
+                    (held - market::hearth_keep(params, goods, g, household_fuel_day, &knows_any))
+                        .max(0.0)
+                } else {
+                    held
+                }
+            };
             // Matter to vaccinate with is made only for the calls to give it that stand at the
             // household's door (M10c slice ED, third part): as much as they are short of, owed as
             // the care they ask is.
@@ -7388,6 +7401,28 @@ impl Population {
         let sheds = ctx.land_params.contamination.food_share > 0.0
             && who.is_some_and(|w| self.sheds_by_water(ctx, w));
         let mut made: Vec<(usize, f64)> = Vec::new();
+        // The hearth's days of each fuel are set aside from a recipe that makes no food, as its
+        // choosing kept them (research 08-23 §6): what the session may burn is what lies beyond.
+        let hearth_kept: Vec<f64> = if recipe
+            .outputs
+            .first()
+            .and_then(|&(g, _)| goods.get(g))
+            .is_some_and(|g| g.purpose != GoodUse::Food)
+        {
+            let members = self
+                .hh_index
+                .get(&household)
+                .and_then(|&hd| self.households.get(hd))
+                .map(|x| x.members.clone())
+                .unwrap_or_default();
+            let fuel_day = fuel_per_day(params, members.len(), now.day_index());
+            let knows = |t: usize| self.household_knows(&members, t);
+            (0..goods.len())
+                .map(|g| market::hearth_keep(params, goods, g, fuel_day, &knows))
+                .collect()
+        } else {
+            Vec::new()
+        };
         if let Some(x) = self
             .hh_index
             .get(&household)
@@ -7397,6 +7432,15 @@ impl Population {
             x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
             x.stores.resize(goods.len(), 0.0);
             let before = x.stores.clone();
+            let aside: Vec<f64> = hearth_kept
+                .iter()
+                .zip(x.stores.iter_mut())
+                .map(|(&keep, kg)| {
+                    let a = kg.max(0.0).min(keep);
+                    *kg -= a;
+                    a
+                })
+                .collect();
             match def.recipe.filter(|_| recipe.elapsed_days > 0.0) {
                 // A batch (M10a slice DP, ADR-0033 §2): open those of this recipe whose days are
                 // past, and start another unless one is still under way.
@@ -7442,6 +7486,9 @@ impl Population {
                         protected,
                     );
                 }
+            }
+            for (kg, a) in x.stores.iter_mut().zip(&aside) {
+                *kg += a;
             }
             x.flows
                 .add_changes(&before, &x.stores, Flow::Made, Flow::Used);

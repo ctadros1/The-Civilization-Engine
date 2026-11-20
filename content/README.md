@@ -239,6 +239,7 @@ Something people carry home and keep.
 | `half_life_days` | Days for half a stored amount to spoil; 0 keeps. Fuel must keep. |
 | `sheltered_half_life_days` | The same in a household's store under its own roof; 0 when a roof makes no difference. Never shorter than `half_life_days`; a good that keeps needs none. |
 | `eaten` | `raw` (as it is), `cooked` (needs a fire: not eaten while the household has no firewood; cooking adds no energy, research 05-02 §1.1) or `never` (a recipe must make it food first, as grain is ground or pounded). Anything but food is `never`. |
+| `cook_wood_kg` | Optional (content API 237): firewood by heat a kilogram of it takes cooked, kilograms, at least 0 and at most 20; only food eaten `cooked`. The hearth's daily burn already holds it; a household short of fuel skips such dishes, dearest first, for food that needs no fire, and burns less by what they would have taken (research 08-24). Absent, 0. |
 | `shared` | When brought home it is shared among every household of the settlement, by members. |
 | `reserve_for` | The food it is kept back from, like seed from grain, or `""`: a recipe that needs that food takes this one only in real hunger, and never the seed to sow the ground already cropped. |
 | `[tool]` | For a tool only: `life_h`, the hours of use a standard tool lasts (stores count tools in standard tools, so 2.4 sickles are two and what is left of a third, ADR-0006); `per_adult`, how many a household wants for each member of working age (rounded up; 0 for none); `fixed`, it stays where it was made and is never carried off: founders and families the observer sends bring none of it (an oven). |
@@ -2239,3 +2240,10 @@ imposes. Its `fine_days` go to the polity's common store (the bylaws' fines went
 the common purse, the gleanings being no household's); `compensation_days` would go to the
 household that brought the case. The core's `policy/zestfully_zone_the_stubble` names a day's fine
 and no compensation (a design prior).
+
+Content API 237 (§8 20, eleventh; research 08-24 §2) lets a good eaten `cooked` name
+`cook_wood_kg`, the firewood by heat a kilogram of it takes cooked on an open fire. The hearth's
+daily burn (`fuel_kg_per_person_day`) is the day's dishes and the fire's warmth; a household holding
+less than a day's burning skips its dearest such dishes first for food that needs no fire, and its
+hearth burns less by them. The core's groats take 1.4 (porridge, 0.35 kg a kilogram cooked at four
+parts to one), meat 0.75 and fish 0.6 (design priors).

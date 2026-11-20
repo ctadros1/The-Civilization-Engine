@@ -1618,6 +1618,7 @@ mod tests {
             half_life_days: 0.0,
             sheltered_half_life_days: 0.0,
             eaten: crate::params::Eaten::Raw,
+            cook_wood_kg: 0.0,
             shared: false,
             reserve_for: kept_back.then_some(0),
             tool: None,

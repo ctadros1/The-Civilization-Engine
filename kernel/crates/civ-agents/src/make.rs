@@ -710,6 +710,7 @@ mod tests {
 
     fn good(id: &str, purpose: GoodUse, kcal: f64, eaten: Eaten) -> GoodDef {
         GoodDef {
+            cook_wood_kg: 0.0,
             fuel: None,
             power: None,
             light: None,

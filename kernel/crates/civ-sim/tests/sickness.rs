@@ -1749,14 +1749,17 @@ fn a_household_calls_a_vaccinator_before_a_variolator_and_its_people_are_vaccina
     let mut callers = std::collections::BTreeSet::new();
     let home_members = sim.people().household(home).expect("home").members.clone();
     for _ in 0..40 {
-        sim.advance_minutes(DAY / 8).expect("lives");
-        callers.extend(
-            sim.people()
-                .sickness
-                .inoculation_calls
-                .iter()
-                .map(|c| c.caller),
-        );
+        // Calls are seen each minute: one may be made and answered within the eighth of a day.
+        for _ in 0..DAY / 8 {
+            sim.advance_minutes(1).expect("lives");
+            callers.extend(
+                sim.people()
+                    .sickness
+                    .inoculation_calls
+                    .iter()
+                    .map(|c| c.caller),
+            );
+        }
         if !sim.people().sickness.inoculation_calls.is_empty() {
             let words = civ_sim::frames::sickness::care_words(&sim, vaccinator);
             called_words |= words.contains("Their household is called to inoculate the people of");

@@ -795,6 +795,10 @@ pub struct Household {
     pub stores: Vec<f64>,
     /// When stores were last brought up to date (spoilage and firewood burned).
     pub stores_at: SimTime,
+    /// Firewood by heat its hearth has yet to burn less (§8 20, eleventh; research 08-23 §4,
+    /// 08-24): the wood of the dishes it skipped while short of fuel, which the daily burn holds,
+    /// taken off what the hearth burns next. Saved.
+    pub fuel_credit_kg: f64,
     /// Water in store at `water_at`, litres.
     pub water_l: f64,
     /// When water was last brought up to date.
@@ -1321,7 +1325,9 @@ impl Household {
             return (out, ash);
         }
         let days = (t1 - t0) as f64 / MINUTES_PER_DAY as f64;
-        let mut burned = burned_kg(t0, t1, fuel_kg_per_day);
+        // The dishes skipped while short of fuel are not burned (§8 20, eleventh): with none
+        // skipped, the full burn to the bit.
+        let mut burned = (burned_kg(t0, t1, fuel_kg_per_day) - self.fuel_credit_kg).max(0.0);
         // Shares of each good under the roof, when the roof and its pots cannot hold them all.
         let keeping = self.keeping.with_stores(&self.stores, goods);
         let shares = (self.sheltered && !keeping.holds_all(&self.stores, goods))
@@ -1390,6 +1396,10 @@ impl Household {
                 }
             }
             self.stores = after;
+            if self.fuel_credit_kg > 0.0 {
+                let full = burned_kg(self.stores_at.minutes(), t.minutes(), fuel_kg_per_day);
+                self.fuel_credit_kg = (self.fuel_credit_kg - full).max(0.0);
+            }
             self.stores_at = t;
         }
     }
@@ -1497,6 +1507,7 @@ mod tests {
             settlement: None,
             stores,
             stores_at: SimTime::ZERO,
+            fuel_credit_kg: 0.0,
             water_l: 100.0,
             water_at: SimTime::ZERO,
             water_use_l: 0.0,
@@ -1521,6 +1532,7 @@ mod tests {
 
     fn goods() -> Vec<GoodDef> {
         let good = |id: &str, purpose, kcal, half, eaten| GoodDef {
+            cook_wood_kg: 0.0,
             fuel: None,
             power: None,
             light: None,
@@ -1725,6 +1737,38 @@ mod tests {
             "meat must be cooked; nuts need no fire"
         );
         assert_eq!(fuel_kg(&later, &goods), 0.0);
+    }
+
+    #[test]
+    fn a_hearth_burns_less_by_the_dishes_it_skipped_and_with_none_skipped_burns_as_before() {
+        // §8 20, eleventh: the daily burn holds the day's dishes; those skipped while short of
+        // fuel are not burned. With none skipped, the full burn to the bit, over uneven days and
+        // odd cuts.
+        let goods = goods();
+        let uneven = |d: i64| 3.7 + (d % 5) as f64 * 1.3;
+        for (t0, t1) in [(17, 9_000), (1440, 2880), (333, 334), (0, 40_000)] {
+            let mut h = household(vec![0.0, 0.0, 1000.0]);
+            h.stores_at = SimTime::from_minutes(t0);
+            let s = h.stores_at_time(SimTime::from_minutes(t1), &goods, &uneven);
+            assert_eq!(
+                s[2].to_bits(),
+                (1000.0 - burned_kg(t0, t1, &uneven)).to_bits(),
+                "{t0}..{t1}"
+            );
+        }
+        // Two kilograms of dishes skipped: the next two days burn 2 kg less, the same settled in
+        // pieces as at once, and the credit is spent.
+        let per_day = |_: i64| 10.0;
+        let mut h = household(vec![0.0, 0.0, 30.0]);
+        h.fuel_credit_kg = 2.0;
+        let whole = h.stores_at_time(SimTime::from_minutes(2 * 1440), &goods, &per_day);
+        assert!((whole[2] - 12.0).abs() < 1e-9, "{}", whole[2]);
+        for m in [60, 100, 700, 2 * 1440] {
+            h.settle_stores(SimTime::from_minutes(m), &goods, &per_day);
+        }
+        assert!((h.stores[2] - 12.0).abs() < 1e-9, "{}", h.stores[2]);
+        assert_eq!(h.fuel_credit_kg, 0.0);
+        assert!((h.flows.get(Flow::Burned, 2) - 18.0).abs() < 1e-9);
     }
 
     #[test]

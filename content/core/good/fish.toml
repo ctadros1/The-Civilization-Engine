@@ -9,5 +9,8 @@ kcal_per_kg = 600.0
 half_life_days = 2.0
 sheltered_half_life_days = 0.0    # a roof makes no difference
 eaten = "cooked"
+# Firewood a kilogram takes cooked on an open fire (research 08-24 §2; content API 237): boiled with
+# greens or stewed: between greens (0.20-0.46) and beef (0.76) (a design prior).
+cook_wood_kg = 0.6
 shared = false
 reserve_for = ""

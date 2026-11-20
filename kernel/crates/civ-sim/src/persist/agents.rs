@@ -6318,6 +6318,7 @@ fn encode_households(
                     midden_x: h.midden.site.0,
                     midden_y: h.midden.site.1,
                     midden_ash_kg: h.midden.ash_kg,
+                    fuel_credit_kg: h.fuel_credit_kg,
                     midden_tipped: h.midden.tipped,
                     midden_discard_goods: discard_goods,
                     midden_discard_kg: discard_kg,
@@ -6596,6 +6597,14 @@ fn decode_households(
         let offers = decode_offers(saved_offers, &goods, || {
             format!("an offer of household {hh_id}")
         })?;
+        // The wood of dishes skipped while short of fuel (§8 20, eleventh, appended within saves
+        // 220): none, in older saves.
+        let fuel_credit_kg = h.fuel_credit_kg();
+        if !(fuel_credit_kg.is_finite() && fuel_credit_kg >= 0.0) {
+            return Err(LoadError::Malformed(format!(
+                "household {hh_id} is owed {fuel_credit_kg} kg of its hearth's burning"
+            )));
+        }
         out.push(Household {
             id: hh_id,
             members,
@@ -6603,6 +6612,7 @@ fn decode_households(
             settlement: id(h.settlement()),
             stores,
             stores_at,
+            fuel_credit_kg,
             water_l: h.water_l(),
             water_at: time(h.water_at()),
             known,

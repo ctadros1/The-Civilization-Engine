@@ -741,6 +741,7 @@ fn add_family(
         settlement: Some(settlement),
         stores,
         stores_at: now,
+        fuel_credit_kg: 0.0,
         water_l: members
             * params.household.water_l_per_person_day
             * params.household.water_target_days,

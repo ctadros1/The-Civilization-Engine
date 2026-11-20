@@ -1876,6 +1876,7 @@ impl Population {
             settlement: natal.settlement,
             stores: vec![0.0; ctx.catalog.goods.len()],
             stores_at: ctx.now,
+            fuel_credit_kg: 0.0,
             water_l: 0.0,
             water_at: ctx.now,
             water_use_l: 0.0,

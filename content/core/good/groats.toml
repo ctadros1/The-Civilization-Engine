@@ -9,6 +9,9 @@ kcal_per_kg = 3340.0
 half_life_days = 60.0
 sheltered_half_life_days = 90.0
 eaten = "cooked"
+# Firewood a kilogram takes cooked on an open fire (research 08-24 §2; content API 237): boiled as
+# porridge: 0.35 kg of wood a kilogram cooked, four parts cooked to one dry (a design prior).
+cook_wood_kg = 1.4
 shared = false
 reserve_for = ""
 

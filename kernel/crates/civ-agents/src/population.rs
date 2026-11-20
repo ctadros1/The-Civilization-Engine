@@ -8589,7 +8589,29 @@ impl Population {
             hh.stores[g] -= kg;
         }
         let before = hh.stores.clone();
-        let take = eat_from(&mut hh.stores, goods, want, reserve_ok);
+        // Short of fuel, under a day's burning, the household eats what needs no fire first and
+        // its dearest boiled dishes last (§8 20, eleventh; research 08-23 §4, 08-24): the wood
+        // of the dishes it so skips, which its daily burn holds, is not burned.
+        let held = fuel_kg(&hh.stores, goods);
+        let lean =
+            held > 0.0 && held < LEAN_FUEL_DAYS * fuel_per_day(params, members, now.day_index());
+        let take = if lean {
+            let mut usual = hh.stores.clone();
+            eat_from(&mut usual, goods, want, reserve_ok);
+            let take = eat_from_by(&mut hh.stores, goods, want, reserve_ok, true);
+            let wood = |after: &[f64]| -> f64 {
+                before
+                    .iter()
+                    .zip(after)
+                    .zip(goods)
+                    .map(|((b, a), g)| (b - a).max(0.0) * g.cook_wood_kg)
+                    .sum()
+            };
+            hh.fuel_credit_kg += (wood(&usual) - wood(&hh.stores)).max(0.0);
+            take
+        } else {
+            eat_from(&mut hh.stores, goods, want, reserve_ok)
+        };
         hh.flows
             .add_changes(&before, &hh.stores, Flow::Eaten, Flow::Eaten);
         // What of each good was eaten, and its stock before (ADR-0045), while any food is loaded.
@@ -9081,7 +9103,32 @@ pub fn shortage_change(short: bool, days: f64, h: &HouseholdParams) -> Option<Ch
 /// fire when there is no firewood. Food a recipe must make ready first (grain, flour) is never
 /// eaten. Returns the kcal taken.
 pub fn eat_from(stores: &mut [f64], goods: &[GoodDef], want: f64, reserve: bool) -> f64 {
+    eat_from_by(stores, goods, want, reserve, false)
+}
+
+/// Days of the hearth's burning below which a household eats what needs no fire first and its
+/// dearest boiled dishes last (§8 20, eleventh; research 08-23 §4: short of fuel, households cook
+/// fewer and quicker meals before they go hungry): a design prior.
+pub const LEAN_FUEL_DAYS: f64 = 1.0;
+
+/// [`eat_from`], or, `lean` (short of fuel), what needs no fire first and the boiled dishes after
+/// by the wood a kcal of each takes, least first (`cook_wood_kg`, research 08-24), each order
+/// then as [`eat_from`]'s.
+pub fn eat_from_by(
+    stores: &mut [f64],
+    goods: &[GoodDef],
+    want: f64,
+    reserve: bool,
+    lean: bool,
+) -> f64 {
     let fire = fuel_kg(stores, goods) > 0.0;
+    let wood_per_kcal = |g: &GoodDef| {
+        if lean && g.cooked() && g.kcal_per_kg > 0.0 {
+            g.cook_wood_kg / g.kcal_per_kg
+        } else {
+            0.0
+        }
+    };
     let keeps = |g: &GoodDef| {
         if g.half_life_days > 0.0 {
             g.half_life_days
@@ -9099,6 +9146,8 @@ pub fn eat_from(stores: &mut [f64], goods: &[GoodDef], want: f64, reserve: bool)
         let (ga, gb) = (&goods[a], &goods[b]);
         ga.kept_back()
             .cmp(&gb.kept_back())
+            .then((lean && ga.cooked()).cmp(&(lean && gb.cooked())))
+            .then(wood_per_kcal(ga).total_cmp(&wood_per_kcal(gb)))
             .then(keeps(ga).total_cmp(&keeps(gb)))
             .then(a.cmp(&b))
     });
@@ -9735,6 +9784,7 @@ mod tests {
 
     fn goods() -> Vec<GoodDef> {
         let good = |id: &str, purpose, kcal, half, eaten| GoodDef {
+            cook_wood_kg: 0.0,
             fuel: None,
             power: None,
             light: None,
@@ -9782,5 +9832,31 @@ mod tests {
         assert_eq!(taken, 2500.0, "only the bread");
         assert_eq!(cold[1], 2.0);
         assert_eq!(cold[4], 100.0);
+    }
+
+    #[test]
+    fn short_of_fuel_what_needs_no_fire_is_eaten_first_and_otherwise_as_before() {
+        // §8 20, eleventh: not lean, the order is the usual one to the bit; lean, the bread is
+        // eaten before the meat that needs a fire, and the meat kept.
+        let mut goods = goods();
+        goods[1].cook_wood_kg = 0.75;
+        let stores = vec![10.0, 2.0, 1.0, 5.0, 100.0];
+        let (mut a, mut b) = (stores.clone(), stores.clone());
+        let ta = eat_from(&mut a, &goods, 3600.0, false);
+        let tb = eat_from_by(&mut b, &goods, 3600.0, false, false);
+        assert_eq!((ta.to_bits(), a.clone()), (tb.to_bits(), b));
+        let mut lean = stores.clone();
+        let taken = eat_from_by(&mut lean, &goods, 3600.0, false, true);
+        assert_eq!(taken, 3600.0);
+        assert_eq!(lean[1], 2.0, "the meat kept: {lean:?}");
+        assert_eq!(lean[2], 0.0, "the berries first, needing no fire: {lean:?}");
+        assert!(
+            (lean[0] - (10.0 - 3000.0 / 2500.0)).abs() < 1e-12,
+            "{lean:?}"
+        );
+        // With nothing that needs no fire, the boiled dishes are eaten, cheapest first.
+        let mut only = vec![0.0, 2.0, 0.0, 5.0, 0.0];
+        assert_eq!(eat_from_by(&mut only, &goods, 1500.0, false, true), 1500.0);
+        assert!((only[1] - 1.0).abs() < 1e-12);
     }
 }

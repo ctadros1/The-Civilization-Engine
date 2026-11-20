@@ -953,6 +953,7 @@ mod tests {
             half_life_days: 0.0,
             sheltered_half_life_days: 0.0,
             eaten: Eaten::Never,
+            cook_wood_kg: 0.0,
             shared: false,
             reserve_for: None,
             tool: tool.then_some(ToolDef {

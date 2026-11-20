@@ -2031,3 +2031,80 @@ fn the_hearth_s_days_of_firewood_are_kept_from_the_pottery_fire() {
         "{cold} cold hearths in {nights} household-nights"
     );
 }
+
+/// A meal tied to its fuel (§8 20, eleventh; research 08-23 §4, 08-24): the hearth's daily burn
+/// holds the day's dishes. A household holding under a day's burning eats what needs no fire
+/// first and its boiled dishes last; the groats it would have boiled are kept, and its hearth burns
+/// less by their wood (1.4 kg a kilogram of groats). With fuel for days it eats the groats, the
+/// most perishable, as before, and burns its full rate.
+#[test]
+fn a_household_short_of_fuel_skips_its_porridge_and_burns_less_by_its_wood() {
+    let meal = |fuel_days: f64| {
+        let mut sim = new_world(3, 0);
+        let params = sim.rules().people.clone();
+        let goods = sim.rules().catalog.goods.clone();
+        let index = |id: &str| goods.iter().position(|g| g.id == id).expect(id);
+        let (wood, groats, provisions) = (
+            index("core:good/firewood"),
+            index("core:good/groats"),
+            index("core:good/provisions"),
+        );
+        let now = sim.now();
+        let (hh, who, members) = sim
+            .people()
+            .households
+            .iter()
+            .filter(|(_, x)| !x.members.is_empty())
+            .min_by_key(|(_, x)| x.id)
+            .map(|(_, x)| (x.id, x.members[0], x.members.len()))
+            .expect("a household");
+        let burn = population::fuel_per_day(&params, members, now.day_index());
+        {
+            let pop = sim.people_mut_for_tests();
+            for (_, x) in pop.households.iter_mut().filter(|(_, x)| x.id == hh) {
+                x.stores = population::stores_now(x, now, &params, &goods);
+                x.stores_at = now;
+                for (g, d) in goods.iter().enumerate() {
+                    if matches!(
+                        d.purpose,
+                        civ_agents::params::GoodUse::Food | civ_agents::params::GoodUse::Fuel
+                    ) {
+                        x.stores[g] = 0.0;
+                    }
+                }
+                x.stores[groats] = 5.0;
+                x.stores[provisions] = 5.0;
+                x.stores[wood] = fuel_days * burn;
+            }
+            for (_, p) in pop.people.iter_mut().filter(|(_, p)| p.id == who) {
+                p.energy_kcal = -1500.0;
+                p.needs_at = now;
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.eat_for_tests(ctx, who));
+        let x = sim.people().household(hh).expect("household").clone();
+        // Six hours on, the hearth has burned what it burns, less any dishes skipped.
+        let later = civ_core::SimTime::from_minutes(now.minutes() + 6 * 60);
+        let left = population::stores_now(&x, later, &params, &goods);
+        (
+            5.0 - x.stores[groats],
+            5.0 - x.stores[provisions],
+            fuel_days * burn - left[wood],
+            burn * 0.25,
+        )
+    };
+    // With fuel for days: the groats boiled, the full rate burned.
+    let (groats, provisions, burned, quarter) = meal(5.0);
+    assert!(groats > 0.1, "{groats} kg of groats eaten");
+    assert_eq!(provisions, 0.0);
+    assert!((burned - quarter).abs() < 1e-9, "{burned} of {quarter}");
+    // Short, half a day's: the provisions eaten instead, and the hearth burns less by the groats'
+    // wood, the same kilograms as were boiled above.
+    let (kept, eaten, short_burned, _) = meal(0.5);
+    assert_eq!(kept, 0.0, "the porridge skipped");
+    assert!(eaten > 0.1, "{eaten} kg of provisions eaten");
+    assert!(
+        (short_burned - (quarter - 1.4 * groats)).abs() < 1e-9,
+        "{short_burned} burned: a quarter day's {quarter} less 1.4 × {groats}"
+    );
+}

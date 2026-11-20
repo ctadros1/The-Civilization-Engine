@@ -467,6 +467,11 @@ pub struct GoodDef {
     pub sheltered_half_life_days: f64,
     /// How it is eaten.
     pub eaten: Eaten,
+    /// Firewood by heat a kilogram of it takes cooked, kilograms (§8 20, eleventh; research 08-24
+    /// §2: a dish's wood on an open fire); 0 for food that needs no fire or whose fire is not
+    /// counted apart. The hearth's daily burn holds it: a household short of fuel that skips the
+    /// dish burns less by it.
+    pub cook_wood_kg: f64,
     /// When brought home it is shared among every household of the settlement.
     pub shared: bool,
     /// Kept back from another good (seed grain from grain), by index in the goods: used in its

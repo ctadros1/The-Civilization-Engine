@@ -34631,6 +34631,7 @@ impl<'a> Household<'a> {
   pub const VT_MIDDEN_TIPPED: ::flatbuffers::VOffsetT = 66;
   pub const VT_MIDDEN_DISCARD_GOODS: ::flatbuffers::VOffsetT = 68;
   pub const VT_MIDDEN_DISCARD_KG: ::flatbuffers::VOffsetT = 70;
+  pub const VT_FUEL_CREDIT_KG: ::flatbuffers::VOffsetT = 72;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -34642,6 +34643,7 @@ impl<'a> Household<'a> {
     args: &'args HouseholdArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Household<'bldr>> {
     let mut builder = HouseholdBuilder::new(_fbb);
+    builder.add_fuel_credit_kg(args.fuel_credit_kg);
     builder.add_midden_tipped(args.midden_tipped);
     builder.add_midden_ash_kg(args.midden_ash_kg);
     builder.add_midden_carried(args.midden_carried);
@@ -34918,6 +34920,13 @@ impl<'a> Household<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(Household::VT_MIDDEN_DISCARD_KG, None)}
   }
+  #[inline]
+  pub fn fuel_credit_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(Household::VT_FUEL_CREDIT_KG, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Household<'_> {
@@ -34960,6 +34969,7 @@ impl ::flatbuffers::Verifiable for Household<'_> {
      .visit_field::<i64>("midden_tipped", Self::VT_MIDDEN_TIPPED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("midden_discard_goods", Self::VT_MIDDEN_DISCARD_GOODS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("midden_discard_kg", Self::VT_MIDDEN_DISCARD_KG, false)?
+     .visit_field::<f64>("fuel_credit_kg", Self::VT_FUEL_CREDIT_KG, false)?
      .finish();
     Ok(())
   }
@@ -34999,6 +35009,7 @@ pub struct HouseholdArgs<'a> {
     pub midden_tipped: i64,
     pub midden_discard_goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
     pub midden_discard_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
+    pub fuel_credit_kg: f64,
 }
 impl<'a> Default for HouseholdArgs<'a> {
   #[inline]
@@ -35038,6 +35049,7 @@ impl<'a> Default for HouseholdArgs<'a> {
       midden_tipped: -1,
       midden_discard_goods: None,
       midden_discard_kg: None,
+      fuel_credit_kg: 0.0,
     }
   }
 }
@@ -35184,6 +35196,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HouseholdBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Household::VT_MIDDEN_DISCARD_KG, midden_discard_kg);
   }
   #[inline]
+  pub fn add_fuel_credit_kg(&mut self, fuel_credit_kg: f64) {
+    self.fbb_.push_slot::<f64>(Household::VT_FUEL_CREDIT_KG, fuel_credit_kg, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HouseholdBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     HouseholdBuilder {
@@ -35235,6 +35251,7 @@ impl ::core::fmt::Debug for Household<'_> {
       ds.field("midden_tipped", &self.midden_tipped());
       ds.field("midden_discard_goods", &self.midden_discard_goods());
       ds.field("midden_discard_kg", &self.midden_discard_kg());
+      ds.field("fuel_credit_kg", &self.fuel_credit_kg());
       ds.finish()
   }
 }

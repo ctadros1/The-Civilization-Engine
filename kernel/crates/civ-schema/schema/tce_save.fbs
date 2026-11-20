@@ -529,6 +529,9 @@ table Household {
   // midden whole, kilograms by good, the goods indexing Households.goods; absent, nothing.
   midden_discard_goods: [uint] (id: 32);
   midden_discard_kg: [double] (id: 33);
+  // Schema 220 (§8 20, eleventh; appended within the unreleased saves 220): firewood by heat its
+  // hearth has yet to burn less, the wood of dishes it skipped while short of fuel; absent, none.
+  fuel_credit_kg: double (id: 34);
 }
 
 // A household's count at a mill review (schema 174): the day and the kilograms it had made in

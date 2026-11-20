@@ -27,6 +27,10 @@ pub(crate) struct GoodFile {
     pub sheltered_half_life_days: f64,
     /// `raw`, `cooked` or `never` (a recipe must make it into food first).
     pub eaten: String,
+    /// Content API 237 (§8 20, eleventh; research 08-24): firewood by heat a kilogram of it takes
+    /// cooked, kilograms; only food eaten cooked, at least 0 and at most 20. Absent, 0.
+    #[serde(default)]
+    pub cook_wood_kg: f64,
     pub shared: bool,
     /// The good it is kept back from, like seed from grain (used in its place only in hunger),
     /// or "" for none.
@@ -261,6 +265,7 @@ impl GoodFile {
             half_life_days: self.half_life_days,
             sheltered_half_life_days: self.sheltered_half_life_days,
             eaten: Eaten::from_name(&self.eaten)?,
+            cook_wood_kg: self.cook_wood_kg,
             shared: self.shared,
             reserve_for: None,
             tool: self.tool.as_ref().map(|t| ToolDef {
@@ -539,6 +544,17 @@ impl GoodFile {
                 "unknown `eaten` `{}` (known: raw, cooked, never)",
                 self.eaten
             ));
+        }
+        if !(self.cook_wood_kg.is_finite() && (0.0..=20.0).contains(&self.cook_wood_kg)) {
+            p.push(format!(
+                "`cook_wood_kg` must be at least 0 and at most 20, not {}",
+                self.cook_wood_kg
+            ));
+        }
+        if self.cook_wood_kg > 0.0 && eaten != Some(Eaten::Cooked) {
+            p.push(
+                "only food eaten cooked takes wood to cook: `cook_wood_kg` must be 0".to_owned(),
+            );
         }
         let purpose = GoodUse::from_name(&self.purpose);
         if purpose != Some(GoodUse::Food) {

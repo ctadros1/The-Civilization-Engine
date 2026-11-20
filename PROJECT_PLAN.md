@@ -10686,6 +10686,18 @@ and M6a gives rivers a daily flow.
       against taking as before; it fails without the change); faction (10), polity (15), review
       (4); the civ-agents unit tests; fmt and clippy clean. **Not yet:** the one removed barred
       from the next lot (a behaviour change).
+    - *Research 08-24 (2026-11-20): fuel by dish on an open hearth* (§9, "Research 08-24"; §8 20,
+      sixth; 08-23 §5's gap): wood per kilogram of cooked food (Specific Fuel Consumption) on
+      three-stone fires, measured in Kenyan school kitchens (Adkins et al. 2010: maize porridge
+      0.13-0.59, thin porridge 0.35, greens 0.20-0.46, maize and beans 0.53-0.65 over four and a
+      half hours, beef 0.76, all foods 0.45); a household's whole meal for five, 1.56 kg in 50
+      minutes in Malawi (Malakini and Maganga 2011), about 0.3 kg a person; bread at 0.55-0.90 kg
+      per kg of flour in Mozambican bakeries (Manhica et al. 2012); an experimental clay oven's
+      four hours of heating and 45 kg over a day of use (Lindenberg 2020); smoking fish at 2-12
+      kg/kg (FAO). No per-dish figure for the past was found. Its proposed rule for §8 20's
+      eleventh item: a meal's fuel by its dish (porridge 0.35, pulses 0.6, meat 0.75 kg a kg),
+      the hearth's warmth left a daily burn; TCE's summer 0.7 kg a person a day is two such meals.
+      Every figure marked by how it was reached. No code.
       **Tested:** forum (27), faction (9), the civ-agents unit tests; fmt and clippy clean.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
@@ -11982,7 +11994,7 @@ and M6a gives rivers a daily flow.
        earns a threshold, and read the stubble breaches beside it (after 1). Report-only.
     6. *Research: fuel by dish on an open hearth* (research 08-23 §5: "No figure for porridge or
        bread on an open hearth was found"): the grounding a meal tied to its fuel needs (item
-       11). A research gap, gate-neutral.
+       11). A research gap, gate-neutral. *Written 2026-11-20* (research 08-24).
     7. *The stubble law's forecast of the fine* (§7, "The stubble bar's breach, slice 2", "Not
        yet"): a household of the able weighing the law by the fine it would owe if it gleaned,
        not only by the gleaning lost. Deliberation, gated, against the narrowest margin (fixture
@@ -13825,3 +13837,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **A stubble breach counted on the dashboard (2026-11-20; §8 20, first; the observer's states' "Not yet"):** Decided by Claude under standing owner authority (2026-11-20). **Reason:** the stubble law's breaches are now seen and heard as cases, but the dashboard said only what was gleaned, so a long run could not show whether the law was broken or brought. Counting the records each polity already keeps for good needs no new counter or saved state. Saying them only where a law was broken keeps every other world's words as they were. Report-only, so the notables' gate did not move (0 of 40 runs). No ADR.
 - **The eleventh coverage pass (2026-11-20; §8 20, second; backlog E: test coverage):** Decided by Claude under standing owner authority (2026-11-20). **Reason:** three of the newest lines could change and no test would notice. Fuel fetched to sell again had no scene since the limit was lifted. The kiln's keep was pinned for firewood only, so the per-fuel keep and its technique test went unseen, and so did the batch path. The stubble breach's remembered-days filter was likewise unpinned. Each is now pinned by a test that fails without its line. Tests only, so nothing people do changes and the gate is not needed. Left, and said so: the law-in-force half of the breach filter, the same kind of guard.
 - **A recall told as one (2026-11-20; §8 20, third; §7, "A faction may recall a forum", "Not yet"):** Decided by Claude under standing owner authority (2026-11-20). **Reason:** a faction's recall of a forum passed as "an end to the hearing of cases", which does not say who was recalled or that cases go back to the gathering, the point of a recall (ADR-0025 §1). The chronicle's words are written in the kernel (`Polity::words_of`), and the observer reads the same words, so the change goes there, once, as a closing's source already does. Nothing but text reads those words, so no decision changes and the gate is not needed. No ADR.
+- **Research 08-24 (2026-11-20; §8 20, sixth; research 08-23 §5's gap):** Decided by Claude under standing owner authority (2026-11-20). **Reason:** a meal tied to its fuel (§8 20, eleventh) needs a figure for what a dish costs in wood on an open fire, which 08-23 did not find. Modern controlled cooking tests give one, read in full here: about 0.35 kg of wood per kg of cooked porridge, 0.6 for pulses, 0.75 for meat, and about 0.3 kg a person a meal. They also confirm TCE's existing figures in kind: the summer burn is two such meals, and hearth baking's 0.5 kg per kg of flour is at the low end of bakeries' 0.55-0.90. The past has no per-dish figure, so the note says the modern open fire is the stand-in and marks it uncertain. A research note, so nothing changes in the world.

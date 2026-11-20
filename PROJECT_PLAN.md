@@ -11893,6 +11893,89 @@ and M6a gives rivers a daily flow.
     ADR-0038's beasts; ADR-0041's downstream objections and pumped sewers; ADR-0040's rents law
     and a building raised to let; ADR-0045's shared meals.
 
+20. **What is open next, ranked (2026-11-20 survey, made as 16 to 19 were: question 19's
+    leftovers, §7's "Not yet" lines of 2026-11-18 to 2026-11-20, the ADRs' "Revisit when"
+    sections, research gaps, and the improvement passes; Unreal work, ADR-0046 and the walking
+    ground's flood-driven rebuilds, all the owner's, left out):** each item was checked against
+    `git log` (to d91c368) and §9. Question 19 is spent but for its ninth item, deferred (§9, "A
+    hearth short of fuel cooking leaner, deferred"), its third and fourth (measurements, carried
+    below) and its tenth to twelfth's remainders. Gate-neutral items come first.
+    **The ADRs' revisit conditions, checked:** none has newly come true. ADR-0044's food route was
+    met by ADR-0045 and answered in question 19 (§9, "A sewage farm's exposure blocked"). The rest
+    wait on what no lived world shows yet: glass (ADR-0037, ADR-0042, ADR-0044), frames past four
+    storeys (ADR-0037, ADR-0042), a non-pathogen harm model (ADR-0038, ADR-0044), beasts
+    (ADR-0038), storeys built to let and a rents issue (ADR-0040), a downstream objection or
+    pumped sewer (ADR-0041), geology or organised prospecting (ADR-0043), shared meals or a
+    food-only disease (ADR-0045), and ADR-0033, ADR-0034 and ADR-0036's demo conditions, which
+    item 4's demo would show.
+    **The speed pass:** the walking ground and landmarks laid again for each day's flood depths
+    (run 67's and run 80's entries) are the slow years' cost. Cutting them changes routes, so it
+    waits on the owner's choice between coarser wading steps and landmarks kept between floods
+    (weekly or daily). Theirs, not ranked here.
+    **Ranked:**
+    1. *A stubble breach counted on the dashboard* (§7, "the observer's states", "Not yet: a
+       breach of the stubble law is not counted"): the crime and poverty row counts what was
+       gleaned but not the breaches of a stubble law seen, nor how many were brought as cases.
+       Both are kept on the polity (`stubble_breaches`, never pruned), so the report reads them
+       from the world. Report-only, so gate-neutral.
+    2. *The eleventh coverage pass: the 2026-11-19 and 2026-11-20 slices* (§7's "Tested:" lists
+       read against the code): fuel fetched to sell again, which no scene shows (§7, "Fuel
+       fetched from other settlements", "Not yet"); a household whose hearth burns two fuels,
+       each kept from the kiln (§7, "The hearth's fuel kept from the kiln"); a stubble breach
+       outside the days a taking is remembered, never brought. Tests only, gate-neutral unless a
+       fault is found.
+    3. *A recall's chronicle words* (§7, "A faction may recall a forum", "Not yet"): a forum
+       ended on a faction's petition is told as any law's end is. Frames only, gate-neutral.
+    4. *The `m11_world` demo lived again on the current head* (question 19, third, carried):
+       nothing since 9b7f3a8 is measured in an eight-year M11 world, now including the hearth's
+       fuel kept from the kiln. A measurement on the homelab, the coordinator's to dispatch.
+       Gate-neutral.
+    5. *The harvest margins row read against a long run* (question 19, fourth, carried): once a
+       long run on a head past f1706c6 reports, read the row and say in §9 whether any of it
+       earns a threshold, and read the stubble breaches beside it (after 1). Report-only.
+    6. *Research: fuel by dish on an open hearth* (research 08-23 §5: "No figure for porridge or
+       bread on an open hearth was found"): the grounding a meal tied to its fuel needs (item
+       11). A research gap, gate-neutral.
+    7. *The stubble law's forecast of the fine* (§7, "The stubble bar's breach, slice 2", "Not
+       yet"): a household of the able weighing the law by the fine it would owe if it gleaned,
+       not only by the gleaning lost. Deliberation, gated, against the narrowest margin (fixture
+       2's enacted, +38.7 % against 55 %).
+    8. *A faction with no stake asking for another hearer* (§9, of that name; §7, "the forum
+       recall's choice, pinned", "Not yet"): whether a replacement, too, must bring the members a
+       gain before it is asked for. Factions, gated.
+    9. *A firing's wood gathered as its own errand* (§7, "The hearth's fuel kept from the kiln",
+       "Not yet"): a household wanting to fire pots, its wood all kept for the hearth, weighs
+       gathering toward the firing as a material is weighed toward a tool. Economy, gated: pottery
+       fell 13 % on seed 1 when the kiln stopped taking the hearth's wood.
+    10. *Fuel weighed with hunger when some is held but too little* (§7, "Fuel weighed with
+        hunger", "Not yet"): food waits on a fire only while no fuel at all is held. Economy,
+        gated.
+    11. *A meal tied to its fuel, then the lean hearth* (question 19, ninth, deferred; after 6):
+        the dish waiting on the fire sets the hearth's burn, so households with enough are exact
+        by construction. A new mechanism in every household's fuel accounting: smoke and gate
+        risk, and likely an ADR-0033 amendment.
+    12. *A want weighed over years* (question 19, tenth; §7, "Iron by trade", "Not yet"): a tool
+        weighed over its years of use, not its next season. The decision's horizon for every
+        tool, so larger and gated.
+    13. *Hired field work's leftovers* (§7, "Hired field work at the harvest, slice 1", "Not
+        yet"): the wage bid up while hours go untaken, hire for sowing and threshing, and pay in
+        sheaves or owed until threshing. Economy, gated, each its own slice.
+    14. *Word of barren ground between settlements* (question 19, eleventh, its remainder): a
+        claim of its own in the word. Gated.
+    15. *Deliberation's term leftovers* (§7, "a hearer for a term is forecast to serve its term",
+        "Not yet"): a council's seats' term in the amendment forecast, a renewable hearer's chance
+        of being named again, and the one removed by a recall barred from the next lot. Gated.
+    16. *Writing's leftovers* (§7, ADR-0025's "Writing arrives", slices 1 and 3, "Not yet"): a
+        finding kept by the forum or the polity rather than a household, and copies. Larger, an
+        ADR-0025 slice.
+    17. *Tips' and sewers' smaller deferrals* (question 19, twelfth, its remainder; ADR-0038 §6,
+        ADR-0044 §7): compaction and burning tips, a sewer rate, inspection as a law's term, a
+        polity store's tank spreading its sludge. Each small, of low value until a lived world
+        keeps tips and sewers for years. Selling sludge is blocked (§9, "Selling sludge
+        blocked").
+    Not carried from 19: its first, second, fifth, seventh, eighth and twelfth's sludge as dung,
+    all built or written (§9); its sixth, blocked (§9, "A sewage farm's exposure blocked").
+
 ---
 
 ## 9. Decisions log

@@ -8619,6 +8619,32 @@ and M6a gives rivers a daily flow.
       than its leisure, by the M8-M10 weighing as it is. **Not yet:** whether trade could bring
       the iron (no settlement sells any), and a wanter weighing what it is short of over years
       rather than days.
+    - *The m11 demo lived again on e209207 (2026-11-20): nothing of M11 in eight years, and why
+      two of its settlements stay apart* (§9, "The m11 demo on e209207"; §8 20, fourth). Homelab
+      run 86 on e209207 (node1, 57 minutes, 1.11 s a day; [record](demos/m11/m11-demo-8y-e209207.txt)):
+      931 people, saved and loaded whole. No M11 equipment or law in any taught settlement in
+      eight years; the controls as before, but for one person of Sedgewick who came to know the
+      vocabulary. **Against the sixth run (9b7f3a8):** Sedgehollow got less far: 10 kg of copper
+      by year 5 and 12 kg with 40 kg of ore by year 7, against 121 kg by year 5, and never came to
+      want a dynamo (from year 4 then); it holds none of the iron or iron ore it keeps (0 of 92 kg
+      of ore, 0 of 9 kg of iron by year 8). Thorndale's wanter held its 8 kg of iron and no copper,
+      as before; Stonefield's wanter gave up its instrument in year 6, as before, its 8 kg of iron
+      then kept for nothing. **"0.5 km from the hearth … beyond a walk of 60 minutes":** terrain,
+      not a fault, as M11d's ninth part found. Probed on e202c37 (the same world): Stonefield's
+      showing body, 499 m off, is reached by no walk of four hours, off the trails or on them fully
+      worn; the nearest cell reached lies 306 m from it, and the straight line crosses three river
+      cells. The record's words are true but say "beyond a walk of 60 minutes" both of a body too
+      far to walk to and of one no walk reaches. **Iron by trade (cda31a0) and copper between
+      settlements:** neither could move. A household buys a worked material only from an offer at
+      home or, by a fetch, from a seller in another settlement whose offer it holds a report of and
+      whose home lies within its settlement's walking field (144 minutes). Stonefield and
+      Sedgehollow reach no other hearth within that, even on trails fully worn (they lie 5.0 km
+      apart with water between); Thorndale reaches only the controls Elmbank, Hazeldale and
+      Sedgewick, who know nothing of smelting (the record does not count what they hold). And no
+      taught household held iron or copper beyond what it keeps but Stonefield's wanter after year
+      6, whom nobody could reach.
+      **Not yet:** why Sedgehollow dug less copper than in the sixth run; the record's words for a
+      body no walk reaches. Nothing nudged.
     - *Sewers and settling (2026-10-31, backlog D; [ADR-0041](decisions/0041-sewers-and-treatment.md)).*
       A polity lays a sewer by a `lay_sewer` law (`PolicyKind` appended; it answers
       `source_suspected` and `heaps_near` on `lay_current`'s machinery: forecast, way site, common
@@ -12012,7 +12038,8 @@ and M6a gives rivers a daily flow.
     4. *The `m11_world` demo lived again on the current head* (question 19, third, carried):
        nothing since 9b7f3a8 is measured in an eight-year M11 world, now including the hearth's
        fuel kept from the kiln. A measurement on the homelab, the coordinator's to dispatch.
-       Gate-neutral.
+       Gate-neutral. *Lived 2026-11-20* on e209207 (§7, "the m11 demo lived again on
+       e209207"): nothing of M11; two settlements cut off by water.
     5. *The harvest margins row read against a long run* (question 19, fourth, carried): once a
        long run on a head past f1706c6 reports, read the row and say in §9 whether any of it
        earns a threshold, and read the stubble breaches beside it (after 1). Report-only.
@@ -13874,3 +13901,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **NUDGE: the dishes' wood a kilogram, as measured (2026-11-20; the entry above; time-boxed):** groats boiled at 1.4 kg of wood a dry kilogram (08-24's 0.35 a kilogram cooked, at an assumed four parts cooked to one dry), meat 0.75, fish 0.6. These are used only to measure the dishes' share of the burn, not built. Revisit if a meal tied to its fuel is built, when the porridge's water ratio and fish's figure need their own grounding.
 - **Dishes skipped when the hearth is short (2026-11-20; §8 20, eleventh; research 08-23 §4, 08-24; content API 237; appended within saves 220):** Decided by the coordinator (2026-11-20), the form the entry above left. A good eaten `cooked` may name `cook_wood_kg`, the wood a kilogram of it takes cooked; the core's groats 1.4, meat 0.75, fish 0.6. The hearth's daily burn is unchanged and holds the day's dishes. A household holding less than a day's burning eats what needs no fire first and its boiled dishes cheapest in wood a kcal first; the wood of the dishes it so skips is credited (`fuel_credit_kg`, saved) and its hearth burns that much less. Where nothing is skipped the burn is the old one to the bit (a unit test over uneven days and odd cuts). A scene: a household with half a day's wood eats its provisions, keeps its groats, and burns less by 1.4 kg a kilogram of groats it would have boiled; it fails without the change. The world moves wherever a household runs under a day's wood: the notables' gate against e209207 passed with all 40 runs changed (fixture 2's enacted, the nearest its tolerance, +38.7 % to +46.0 % against 55 %). Two scenes moved and were reworked: the vaccinator scene missed a call made and answered within one of its three-hour steps, and now looks each minute; the contagion scene met a council awaiting its first election, by design (ADR-0024 §1), and keeps the founding custom (f176257).
 - **NUDGE: a day's burning as the edge of a short hearth (2026-11-20; the entry above; time-boxed):** `LEAN_FUEL_DAYS` = 1.0: below a day's wood a household eats what needs no fire first. A design prior. Revisit with the lean hearth, or if households in lived worlds sit under a day's wood for long stretches.
+- **The m11 demo on e209207 (2026-11-20; homelab run 86; §8 20, fourth):** Recorded by Claude under standing owner authority, the coordinator's run. Eight years on e209207 built and proposed nothing of M11 in any taught settlement. Read against the sixth run (9b7f3a8): Sedgehollow dug less copper (12 kg by year 7, against 121 by year 5) and never wanted a dynamo; Thorndale and Stonefield as before. **Reason** nothing was changed: Stonefield's copper ore "0.5 km from the hearth, beyond a walk of 60 minutes" is terrain, a river no walk crosses (no walk of four hours reaches it, on any trails), not a fault in the reach or the words' units. Iron by trade could not reach Sedgehollow, nor copper Thorndale: a purchase needs an offer at home or a reported one within the settlement's walking field (144 minutes), and Stonefield and Sedgehollow reach no other hearth within it; the only iron held beyond its keep was Stonefield's, from year 6. Why Sedgehollow dug less copper is left open.

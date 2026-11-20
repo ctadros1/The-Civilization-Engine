@@ -1568,8 +1568,9 @@ impl Population {
     /// Office law `law_id` of polity `pi` passed, and its template holds it for a term (M7a slice
     /// BN, ADR-0024 §2): its term runs from today. Filled by lot, those who stood for it at the
     /// gathering are those who put their names in (a design prior: wanting the office kept is
-    /// taken as willingness to keep it), less any its last term bars and any keeping the watch
-    /// already; a lot keyed by the law draws one. With nobody to draw, the law lapses and the
+    /// taken as willingness to keep it), less any its last term bars, the one the last law under
+    /// its template named if they were removed (recalled, or put out by another holder's law),
+    /// and any keeping the watch already; a lot keyed by the law draws one. With nobody to draw, the law lapses and the
     /// chronicle says so.
     fn fill_term(&mut self, ctx: &mut Ctx, pi: usize, law_id: PermanentId) {
         let day = ctx.now.day_index();
@@ -1583,13 +1584,27 @@ impl Population {
         let mut pool = 0;
         if tenure.by_lot {
             let barred = self.term_barred(pi, law.policy, def);
+            // And the one the last law under this template named, if it was removed rather than
+            // served out (§8 21, tenth; research 09-02 §8.6: removal before the term): ended by a
+            // recall, or put out by another holder's law. Barred from this lot only.
+            let removed = self.polities[pi]
+                .laws
+                .iter()
+                .rev()
+                .filter(|l| l.policy == law.policy && l.id != law_id)
+                .find(|l| {
+                    !matches!(l.status, LawStatus::Proposed | LawStatus::Rejected)
+                        && l.decided.is_some()
+                })
+                .filter(|l| l.status == LawStatus::Superseded)
+                .and_then(|l| l.holder);
             let watching: Vec<PermanentId> = self.polities[pi].watchers().map(|w| w.0).collect();
             let names: Vec<PermanentId> = law
                 .stances
                 .iter()
                 .filter(|r| r.stance == crate::polity::Stance::Support)
                 .map(|r| r.person)
-                .filter(|&p| Some(p) != barred && !watching.contains(&p))
+                .filter(|&p| Some(p) != barred && Some(p) != removed && !watching.contains(&p))
                 .filter(|&p| self.person(p).is_some())
                 // Who may hold it must know what it asks (M10c slice EE, second part).
                 .filter(|&p| {

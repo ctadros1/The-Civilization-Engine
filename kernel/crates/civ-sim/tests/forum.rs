@@ -2460,3 +2460,88 @@ fn a_faction_against_a_lone_hearer_asks_for_whichever_brings_its_members_more() 
     assert_eq!(kind(&sim, m.policy), PolicyKind::Repeal, "{m:?}");
     assert_eq!(m.nominee, None);
 }
+
+/// The one removed by a recall barred from the next lot (§8 21, tenth; §7, "a recall told as one",
+/// "Not yet"; research 09-02 §8.6: removal before the term): under a template filled by lot that
+/// renews, the hearer whose law was recalled is not drawn for the next, whatever the key, while
+/// one whose law lapsed may be drawn again. (The core's lot templates do not renew, so their last
+/// holder is barred already, recalled or not: the template is made to renew here.)
+#[test]
+fn the_one_removed_by_a_recall_is_not_drawn_for_the_next_lot() {
+    let template = "core:policy/zestfully_draw_a_hearer_by_lot";
+    let mut sim = world(3);
+    for d in &mut sim.rules_mut_for_tests().expect("rules").catalog.policies {
+        if d.id == template
+            && let Some(t) = d.tenure.as_mut()
+        {
+            t.renewable = true;
+        }
+    }
+    let hh = households(&sim);
+    assert!(hh.len() >= 3, "three households: {hh:?}");
+    let pi = 0;
+    let (hearer, other) = (hh[1].1[0], hh[2].1[0]);
+    let stances = |sim: &Sim, who: &[PermanentId]| -> Vec<civ_agents::polity::StanceRecord> {
+        who.iter()
+            .map(|&person| civ_agents::polity::StanceRecord {
+                person,
+                household: sim.people().person(person).expect("alive").household,
+                stance: Stance::Support,
+                gain: 0.0,
+                regard: 0.0,
+                opinion: 0.0,
+                values: 0.0,
+                view: 0.0,
+                owed: 0.0,
+            })
+            .collect()
+    };
+    // The first lot falls to the hearer, the only name in.
+    let first = law(&mut sim, template, None);
+    let s = stances(&sim, &[hearer]);
+    sim.people_mut_for_tests().polities[pi]
+        .law_mut(first)
+        .expect("the law")
+        .stances = s;
+    sim.with_ctx_for_tests(|pop, ctx| pop.fill_term_for_tests(ctx, pi, first));
+    assert_eq!(
+        sim.people_mut_for_tests().polities[pi]
+            .law_mut(first)
+            .expect("the law")
+            .holder,
+        Some(hearer)
+    );
+    // Recalled: the law that named them is ended by another.
+    let next_lot = |sim: &mut Sim, ended: LawStatus| {
+        sim.people_mut_for_tests().polities[pi]
+            .law_mut(first)
+            .expect("the law")
+            .status = ended;
+        let mut drawn = Vec::new();
+        for _ in 0..4 {
+            let next = law(sim, template, None);
+            let s = stances(sim, &[hearer, other]);
+            sim.people_mut_for_tests().polities[pi]
+                .law_mut(next)
+                .expect("the law")
+                .stances = s;
+            sim.with_ctx_for_tests(|pop, ctx| pop.fill_term_for_tests(ctx, pi, next));
+            let p = &mut sim.people_mut_for_tests().polities[pi];
+            drawn.push(p.law_mut(next).expect("the law").holder);
+            p.laws.retain(|l| l.id != next);
+            p.terms.retain(|t| t.0 != next);
+        }
+        drawn
+    };
+    let after_recall = next_lot(&mut sim, LawStatus::Superseded);
+    assert!(
+        after_recall.iter().all(|&h| h == Some(other)),
+        "the recalled hearer is not drawn: {after_recall:?}"
+    );
+    // Lapsed rather than removed, under a template that renews, they may be drawn again.
+    let after_lapse = next_lot(&mut sim, LawStatus::Lapsed);
+    assert!(
+        after_lapse.contains(&Some(hearer)),
+        "one whose law lapsed may be drawn again: {after_lapse:?}"
+    );
+}

@@ -75,7 +75,7 @@ cargo run --release -p civ-host                        # serve the observer on 1
 cargo run --release -p civ-host -- content validate [--json]
 cargo run --release -p civ-host -- smoke               # the smoke seeds; must pass
 cargo run --release -p civ-host -- smoke --years 10    # and ten years of each, its economy graded (nightly; ~11 min on 4 cores)
-cargo run --release -p civ-host -- dashboard           # plan §4.7: five valleys × fifty years, graded (nightly)
+cargo run --release -p civ-host -- dashboard           # plan §4.7: five valleys × fifty years, graded (weekly)
 cargo run --release -p civ-host -- consistency         # Gate B (ADR-0011 §5): Accelerated against Detailed (nightly; ~1.5 min on 4 cores)
 cargo run --release -p civ-host -- notables            # the notables' gate (ADR-0014 §4): the tier against every adult deliberating (~2 min)
 cargo run --release -p civ-host -- run --seed 2 --years 5   # one world, reported each year (calibration)
@@ -104,6 +104,9 @@ content and smoke seeds; a second Windows job builds the kernel library and keep
 artifact; Ubuntu lanes cover the web shell and schema freshness. Keep it green.
 `.github/workflows/nightly.yml` runs the ten-year smoke seeds nightly on `main` and on pull
 requests into it; run them yourself before a change to how people live, farm, build or die.
+The consistency and notables checks remain nightly; `.github/workflows/weekly.yml` runs the
+five-world, fifty-year dashboard on Sundays. Both background workflows use GitHub-hosted
+Ubuntu runners so they cannot occupy the homelab development pool.
 `.github/workflows/chain.yml` runs the whole per-slice chain (fmt, schema, clippy, the simcheck
 suite, smoke, content validator, commons, web build, unit and browser tests) on the homelab
 cluster's self-hosted runners, by hand only (`workflow_dispatch` with a `ref`, the runner labels

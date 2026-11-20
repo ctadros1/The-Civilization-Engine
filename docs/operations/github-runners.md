@@ -20,7 +20,17 @@ The management VM runs a small scheduler that moves shared policy labels among t
 | Work that may exceed six hours, or has no safe short estimate | `tce-auto-long` | node3 → node1; never node4 |
 | Timing benchmarks | explicit `node3` | node3 only, for comparable measurements |
 
-All jobs also require `self-hosted, Linux, X64, tce-ci`. The policy labels are managed by the scheduler; do not add them manually. `tce-long` remains a legacy node3 label for older workflow revisions. New scheduled simulation checks, web/schema checks and verification chains use the automatic policy instead of that bottleneck. Windows checks and pull-request checks stay GitHub-hosted.
+All homelab jobs also require `self-hosted, Linux, X64, tce-ci`. The policy labels are managed by the scheduler; do not add them manually. `tce-long` remains a legacy node3 label for older workflow revisions. Web/schema checks and verification chains use the automatic policy instead of that bottleneck. Windows checks and pull-request checks stay GitHub-hosted.
+
+## Background simulation checks
+
+The ten-year smoke, mode consistency and notables checks run nightly at 06:17 UTC in `nightly.yml`. The five-world, fifty-year dashboard runs weekly on Sunday at 06:47 UTC in `weekly.yml`. Both workflows also support manual dispatch; the shorter checks still run on pull requests into main.
+
+Both workflows use standard GitHub-hosted Ubuntu runners for every event, including manual dispatches. They request no homelab labels, so scheduled work cannot occupy nodes1/3/4 or queue ahead of Claude's development chains. The public repository can use these standard hosted runners without compute charges. Weekly and nightly workflows have separate concurrency groups, so starting either cannot cancel the other or a development run. The weekly job has a six-hour budget for the cold build and fifty-year simulation; the nightly budgets remain two hours for smoke and one hour for consistency/notables.
+
+For an explicitly requested homelab long run, `Homelab validation` still provides `suite=long`. That manual suite shares the development runner pool; the scheduling change does not alter it. Previously started workflows retain their original runner assignments.
+
+## Manual validation
 
 `Homelab validation` can be dispatched from **the workflow on main**, with `ref` set to the commit or working branch to test. This keeps current routing separate from an older branch's workflow definition. Leaving `ref` empty tests the dispatch revision. Pushing `ci/candidate` also starts the full chain; it never automatically merges code.
 
@@ -59,4 +69,4 @@ Servernode4 has an isolated VM with the shared `tce-ci` label. It adds capacity 
 
 Benchmarks must be pinned to one machine with a baseline measured on that same VM, CPU allocation, profile, and workload. No performance improvement or 10% budget comparison is claimed from installing runners.
 
-Sources: [GitHub runner routing](https://docs.github.com/en/actions/reference/runners/self-hosted-runners), [self-hosted runner security](https://docs.github.com/en/actions/reference/security/secure-use).
+Sources: [GitHub runner routing](https://docs.github.com/en/actions/reference/runners/self-hosted-runners), [self-hosted runner security](https://docs.github.com/en/actions/reference/security/secure-use), [standard hosted runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners), [job limits](https://docs.github.com/en/actions/reference/limits).

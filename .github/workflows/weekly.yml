@@ -1,0 +1,66 @@
+# Five river-valley worlds live fifty years and grade plan §4.7. The shorter smoke,
+# consistency and notables checks stay nightly in nightly.yml.
+# GitHub-hosted runners keep this background work out of the homelab development queue.
+name: Weekly fifty-year dashboard
+
+on:
+  schedule:
+    - cron: "47 6 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-dashboard-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+
+jobs:
+  dashboard:
+    name: Sanity dashboard (five worlds, fifty years)
+    runs-on: ubuntu-24.04
+    # Allow for a cold build and slower hosted CPUs, within GitHub's six-hour job limit.
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Toolchain (from rust-toolchain.toml)
+        run: rustup show active-toolchain
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: kernel -> target
+
+      - name: Build civ-host
+        working-directory: kernel
+        run: cargo build --locked --release -p civ-host
+
+      - name: Fifty years of five worlds
+        working-directory: kernel
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo run --locked --release -p civ-host -- dashboard \
+            --json "$RUNNER_TEMP/dashboard.json" | tee "$RUNNER_TEMP/dashboard.txt"
+
+      - name: Summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$RUNNER_TEMP/dashboard.txt" ]; then
+            { echo '```'; cat "$RUNNER_TEMP/dashboard.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dashboard
+          path: ${{ runner.temp }}/dashboard.json
+          if-no-files-found: ignore

@@ -10854,6 +10854,29 @@ and M6a gives rivers a daily flow.
       want before the harvest, not soften it; the dishes came after 9ed0acf. World 2 ended as one
       settlement of 83, whose few grain offers make its medians noisy. Report-only. **Not yet:**
       whether it recurs in the next long run.
+    - *Fuel weighed with hunger under a day's burning (2026-11-20): food waits on a fire before the
+      fuel is gone* (§9, "Fuel weighed with hunger under a day's burning"; §8 21, seventh; "Fuel
+      weighed with hunger", "Not yet"). Food waited on a fire only while a household held no fuel
+      at all; half a kilogram of firewood ended the waiting, though its hearth would be cold before
+      tomorrow's meals. **Built:** `fire_wanted_kg` counts food as waiting on a fire while the fuel
+      held is less than a day's burning (`LEAN_FUEL_DAYS`, the dish-skipping hearth's edge), and
+      wants the hearth's days less what is held; with none held, as before. **A scene's precondition
+      staged:** `a_household_with_no_firewood_weighs_fetching_it_from_another_settlement_by_report`
+      failed on a moved world: diagnosed term by term at the seller's door, its seller held 6.04 of
+      the 6.25 hoes it keeps (6.32 before), so it asked hoes for its wood instead of grain and the
+      buyer could not pay. The seller, holding 600 kg of wood, is far from the new edge: an honest
+      consequence of tool wear over the scene's days, not a reach of the change. The scene's seller
+      now holds the tools it keeps while it reviews its offers, its assertions unchanged (as
+      71d06bf set scenes' preconditions). **Tested:** people (35, one new: with half a kilogram, less
+      than a day's burning, she buys firewood for the bread it bakes, failing without the change;
+      one updated as its comment anticipated, its claim at the new edge: with a day and a half's,
+      firewood is weighed by the gathering it saves and is not her best purchase), fetch (27, one
+      staged; it passes with and without the change); the whole civ-sim suite (88 targets), the
+      unit tests; smoke (all 10 pass); fmt and clippy clean. **The notables' gate**, locally,
+      against ac51037: passes, 36 of 40 runs changed (fixture 1 proposals +47.5 % to +45.0 %,
+      enacted +22.5 % to +20.0 %, offices +0.0 %, moved −3.9 % to −4.0 %; fixture 2 proposals
+      +35.7 % to +31.0 %, enacted +44.4 % to +49.2 % against 55 %, offices +7.1 % to +25.0 %, moved
+      +50.0 % to +71.4 %). **Not yet:** nothing.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
@@ -12235,6 +12258,7 @@ and M6a gives rivers a daily flow.
        waits on a fire only while no fuel at all is held. Economy, gated. Its scene,
        `with_some_firewood_held_it_is_weighed_by_the_gathering_it_saves`, says it changes with
        this item; it is the scene the firing's wood moved (next).
+       *Built 2026-11-20* (§7, "fuel weighed with hunger under a day's burning"): gate 36 of 40, within tolerance.
     8. *A firing's wood as its own errand* (question 20, ninth; §9, "A firing's wood as its own
        errand, deferred"): after 7, whose scene it moved; the narrow form's gate passed.
        Economy, gated.
@@ -14074,3 +14098,5 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Long run 84: stubble breaches answered at their source (2026-11-20; homelab long run 84 on 9ed0acf; 3c040ea, fdb2232):** Decided by Claude under standing owner authority (2026-11-20), at the coordinator's direction. Run 84 failed one row, Food prices in world 2, and counted 970 cases before the gathering and 1,140 stubble breaches (844 in world 3 alone). Two sources were fixed. A seen breach was recorded at each choice to glean, so a gleaner going out again the same day made a fresh case and a fresh day's fine; now it is one a person a day, a later bout adding its witnesses. And the gleaner never weighed the fine; now they weigh its expected cost as a plan's sanction is weighed, from the findings they know of over the times the law was broken, their own household's always known. **Reason:** fix the source, not the dashboard: the hearings were filling with the same people's same days, and nobody learned from being fined. The price red is not explained by it (world 2: 27 findings in 50 years) and stays open. The gate: 1 of 40 runs changed, all within tolerance.
 - **NUDGE: a stubble breach once a person a day, and the fine's chance from findings over breakings (2026-11-20; the entry above; time-boxed):** one breach a person a day under a law is a design choice (the bylaws presented a gleaner, not each trip to the field); the chance of a finding is the findings one knows of over every time the law was broken, seen or not, as a plan's is over its encroachments. Revisit when a long run keeps a stubble law for years: if its findings still recur for the same households, the chance may need to be the gleaner's own record rather than the law's.
 - **Long run 84's food-price red: one history (2026-11-20; homelab long run 84 on 9ed0acf):** Decided by Claude under standing owner authority (2026-11-20). World 2's +1 log point is one world's history, not a shift: the other four read +7 to +11, the five worlds' mean is as in runs 80 to 83 (6.6 against 6.0-8.6), and world 2's fuel trade, paid reaping and stubble law are within what the other worlds show. **Reason** nothing was changed: the measure is right, no slice since be0a6e9 bears on it systematically, and one amber world among five reds the row. The next long run shows whether it recurs; a second would earn a look at the measure's noise in a one-settlement market.
+- **Fuel weighed with hunger under a day's burning (2026-11-20; §8 21, seventh):** Decided by Claude under standing owner authority (2026-11-20). Food waits on a fire while the fuel held is less than a day's burning, the dish-skipping hearth's edge, not only while none is held; the fuel wanted is the hearth's days less what is held. **Reason:** a hearth burns a daily rate whatever is cooked, so fuel under a day's burning is cold before tomorrow's meals, and the household's grain waits on a fire as surely as with none. One world-lived scene's precondition was staged after a term-by-term diagnosis found a seller short of a hoe asking hoes, not grain. The gate: 36 of 40 runs changed, all within tolerance; fixture 2's enacted at +49.2 % against 55 %, the nearest.
+- **NUDGE: a day's burning as the edge of food waiting on a fire (2026-11-20; the entry above; time-boxed):** the edge is `LEAN_FUEL_DAYS` (1.0), shared with the dish-skipping hearth, so a household eats what needs no fire first and weighs fuel by its meals below the same day's burning. A design prior; revisit with that one.

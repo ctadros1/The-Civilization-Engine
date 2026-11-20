@@ -1524,13 +1524,17 @@ pub fn spare_fuel_kg(h: &Household, now: SimTime, params: &PeopleParams, goods: 
 
 impl Population {
     /// The fuel household `hh`, holding `stores`, wants before it can eat, in kilograms of the
-    /// first fuel: its hearth's days of it when it holds no fuel and nothing it can eat as it is,
-    /// but food that a fire would make a meal of, by a way its members know with the tools it
-    /// holds (research 08-03 §2.1, 07-04 §4.5: grain is eaten ground and baked, or pounded and
-    /// boiled); none otherwise.
+    /// first fuel: its hearth's days of it, less what it holds, when it holds less than a day's
+    /// burning (`LEAN_FUEL_DAYS`: its fire goes out before tomorrow's meals; §8 21, seventh) and
+    /// nothing it can eat as it is, but food that a fire would make a meal of, by a way its
+    /// members know with the tools it holds (research 08-03 §2.1, 07-04 §4.5: grain is eaten
+    /// ground and baked, or pounded and boiled); none otherwise. Holding no fuel, its hearth's
+    /// days of it, as before.
     pub(crate) fn fire_wanted_kg(&self, ctx: &Ctx, hh: &Household, stores: &[f64]) -> f64 {
         let (goods, params) = (&ctx.catalog.goods, ctx.params);
-        if fuel_kg(stores, goods) > 0.0 || food_kcal(stores, goods).1 > 1.0 {
+        let day = fuel_per_day(params, hh.members.len().max(1), ctx.now.day_index());
+        let held = fuel_kg(stores, goods);
+        if held >= LEAN_FUEL_DAYS * day || food_kcal(stores, goods).1 > 1.0 {
             return 0.0;
         }
         let knows = |t: usize| {
@@ -1547,8 +1551,7 @@ impl Population {
         if make::fire_waiting_kcal(goods, &ctx.catalog.recipes, stores, &usable) <= 1.0 {
             return 0.0;
         }
-        params.household.fuel_target_days
-            * fuel_per_day(params, hh.members.len().max(1), ctx.now.day_index())
+        (params.household.fuel_target_days * day - held).max(0.0)
     }
 
     /// An empty population.

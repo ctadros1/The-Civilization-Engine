@@ -354,8 +354,36 @@ fn a_household_with_no_firewood_weighs_fetching_it_from_another_settlement_by_re
         set(sim, buyer, &empty);
     };
     cold(&mut sim);
-    // The seller has firewood to spare and offers it.
-    set(&mut sim, seller, &[("core:good/firewood", 600.0)]);
+    // The seller has firewood to spare and offers it, holding the tools it keeps: its terms are
+    // asked in what it wants, and a seller short of a tool asks that tool, which a buyer from
+    // elsewhere seldom holds to spare. The scene is about the fetch, not the seller's tools (§8
+    // 21, seventh: a world moved by fuel weighed with hunger left this seller 0.2 of a hoe short,
+    // and it asked hoes for its wood instead of grain).
+    let stocked = |sim: &mut Sim| {
+        set(sim, seller, &[("core:good/firewood", 600.0)]);
+        let keep = sim.with_ctx_for_tests(|pop, ctx| pop.keep_for_tests(ctx, seller));
+        let tools: Vec<usize> = sim
+            .rules()
+            .catalog
+            .goods
+            .iter()
+            .enumerate()
+            .filter(|(_, d)| d.tool.is_some())
+            .map(|(g, _)| g)
+            .collect();
+        if let Some(x) = sim
+            .people_mut_for_tests()
+            .households
+            .iter_mut()
+            .map(|(_, x)| x)
+            .find(|x| x.id == seller)
+        {
+            for g in tools {
+                x.stores[g] = x.stores[g].max(keep.get(g).copied().unwrap_or(0.0));
+            }
+        }
+    };
+    stocked(&mut sim);
     for _ in 0..8 {
         if sim
             .people()
@@ -366,7 +394,7 @@ fn a_household_with_no_firewood_weighs_fetching_it_from_another_settlement_by_re
         }
         sim.advance_minutes(DAY).expect("advances");
         cold(&mut sim);
-        set(&mut sim, seller, &[("core:good/firewood", 600.0)]);
+        stocked(&mut sim);
     }
     // What the seller offers is its firewood alone: the scene is about fuel.
     let only_firewood = |sim: &mut Sim| {

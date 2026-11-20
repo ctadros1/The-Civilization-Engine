@@ -1746,18 +1746,43 @@ fn one_whose_grain_waits_on_a_fire_weighs_firewood_by_the_meals_it_makes() {
     );
 }
 
-/// The edge of fuel weighed with hunger (§8 19, second; §7, "Fuel weighed with hunger", "Not
-/// yet"): her food waits on a fire only while she holds no fuel at all. With half a kilogram of
-/// firewood, too little to bake with, the firewood is weighed by the gathering it saves, as
-/// before, and is not her best purchase. When fuel too short for the food is weighed with hunger,
-/// this test changes with it.
+/// The edge of fuel weighed with hunger (§8 19, second; §8 21, seventh): her food waits on a fire
+/// while she holds less than a day's burning (`LEAN_FUEL_DAYS`), and no longer only while she
+/// holds none. With half a kilogram of firewood, too little to keep her hearth to tomorrow's
+/// meals, she weighs firewood by the bread it bakes and buys it, as with none. Before, any fuel
+/// held at all ended the waiting, and the half kilogram was weighed only by the gathering it saved.
 #[test]
-fn with_some_firewood_held_it_is_weighed_by_the_gathering_it_saves() {
+fn one_holding_less_than_a_day_s_firewood_weighs_it_by_the_meals_it_makes() {
     let (mut sim, hh, wood) = grain_waits_on_a_fire(0.5);
     let deal = sim.with_ctx_for_tests(|pop, ctx| pop.neighbours_deal_for_tests(ctx, hh, None));
     assert!(
+        deal.is_some_and(|(g, units, _)| g == wood && units >= 1.0),
+        "with less than a day's firewood, she would buy it for the bread it bakes: {deal:?}"
+    );
+}
+
+/// The other side of that edge (§8 19, second; §8 21, seventh): holding more than a day's burning,
+/// her grain does not wait on a fire, the firewood is weighed by the gathering it saves, as
+/// before, and is not her best purchase.
+#[test]
+fn with_firewood_for_more_than_a_day_it_is_weighed_by_the_gathering_it_saves() {
+    let (mut sim, hh, wood) = grain_waits_on_a_fire(0.5);
+    let params = sim.rules().people.clone();
+    let goods = sim.rules().catalog.goods.clone();
+    let now = sim.now();
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == hh {
+            x.stores = population::stores_now(x, now, &params, &goods);
+            x.stores_at = now;
+            x.stores[wood] = 1.5
+                * population::LEAN_FUEL_DAYS
+                * population::fuel_per_day(&params, x.members.len(), now.day_index());
+        }
+    }
+    let deal = sim.with_ctx_for_tests(|pop, ctx| pop.neighbours_deal_for_tests(ctx, hh, None));
+    assert!(
         deal.is_none_or(|(g, _, _)| g != wood),
-        "with firewood held, her grain does not wait on a fire: {deal:?}"
+        "with more than a day's firewood held, her grain does not wait on a fire: {deal:?}"
     );
 }
 

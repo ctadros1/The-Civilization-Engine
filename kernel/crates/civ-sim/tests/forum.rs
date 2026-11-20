@@ -2318,6 +2318,43 @@ fn a_faction_against_the_elders_petitions_to_end_their_forum() {
         stake(hh[2].0) > 0.0,
         "its elder is spared their evenings: {stakes:?}"
     );
+    // Told as a recall (§8 20, third): who is recalled from hearing cases, and that the gathering
+    // hears them again, in the words the chronicle and the observer give it; an end to another
+    // law reads as before.
+    let told = |sim: &mut Sim, ends: PermanentId| {
+        let repeal = law(sim, "core:policy/repeal", None);
+        let l = {
+            let p = &mut sim.people_mut_for_tests().polities[0];
+            let l = p
+                .laws
+                .iter_mut()
+                .find(|l| l.id == repeal)
+                .expect("the repeal");
+            l.ends = Some(ends);
+            l.clone()
+        };
+        let p = &sim.people().polities[0];
+        let kernel = p.words_of(&l, &sim.rules().catalog.policies, &|id| {
+            sim.people().name_of(id)
+        });
+        assert_eq!(kernel, civ_sim::frames::word::law_text(sim, p, &l));
+        kernel
+    };
+    assert_eq!(
+        told(&mut sim, forum),
+        "a recall of the elders from hearing cases, so that the gathering hears them again"
+    );
+    let hearer = hh[3].1[0];
+    let lone = law(&mut sim, "core:policy/name_a_hearer", Some(hearer));
+    let name = sim.people().name_of(hearer);
+    assert_eq!(
+        told(&mut sim, lone),
+        format!(
+            "a recall of the hearer {name} from hearing cases, so that the gathering hears them again"
+        )
+    );
+    let taking = law(&mut sim, "core:policy/against_taking", None);
+    assert_eq!(told(&mut sim, taking), "an end to the law against taking");
 }
 
 /// A one-holder forum, its hearer of household 3, who found nothing alone in household 0's case

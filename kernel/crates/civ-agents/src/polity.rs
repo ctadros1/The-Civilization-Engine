@@ -4098,6 +4098,24 @@ impl Polity {
             .filter(|_| repeal)
             .and_then(|e| self.laws.iter().find(|l| l.id == e))
         {
+            // An end to a forum is its recall, told as one (§8 20, third): who is recalled from
+            // hearing cases, and that the gathering hears them again (ADR-0025 §1).
+            Some(ended)
+                if let Some(def) = policies
+                    .get(usize::from(ended.policy))
+                    .filter(|d| d.kind == PolicyKind::HearCases)
+                    .and_then(|d| d.forum.as_ref()) =>
+            {
+                let holder = ended.holder.map(name_of);
+                let who = crate::forum::hearers_words(def, holder.as_deref());
+                let mut c = who.chars();
+                let who = c.next().map_or_else(String::new, |f| {
+                    f.to_lowercase().collect::<String>() + c.as_str()
+                });
+                format!(
+                    "a recall of {who} from hearing cases, so that the gathering hears them again"
+                )
+            }
             Some(ended) => format!("an end to {}", ending_words(ended, policies, name_of)),
             None => law_words(law, policies, name_of),
         }

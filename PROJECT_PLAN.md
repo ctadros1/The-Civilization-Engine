@@ -10672,6 +10672,20 @@ and M6a gives rivers a daily flow.
       not brought beside the fresh one, which is, once; it fails without the remembered days'
       filter). fmt and clippy clean. **Left:** a breach of a stubble law no longer in force (the
       other filter of the same line), read and judged a guard of the same kind, not pinned.
+    - *The observer (2026-11-20): a recall told as one* (§9, "A recall told as one"; §8 20,
+      third; "A faction may recall a forum", "Not yet": a recall's chronicle words of its own). A
+      repeal naming a forum read "an end to the hearing of cases" in the chronicle's decisions
+      and proposals, a petition's word and the government frame. **Built:** an end to a forum is
+      said as its recall, naming who is recalled and that the gathering hears cases again: "a
+      recall of the elders from hearing cases, so that the gathering hears them again", or "a
+      recall of the hearer Ada from hearing cases, ...", in the kernel's words of a law
+      (`Polity::words_of`), which the chronicle, the cases' and petitions' words and the
+      observer's law text all read. An end to any other law reads as before. Words only: no
+      decision reads them, so no gate. **Tested:** forum (27, one extended: the elders' recall
+      and a lone hearer's in the kernel's and the observer's words alike, and an end to the law
+      against taking as before; it fails without the change); faction (10), polity (15), review
+      (4); the civ-agents unit tests; fmt and clippy clean. **Not yet:** the one removed barred
+      from the next lot (a behaviour change).
       **Tested:** forum (27), faction (9), the civ-agents unit tests; fmt and clippy clean.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
@@ -11958,6 +11972,7 @@ and M6a gives rivers a daily flow.
        fault.
     3. *A recall's chronicle words* (§7, "A faction may recall a forum", "Not yet"): a forum
        ended on a faction's petition is told as any law's end is. Frames only, gate-neutral.
+       *Built 2026-11-20*, words only (§7, "a recall told as one").
     4. *The `m11_world` demo lived again on the current head* (question 19, third, carried):
        nothing since 9b7f3a8 is measured in an eight-year M11 world, now including the hearth's
        fuel kept from the kiln. A measurement on the homelab, the coordinator's to dispatch.
@@ -13809,3 +13824,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **NUDGE: the hearth's fuel kept from the kiln (2026-11-20; the entry above; time-boxed):** what a recipe may not burn is `fuel_target_days` (three days) of the hearth's burning for each fuel the household can use at its hearth, the keep held back from sale. Recipes whose first output is food (baking bread, drying fish or meat) take the hearth's fuel as before. Revisit if lived potters or smiths idle for want of wood they hold, or cold hearths come back by another route.
 - **A stubble breach counted on the dashboard (2026-11-20; §8 20, first; the observer's states' "Not yet"):** Decided by Claude under standing owner authority (2026-11-20). **Reason:** the stubble law's breaches are now seen and heard as cases, but the dashboard said only what was gleaned, so a long run could not show whether the law was broken or brought. Counting the records each polity already keeps for good needs no new counter or saved state. Saying them only where a law was broken keeps every other world's words as they were. Report-only, so the notables' gate did not move (0 of 40 runs). No ADR.
 - **The eleventh coverage pass (2026-11-20; §8 20, second; backlog E: test coverage):** Decided by Claude under standing owner authority (2026-11-20). **Reason:** three of the newest lines could change and no test would notice. Fuel fetched to sell again had no scene since the limit was lifted. The kiln's keep was pinned for firewood only, so the per-fuel keep and its technique test went unseen, and so did the batch path. The stubble breach's remembered-days filter was likewise unpinned. Each is now pinned by a test that fails without its line. Tests only, so nothing people do changes and the gate is not needed. Left, and said so: the law-in-force half of the breach filter, the same kind of guard.
+- **A recall told as one (2026-11-20; §8 20, third; §7, "A faction may recall a forum", "Not yet"):** Decided by Claude under standing owner authority (2026-11-20). **Reason:** a faction's recall of a forum passed as "an end to the hearing of cases", which does not say who was recalled or that cases go back to the gathering, the point of a recall (ADR-0025 §1). The chronicle's words are written in the kernel (`Polity::words_of`), and the observer reads the same words, so the change goes there, once, as a closing's source already does. Nothing but text reads those words, so no decision changes and the gate is not needed. No ADR.

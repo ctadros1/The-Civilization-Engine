@@ -1556,6 +1556,35 @@ fn a_household_short_of_food_proposes_to_keep_the_stubble_for_those_who_cannot_e
         a.1 == 0.0 && a.2 > 0.0,
         "the able give up their gleaning: {a:?}"
     );
+    // Weighed with its fine (§8 20, seventh): the able household may glean on and owe the fine of
+    // a finding a year, a day of its food, less than the year's gleaning it would give up, so the
+    // law costs it less than with no fine; the poor household weighs it as before.
+    let bundle = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .find(|d| d.kind == PolicyKind::KeepStubble)
+        .and_then(|d| d.bundles.first().copied())
+        .expect("the core's stubble law names a bundle");
+    assert!(bundle.fine_days > 0.0, "{bundle:?}");
+    let gains = |sim: &mut Sim, sanction: civ_agents::polity::Sanction| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.stubble_gains_for_tests(ctx, settlement, sanction))
+    };
+    let unfined = gains(&mut sim, Default::default());
+    let fined = gains(&mut sim, bundle);
+    let gain_of = |g: &[(civ_core::PermanentId, f64)], h| {
+        g.iter().find(|x| x.0 == h).map_or(f64::NAN, |x| x.1)
+    };
+    assert!(
+        gain_of(&unfined, able.0) < 0.0,
+        "the able lose by it: {unfined:?}"
+    );
+    assert!(
+        gain_of(&fined, able.0) > gain_of(&unfined, able.0) + 1e-9,
+        "a fine they would sooner owe costs the able less: {fined:?} against {unfined:?}"
+    );
+    assert_eq!(gain_of(&fined, poor.0), gain_of(&unfined, poor.0));
     // The gathering hears it from someone whose household would gain: review day by day until
     // it is proposed, each other proposal taken as passed (a village that has its common store
     // and its lending already).

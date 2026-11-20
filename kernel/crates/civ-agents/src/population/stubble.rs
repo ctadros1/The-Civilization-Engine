@@ -13,6 +13,12 @@ use super::{Ctx, Population, may_eat_reserve, reapers};
 use crate::person::{Household, Person, Target};
 use crate::polity::{LawStatus, PolicyKind};
 
+/// Findings of a breach a year that a household whose able glean on against a law keeping the
+/// stubble expects to owe the law's fine for (§8 20, seventh; research 08-22 §4: the bylaws were
+/// kept by the manor court, which fined those presented at its sitting): one, the harvest's
+/// gleaning heard once. A design prior.
+pub const STUBBLE_FINDINGS_A_YEAR: f64 = 1.0;
+
 impl Population {
     /// What keeping the stubble for those who cannot earn would bring each of `households` a year
     /// and cost it, kcal: what the polity's people who could earn the harvest wage gleaned, a
@@ -408,6 +414,63 @@ impl Population {
             .collect();
         households.sort_unstable();
         self.stubble_forecasts(ctx, &households)
+    }
+
+    /// What a law keeping the stubble with `sanction` would bring each household of settlement
+    /// `settlement`, points, as its members would weigh it at the gathering (§8 20, seventh): for
+    /// tests.
+    #[doc(hidden)]
+    pub fn stubble_gains_for_tests(
+        &self,
+        ctx: &Ctx,
+        settlement: PermanentId,
+        sanction: crate::polity::Sanction,
+    ) -> Vec<(PermanentId, f64)> {
+        let Some(pi) = self.polity_of(settlement) else {
+            return Vec::new();
+        };
+        let Some(policy) = ctx
+            .catalog
+            .policies
+            .iter()
+            .position(|d| d.kind == PolicyKind::KeepStubble)
+        else {
+            return Vec::new();
+        };
+        let mut households: Vec<PermanentId> = self
+            .households
+            .iter()
+            .filter(|(_, x)| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
+            .map(|(_, x)| x.id)
+            .collect();
+        households.sort_unstable();
+        let adults = self.members_of(settlement, ctx.now, ctx.params);
+        let fc = self.forecasts(ctx, pi, &households, &adults);
+        let m = crate::polity::MoveOption {
+            policy: policy as u16,
+            levy_share: 0.0,
+            issue: crate::polity::IssueKind::FoodShort,
+            nominee: None,
+            sanction,
+            hours: (0, 0),
+            body: None,
+            ends: None,
+            site: None,
+            target: None,
+            own_gain: 0.0,
+            followers_gain: 0.0,
+            support: 0.5,
+        };
+        let pp = &ctx.params.polity;
+        households
+            .iter()
+            .map(|&h| {
+                (
+                    h,
+                    pp.w_gain * fc.gain(&m, h, &ctx.catalog.policies, ctx.params),
+                )
+            })
+            .collect()
     }
 
     /// What keeping the stubble weighs with `person` now when they would glean, points: for

@@ -718,13 +718,22 @@ impl Forecasts {
             }
             // The stubble kept for those who cannot earn (§8 17, fourth, slice 2): what those who
             // could earn the harvest wage gleaned that its own who cannot would glean in their
-            // place, less what its own who could earn gleaned.
+            // place, less what its own who could earn gleaned. Where a finding fines (§8 20,
+            // seventh), its able may glean on and owe it instead: the fine of a finding a year
+            // (`STUBBLE_FINDINGS_A_YEAR`) in days of its own food, if that is the less.
             Some(PolicyKind::KeepStubble) => {
-                let (gain, cost) = self
+                let (gain, gave_up) = self
                     .stubble
                     .iter()
                     .find(|s| s.0 == h)
                     .map_or((0.0, 0.0), |s| (s.1, s.2));
+                let fine = f64::from(m.sanction.fine_days) * o.year_need / 365.0
+                    * super::stubble::STUBBLE_FINDINGS_A_YEAR;
+                let cost = if m.sanction.fine_days > 0.0 {
+                    gave_up.min(fine)
+                } else {
+                    gave_up
+                };
                 crate::polity::against_gain(o, gain, cost, pp)
             }
             // A claim (M5c slice AT): what the household believes outsiders take at the places

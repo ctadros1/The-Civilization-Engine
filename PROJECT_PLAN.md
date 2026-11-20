@@ -10698,6 +10698,28 @@ and M6a gives rivers a daily flow.
       eleventh item: a meal's fuel by its dish (porridge 0.35, pulses 0.6, meat 0.75 kg a kg),
       the hearth's warmth left a daily burn; TCE's summer 0.7 kg a person a day is two such meals.
       Every figure marked by how it was reached. No code.
+    - *The stubble law's forecast of the fine (2026-11-20): the able may glean on and owe it* (§9,
+      "The stubble law's forecast weighs its fine"; §8 20, seventh; "The stubble bar's breach,
+      slice 2", "Not yet"). Since slice 2 a stubble law carries its template's bundle, a day's
+      fine to the store, but a household whose own able gleaned still weighed it only by the
+      gleaning they would give up. **Built:** where the law's bundle fines, such a household weighs
+      the cheaper of giving up its able's gleaning and gleaning on to owe the fine of one finding
+      a year (`STUBBLE_FINDINGS_A_YEAR`, 1.0), in days of its own food, as a law against taking
+      weighs its bundle. A light fine makes the law cost the able less; a heavy one leaves it the
+      gleaning given up, as before. A household whose able did not glean weighs it as before.
+      **Tested:** polity (15, one extended: in the stubble proposal scene, the able household's
+      gain from the law with the core's bundle is above its gain with no fine, still a loss,
+      and the poor household's is unchanged; it fails without the change, through a new test
+      hook, `stubble_gains_for_tests`); the whole civ-sim suite (88 targets), the civ-agents and
+      civ-host unit tests; smoke (all 10 pass); fmt and clippy clean. **The notables' gate**,
+      locally, against 9ed0acf (its figures those of e054543, whose code people act on is the
+      same): passes, 1 of 40 runs changed (fixture 2, every adult, stream 6: its moved share
+      0.02555 to 0.02559, its proposals, enactments and offices the same), the aggregates the same
+      to the figure: fixture 1 proposals +50.0 %, enacted +25.0 %, offices +0.0 %, moved −4.4 %;
+      fixture 2 proposals +17.1 %, enacted +38.7 %, offices +7.7 %, moved +72.8 %, before and
+      after. **Not yet:** the one who would glean weighing the fine as they keep the law or not
+      (they weigh their stance and the norms, not the fine); findings a year read from how often
+      breaches are seen and brought.
       **Tested:** forum (27), faction (9), the civ-agents unit tests; fmt and clippy clean.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
@@ -11998,7 +12020,8 @@ and M6a gives rivers a daily flow.
     7. *The stubble law's forecast of the fine* (§7, "The stubble bar's breach, slice 2", "Not
        yet"): a household of the able weighing the law by the fine it would owe if it gleaned,
        not only by the gleaning lost. Deliberation, gated, against the narrowest margin (fixture
-       2's enacted, +38.7 % against 55 %).
+       2's enacted, +38.7 % against 55 %). *Built 2026-11-20* (§7, "the stubble law's forecast of
+       the fine"): 1 of 40 runs changed, the aggregates the same.
     8. *A faction with no stake asking for another hearer* (§9, of that name; §7, "the forum
        recall's choice, pinned", "Not yet"): whether a replacement, too, must bring the members a
        gain before it is asked for. Factions, gated.
@@ -13838,3 +13861,5 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **The eleventh coverage pass (2026-11-20; §8 20, second; backlog E: test coverage):** Decided by Claude under standing owner authority (2026-11-20). **Reason:** three of the newest lines could change and no test would notice. Fuel fetched to sell again had no scene since the limit was lifted. The kiln's keep was pinned for firewood only, so the per-fuel keep and its technique test went unseen, and so did the batch path. The stubble breach's remembered-days filter was likewise unpinned. Each is now pinned by a test that fails without its line. Tests only, so nothing people do changes and the gate is not needed. Left, and said so: the law-in-force half of the breach filter, the same kind of guard.
 - **A recall told as one (2026-11-20; §8 20, third; §7, "A faction may recall a forum", "Not yet"):** Decided by Claude under standing owner authority (2026-11-20). **Reason:** a faction's recall of a forum passed as "an end to the hearing of cases", which does not say who was recalled or that cases go back to the gathering, the point of a recall (ADR-0025 §1). The chronicle's words are written in the kernel (`Polity::words_of`), and the observer reads the same words, so the change goes there, once, as a closing's source already does. Nothing but text reads those words, so no decision changes and the gate is not needed. No ADR.
 - **Research 08-24 (2026-11-20; §8 20, sixth; research 08-23 §5's gap):** Decided by Claude under standing owner authority (2026-11-20). **Reason:** a meal tied to its fuel (§8 20, eleventh) needs a figure for what a dish costs in wood on an open fire, which 08-23 did not find. Modern controlled cooking tests give one, read in full here: about 0.35 kg of wood per kg of cooked porridge, 0.6 for pulses, 0.75 for meat, and about 0.3 kg a person a meal. They also confirm TCE's existing figures in kind: the summer burn is two such meals, and hearth baking's 0.5 kg per kg of flour is at the low end of bakeries' 0.55-0.90. The past has no per-dish figure, so the note says the modern open fire is the stand-in and marks it uncertain. A research note, so nothing changes in the world.
+- **The stubble law's forecast weighs its fine (2026-11-20; §8 20, seventh; research 08-22 §1, §4):** Decided by Claude under standing owner authority (2026-11-20). **Reason:** since slice 2, a finding of a stubble breach fines the gleaner's household, but the forecast still assumed the able give up their gleaning whatever the fine. A household facing a fine can comply or glean on and pay. The cheaper of the two is what the law costs it, as a law against taking already weighs its bundle against what a household would owe. One finding a year stands for the manor court presenting a season's gleaning once (a design prior). Only households whose own able gleaned weigh it differently, and only where the bundle fines. The notables' gate moved one run's moved share in its fifth decimal place (1 of 40), with every aggregate the same. No ADR.
+- **NUDGE: the stubble fine's findings a year (2026-11-20; the entry above; time-boxed):** a household whose able glean on is taken to owe the law's fine once a year (`STUBBLE_FINDINGS_A_YEAR`, 1.0), however often they glean. Revisit if lived worlds show the able voting for a stubble law they then breach often, with each breach brought, or the law's fine never weighed because findings are rarer than one a year.

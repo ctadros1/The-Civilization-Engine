@@ -593,6 +593,16 @@ impl Population {
             .map_or_else(Vec::new, |hh| self.own_costs_of(ctx, hh))
     }
 
+    /// The fuel household `household` wants before it can eat ([`Population::fire_wanted_kg`]),
+    /// from its stores now: for tests. Nothing for a household that is not there.
+    #[doc(hidden)]
+    pub fn fire_wanted_kg_for_tests(&self, ctx: &Ctx, household: PermanentId) -> f64 {
+        self.household(household).map_or(0.0, |hh| {
+            let stores = stores_now(hh, ctx.now, ctx.params, &ctx.catalog.goods);
+            self.fire_wanted_kg(ctx, hh, &stores)
+        })
+    }
+
     /// The good and units of the best purchase household `household` could make from its
     /// neighbours now (or from `only`), and the hours it saves, as [`Self::find_deal`] weighs it
     /// with every walk taken as none: for tests.

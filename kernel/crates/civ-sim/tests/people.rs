@@ -1786,6 +1786,44 @@ fn with_firewood_for_more_than_a_day_it_is_weighed_by_the_gathering_it_saves() {
     );
 }
 
+/// The claim of the scene above, pinned beside its assertion (§8 22, first): its "not her best
+/// purchase" rests on what else her neighbours offer, so this asks the claim itself. Holding a day
+/// and a half's burning, her grain does not wait on a fire, and firewood carries no hunger term:
+/// the fuel she wants before she can eat is nothing. Under a day's, as in the scene of half a
+/// kilogram, it is her hearth's days less what she holds.
+#[test]
+fn with_firewood_for_more_than_a_day_her_grain_does_not_wait_on_a_fire() {
+    let (mut sim, hh, wood) = grain_waits_on_a_fire(0.5);
+    let params = sim.rules().people.clone();
+    let goods = sim.rules().catalog.goods.clone();
+    let now = sim.now();
+    let day = |sim: &Sim| {
+        let n = sim.people().household(hh).expect("household").members.len();
+        population::fuel_per_day(&params, n, sim.now().day_index())
+    };
+    let burn = day(&sim);
+    let wanted =
+        |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.fire_wanted_kg_for_tests(ctx, hh));
+    let keep = params.household.fuel_target_days * burn;
+    let under = wanted(&mut sim);
+    assert!(
+        (under - (keep - 0.5)).abs() < 1e-6,
+        "under a day's burning she wants her hearth's days less what she holds: {under} of {keep}"
+    );
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == hh {
+            x.stores = population::stores_now(x, now, &params, &goods);
+            x.stores_at = now;
+            x.stores[wood] = 1.5 * population::LEAN_FUEL_DAYS * burn;
+        }
+    }
+    assert_eq!(
+        wanted(&mut sim),
+        0.0,
+        "with a day and a half's burning her grain does not wait on a fire"
+    );
+}
+
 /// The scene of fuel weighed with hunger: a grown woman alone, able to gather, holding grain beyond
 /// her year and nothing else to eat, with `held_wood` kilograms of firewood, among neighbours who
 /// offer firewood. Gives the world, her household and the firewood's index.

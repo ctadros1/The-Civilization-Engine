@@ -29,7 +29,7 @@ The standard measure is **Specific Fuel Consumption (SFC)**: the dry wood burned
 - **Pulses, or grain and pulses together:** about 0.6 kg/kg, taking about four times as long.
 - **Meat:** about 0.75 kg/kg.
 - **Per person per meal:** about 0.3 kg.
-- **Two meals a day:** about 0.6–0.7 kg a person. That is TCE's summer burn (0.7 kg a person a day, when the fire is mostly for cooking), so the hearth's existing figures are of the right order.
+- **Two meals a day:** about 0.6–0.7 kg a person, if both are boiled dishes. That is of the order of TCE's summer burn (0.7 kg a person a day), but TCE's people do not eat that way. *Corrected 2026-11-20, measured in a lived world:* over four years of river_valley seed 1, households ate about 55 % of their food as bread (which carries its own fuel in its recipe), 23–51 % as provisions eaten as they are, and 5–21 % as groats. The boiled dishes' wood at these figures was 6–13 % of what the hearth burned, month by month. The hearth's daily figure is mostly the fire's warmth and other uses, not two cooked meals (plan §9, "A meal tied to its fuel, measured and not built").
 - **Bread:** TCE's 0.5 kg of wood per kg of flour baked sits at the low end of what bakeries measure.
 
 Throughout, **measured** findings are kept apart from **estimates** and from figures reached only through search-engine summaries, which are marked (*search summary*). The three measured studies were read in full in this session; FAO's table was read on its page.
@@ -127,7 +127,7 @@ Throughout, **measured** findings are kept apart from **estimates** and from fig
   | Bread from the oven or the hearth | 0.5–0.9 kg per kg of flour, as built | |
 
   A household of five's meal is about 1.5 kg on an open fire.
-- **What the hearth keeps:** `fuel_kg_per_person_day` (0.7 kg in summer, 1.5 in winter) is two such meals and the fire's warmth. The warmth part stays a daily burn by the weather. Only the cooking part follows the dish.
+- **What the hearth keeps:** `fuel_kg_per_person_day` (0.7 kg in summer, 1.5 in winter) is the fire's warmth and its other uses, with a small part for the boiled dishes (6–13 % in a lived world; §1's correction). The warmth part stays a daily burn by the weather. Only the cooking part could follow the dish.
 - **Fewer and quicker meals when short** (08-23 §4): a household short of fuel cooks the dishes that cost least first (porridge before pulses or meat), and fewer of them. The burn then falls by what the dishes skipped would have taken, not by a share fixed in advance.
 - **Uncertain throughout:** the figures are modern, tropical and mostly from institutional or test cooking. Treat every figure as a *design prior* and every rule as plausible, not proven.
 

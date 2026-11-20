@@ -131,6 +131,24 @@ Throughout, **measured** findings are kept apart from **estimates** and from fig
 - **Fewer and quicker meals when short** (08-23 §4): a household short of fuel cooks the dishes that cost least first (porridge before pulses or meat), and fewer of them. The burn then falls by what the dishes skipped would have taken, not by a share fixed in advance.
 - **Uncertain throughout:** the figures are modern, tropical and mostly from institutional or test cooking. Treat every figure as a *design prior* and every rule as plausible, not proven.
 
+## 7. The dishes' figures checked, once built (2026-11-20)
+
+TCE's core content now charges a boiled dish its wood by the dry kilogram eaten (`cook_wood_kg`; plan §9, "Dishes skipped when the hearth is short"): groats 1.4, meat 0.75, fish 0.6. Each was read again against §2 and one new measure.
+
+- **Groats, and four parts cooked to one dry.**
+  - Porridge's water was measured by energy. USDA's plain oatmeal cooked with water gives 71 kcal per 100 g, against 379 kcal for the dry oats (FoodData Central 173905 and 173904; read through a recipe database's copy of the records). A thin porridge is about **5.3 parts cooked to one dry**.
+  - A stiff porridge such as ugali is about 2.5–3 parts to one, and whole grain boiled about 3. Those are cooks' and food tables' usual figures (*not re-read this session*).
+  - Four to one lies between a stiff porridge and a thin one. At §2's measured range (ugali 0.13–0.59 kg a kilogram cooked, thin porridge 0.35), a dry kilogram takes about **0.4–1.9 kg** of wood (*derived*).
+  - TCE's 1.4 kg sits inside that range, toward a household's smaller pot (*holds*).
+- **Meat.** Beef boiled took 0.76 kg of wood a kilogram cooked (Adkins et al. 2010). TCE's 0.75 kg a kilogram of meat matches it.
+  - A stew weighs more than the raw meat in it, so per raw kilogram the figure would be no lower (*derived*). Meat *holds*.
+- **Fish.** No measured figure for fish boiled or stewed on an open fire was found. The only fish measures in reach are for smoking (§4) and for fish stoves (an SNV Ghana controlled cooking test, whose numbers were not read).
+  - Fish cooks in a quarter to half an hour, like greens (0.20–0.46 kg a kilogram, 46 minutes for kale), not like beef (142 minutes).
+  - So cooking time argues for about **0.4** rather than TCE's 0.6 (*inference, uncertain*).
+  - With nothing measured to correct it to, the 0.6 stays as a design prior and is marked unmeasured.
+
+**For TCE:** groats and meat stand on measured ranges. Fish is a prior with no measure behind it, and the evidence of time is that it is on the high side.
+
 ## Sources
 
 - Adkins, E., Chen, J., Winiecki, J., Koinei, P. and Modi, V. (2010). Testing institutional biomass cookstoves in rural Kenyan schools for the Millennium Villages Project. *Energy for Sustainable Development*. doi:10.1016/j.esd.2010.07.002. Sauri, Siaya District, western Kenya. [PDF](https://qsel.columbia.edu/assets/uploads/blog/2013/06/Adkins-cookstove-Kenya-paper-Energy-for-S.D.-version-8.10.pdf) (read in full).
@@ -142,3 +160,5 @@ Throughout, **measured** findings are kept apart from **estimates** and from fig
 - Scottish Crannog Centre, experimental bread making (museum blog). [Post](https://crannog.co.uk/blog/crannog-blogs/staff-blogs/jason-experimental-bread-making/) (*search summary*).
 - Energypedia, Baking with improved ovens. [Page](https://energypedia.info/wiki/Baking_with_Improved_Ovens) (*search summary*).
 - Common beans and fuelwood in Rwanda (Michigan State University dissertation). [Record](https://d.lib.msu.edu/etd/22668) (*search summary*).
+- USDA FoodData Central: cereals, oats, regular and quick, unenriched, cooked with water, without salt (FDC 173905), and oats, dry (FDC 173904), as copied by [ReciPal](https://recipal.com/ingredients/1928-nutrition-facts-calories-protein-carbs-fat-cereals-oats-regular-and-quick-and-instant-unenriched-cooked-with-water-includes-boiling-and-microwaving-without-salt) (*search summary*, 2026-11-20).
+- SNV Ghana, controlled cooking tests of fish stoves (2014). [Report](https://www.crc.uri.edu/download/GH2014_ACT015_SNV.pdf) (*search summary*; its figures not read).

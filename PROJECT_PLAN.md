@@ -10806,6 +10806,15 @@ and M6a gives rivers a daily flow.
       Sedgehollow's people differ from the sixth run's after a month of slices (fuel fetched and
       kept from the kiln, ground looked over on errands, gleaning and hired reaping among them).
       Report-only. **Not yet:** nothing.
+    - *Research 08-24, §7 (2026-11-20): the dishes' wood a kilogram, checked once built* (§9, "The
+      dishes' figures checked"; §8 21, sixth). The figures the dish-skipping hearth charges were
+      read again. **Groats hold:** USDA's plain oatmeal cooked with water is 71 kcal a 100 g against
+      379 dry, a thin porridge 5.3 parts cooked to one dry; a stiff one is about 2.5-3, so four to
+      one lies between, and 08-24 §2's measured range gives 0.4-1.9 kg of wood a dry kilogram, about
+      TCE's 1.4. **Meat holds:** 0.75 against beef's measured 0.76 kg a kilogram cooked. **Fish is
+      unmeasured:** no figure for fish boiled on an open fire was found; cooking as quickly as greens
+      argues for about 0.4 against TCE's 0.6, but with nothing measured to correct it to, the figure
+      stays a prior. No content changed, so no gate. **Not yet:** a measured figure for fish.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
@@ -12182,6 +12191,7 @@ and M6a gives rivers a daily flow.
     6. *Research: the dishes' wood a kilogram grounded* (§9, "NUDGE: the dishes' wood a kilogram,
        as measured", whose revisit condition, the meal built, has come true): the porridge's water
        ratio and fish's figure on an open hearth. A research gap, gate-neutral.
+       *Checked 2026-11-20* (research 08-24 §7): groats and meat hold; fish unmeasured, kept.
     7. *Fuel weighed with hunger when some is held but too little* (question 20, tenth): food
        waits on a fire only while no fuel at all is held. Economy, gated. Its scene,
        `with_some_firewood_held_it_is_weighed_by_the_gathering_it_saves`, says it changes with
@@ -14021,3 +14031,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **The m11 demo says how far round (2026-11-20; §8 21, second):** Decided by Claude under standing owner authority (2026-11-20). The demo's line for a body beyond the digging walk keeps "beyond a walk of 60 minutes from it" and adds the walk to it, however far round (Stonefield's 0.5 km body: 7.8 hours' walk); a body no walk reaches is said to be. **Reason:** "0.5 km … beyond a walk of 60 minutes" read as a contradiction. Measured, the body is not beyond every walk, as "The m11 demo on e209207" put it (a river no walk crosses), but beyond every walk of four hours: the way round the water is 7.8 hours. Words only, no gate.
 - **The twelfth coverage pass (2026-11-20; §8 21, third):** Decided by Claude under standing owner authority (2026-11-20). The slices since the eleventh pass (9ed0acf, fdb2232, e202c37) were read against the code. One fault was found and fixed: the dishes' credit was dropped when a household moved or merged. It now goes with the wood it is owed against. Three edges were pinned: a credit saved mid-day, a lean household with no boiled dish, and a stubble fine dearer than the gleaning. **Reason** for the fix: the credit is wood owed back to the burn, so it belongs with the stores it adjusts. Behaviour, so gated: 0 of 40 runs changed.
 - **Why Sedgehollow dug less copper (2026-11-20; §8 21, fourth):** Decided by Claude under standing owner authority (2026-11-20). Probed on the demo's world, not kept: on today's head Sedgehollow never found the showing body of copper ore 2.2 km out in three years, which the sixth run (9b7f3a8) found and dug. Its copper came only from ore picked where it weathers out (93 kg of ore, 4.67 kg of copper, all used), and fuel never held it back. **Reason** nothing was changed: finding a body depends on whose walks pass within 50 m of it (ADR-0010 §1), and a month of slices since 9b7f3a8 moved those walks. That is emergence, not a fault. Nothing nudged.
+- **The dishes' figures checked (2026-11-20; §8 21, sixth; research 08-24 §7; against "NUDGE: the dishes' wood a kilogram, as measured"):** Decided by Claude under standing owner authority (2026-11-20). The NUDGE's revisit condition, a meal tied to its fuel built, came true with e202c37, and the figures were read again. Groats' 1.4 kg of wood a dry kilogram and its four parts cooked to one dry **hold**: a thin porridge is 5.3 to one by USDA's energy figures and a stiff one about 3, and 08-24's measured range then gives 0.4-1.9 kg a dry kilogram. Meat's 0.75 **holds** against beef's measured 0.76. Fish's 0.6 has **no measure** behind it: cooking time argues for about 0.4, but it is kept, since replacing one unmeasured figure with another earns nothing a gate could weigh. The NUDGE stands for fish alone.

@@ -448,7 +448,7 @@ research result.
 
 ### 4.7 Sanity dashboard and smoke seeds (the anti-research guardrail)
 
-A headless nightly run: **5 worlds × 50 in-game years**, using thresholds
+A headless weekly run: **5 worlds × 50 in-game years**, using thresholds
 only, with no statistical inference. The checks:
 
 - Population neither goes extinct nor explodes.
@@ -7800,6 +7800,8 @@ and M6a gives rivers a daily flow.
 ---
 
 ## 9. Decisions log
+
+- **2026-11-20 — Background validation schedule (owner request):** keep ten-year smoke, mode consistency and notables checks nightly; move the five-world, fifty-year dashboard to Sundays. Both workflows use standard GitHub-hosted Ubuntu runners, including manual dispatches, so background checks cannot occupy the homelab development pool. Nightly remains at 06:17 UTC; weekly runs Sunday at 06:47 UTC with a six-hour budget. Preserve pull-request checks, separate workflow concurrency and the explicitly dispatched homelab long suite. This supersedes earlier nightly-dashboard and scheduled-homelab routing entries; no simulation thresholds change.
 
 - **M2 full Windows milestone (2026-11-03, owner confirmation):** complete the full M2
   scope, including terrain, foliage, the kit, construction and night demo, beyond the initial

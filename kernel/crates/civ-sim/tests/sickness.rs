@@ -1845,7 +1845,8 @@ fn a_household_calls_a_vaccinator_before_a_variolator_and_its_people_are_vaccina
 }
 
 /// Where someone of a household died of smallpox, which passes at home and in company, keeping
-/// the sick apart comes before the gathering, against that death (M10c slice EE, first part).
+/// the sick apart comes before the gathering, against that death (M10c slice EE, first part). The
+/// scene keeps its polity's founding custom, the gathering of its adults, for the claim to rest on.
 #[test]
 fn a_death_of_contagion_puts_keeping_the_sick_apart_before_the_gathering() {
     use civ_agents::polity::{IssueKind, LawStatus, PolicyKind};
@@ -1884,6 +1885,25 @@ fn a_death_of_contagion_puts_keeping_the_sick_apart_before_the_gathering() {
         .iter()
         .position(|p| p.holds(Some(settlement)))
         .expect("its polity");
+    // Its people decide by the gathering of its adults, the founding custom: the claim is what one
+    // who lost someone puts to it. A custom lately taken to a council has no one to propose until
+    // its election seats someone (ADR-0024 §1: only seat-holders propose; an empty seat stays
+    // empty until its election), and the reviews below do not wait for that.
+    {
+        let gathering = civ_agents::polity::Body::gathering(&sim.rules().people.polity);
+        let now = sim.now();
+        let polity = &mut sim.people_mut_for_tests().polities[pi];
+        if polity.body != gathering {
+            polity.body = gathering;
+            polity.seated.clear();
+            polity.versions.push(civ_agents::polity::CustomVersion {
+                body: gathering,
+                since: now,
+                law: None,
+                seized_by: None,
+            });
+        }
+    }
     sim.people_mut_for_tests().every_adult_deliberates = true;
     let mut proposed = None;
     for _ in 0..24 {

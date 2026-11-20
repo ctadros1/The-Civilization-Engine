@@ -2108,3 +2108,66 @@ fn a_household_short_of_fuel_skips_its_porridge_and_burns_less_by_its_wood() {
         "{short_burned} burned: a quarter day's {quarter} less 1.4 × {groats}"
     );
 }
+
+/// The wood of dishes skipped while short of fuel (§8 20, eleventh) is owed back to the burn of
+/// the wood it was saved from (§8 21, third): a household merged into another passes its credit
+/// with its stores, and a credit saved mid-day loads as it was.
+#[test]
+fn the_wood_of_skipped_dishes_passes_in_a_merge_and_saves_mid_day() {
+    let mut sim = new_world(3, 0);
+    sim.advance_minutes(6 * 60 + 17).expect("advances");
+    let (from, to) = {
+        let mut ids: Vec<_> = sim
+            .people()
+            .households
+            .iter()
+            .filter(|(_, x)| !x.members.is_empty())
+            .map(|(_, x)| x.id)
+            .collect();
+        ids.sort_unstable();
+        (ids[0], ids[1])
+    };
+    let params = sim.rules().people.clone();
+    let goods = sim.rules().catalog.goods.clone();
+    let now = sim.now();
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == from || x.id == to {
+            x.stores = population::stores_now(x, now, &params, &goods);
+            x.stores_at = now;
+            x.fuel_credit_kg = if x.id == from { 1.5 } else { 0.25 };
+        }
+    }
+    // Saved and loaded mid-day, the credit is as it was.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(
+        &mut sim,
+        &saves,
+        commons_persist::SaveKind::Manual,
+        "credit",
+    )
+    .expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    for id in [from, to] {
+        assert_eq!(
+            loaded
+                .people()
+                .household(id)
+                .expect("loaded")
+                .fuel_credit_kg,
+            sim.people()
+                .household(id)
+                .expect("household")
+                .fuel_credit_kg,
+        );
+    }
+    // Merged, the household its people join is owed both.
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, from, to));
+    let x = sim.people().household(to).expect("household");
+    assert!(
+        (x.fuel_credit_kg - 1.75).abs() < 1e-12,
+        "{} kg owed back",
+        x.fuel_credit_kg
+    );
+}

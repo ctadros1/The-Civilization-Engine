@@ -1113,6 +1113,14 @@ impl Population {
             &legs,
             Channel::Inherit,
         );
+        // And the wood of the dishes it skipped, owed back to the burn, with its wood (§8 21,
+        // third).
+        let credit = self.household(from).map_or(0.0, |x| x.fuel_credit_kg);
+        if credit > 0.0
+            && let Some(x) = self.household_mut(to)
+        {
+            x.fuel_credit_kg += credit;
+        }
         // What its people knew of other places goes with them (ADR-0018 §4).
         let home = self.household(to).and_then(|x| x.settlement);
         self.known_places.bring(from, to, home);

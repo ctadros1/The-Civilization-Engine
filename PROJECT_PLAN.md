@@ -10772,6 +10772,25 @@ and M6a gives rivers a daily flow.
       hours'. The example's words only: no behaviour, so no gate. **Tested:** the example built and
       its founding lived on the demo's world (the three lines above); clippy over the examples and
       fmt clean. **Not yet:** nothing.
+    - *Backlog E, coverage, twelfth pass (2026-11-20): the slices since the eleventh* (§9, "The
+      twelfth coverage pass"; §8 21, third). Each "Tested:" list of 9ed0acf, fdb2232 and e202c37
+      was read against the code. **A fault found:** the wood of dishes skipped while short of fuel
+      (`fuel_credit_kg`, e202c37) was dropped when its household moved to another settlement (the
+      new record carried the stores but began owing nothing) or was merged into another, so the
+      wood it was saved from was burned after all. It now goes with the wood: a moving household
+      keeps its credit, and a merged one's is added to the household its people join; a couple
+      setting up house, an exile and a founding begin with none, as before. **Pinned:** a credit
+      saved mid-day loads as it was; a lean household holding no boiled dish eats as it would not
+      lean, to the bit; a stubble fine dearer than the year's gleaning the able would give up
+      weighs as no fine (fdb2232's `min`). **Tested:** people (34, one new: a credit saved and
+      loaded mid-day, and passed in a merge, 1.75 kg of 1.5 and 0.25; it fails without the merge's
+      fix at 0.25), settlements (28, one new: a household moving takes its 1.5 kg; 0 without the
+      fix), polity (one extended, the dear fine), civ-agents (one extended, the lean household
+      with no boiled dish); the whole civ-sim suite (88 targets), the unit tests; smoke (all 10
+      pass); fmt and clippy clean. **The notables' gate**, locally, against f43da39: passes, 0 of 40
+      runs changed (fixture 1 proposals +47.5 %, enacted +22.5 %, offices +0.0 %, moved −3.9 %;
+      fixture 2 proposals +36.9 %, enacted +46.0 %, offices +14.3 %, moved +50.0 %, before and
+      after). **Not yet:** nothing.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
@@ -12138,6 +12157,7 @@ and M6a gives rivers a daily flow.
        code): the hearth's credit for dishes skipped across a household's moving, splitting or
        ending; the credit saved and loaded mid-day; a lean household with no boiled dish to skip.
        Tests only, gate-neutral unless a fault is found.
+       *Done 2026-11-20* (§7, "coverage, twelfth pass"): one fault fixed, three edges pinned; gate 0 of 40.
     4. *Why Sedgehollow dug less copper than in the sixth run* (§7, "the m11 demo lived again on
        e209207", "Not yet"): 12 kg by year 7 on e209207 against 121 kg by year 5 on 9b7f3a8. A
        probe on the demo world, report-only.
@@ -13983,3 +14003,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **A firing's wood as its own errand, deferred (2026-11-20; §8 20, ninth; §7, "The hearth's fuel kept from the kiln", "Not yet"):** Decided by the coordinator's rule (2026-11-20): commit only if every aggregate stays within tolerance and no scene fails. **The gap, found:** a pot's firing wood was wanted as a material, counted against wood that included the hearth's keep, and a firewood patch never reads a material's want; so the kiln's wood weighed toward nothing, and a firing took only what gathering for the hearth left beyond its days. **First form** (on e202c37; branch `wip/firing-wood-errand`, 3b25e64; `/home/user/tce-pop-patches/firing-wood-errand-on-e202c37.patch`): for every pot a roofed household wants, the firing's fuel short beyond the hearth's keep was counted toward gathering as a tool's charcoal wood is (`tool_fuel`). Its scene (a roofed household of seed 1 with clay and only the hearth's days of wood fired 2.8 pots the first day and 30.9 in ten, against 0 and 15.7 without; it fails without the change) passed, and smoke. Two scenes failed: `with_some_firewood_held_it_is_weighed_by_the_gathering_it_saves` and `a_building_found_on_a_plan_s_ground_may_stand_for_a_yearly_payment`. The gate against e202c37 **failed**, all 40 runs changed: fixture 2's every-adult differences went from proposals +36.9 % to +105.2 % (tolerance 105 %) and enacted +46.0 % to +70.6 % (55 %), offices +14.3 % to +54.5 %, moved +50.0 % to +18.8 %; fixture 1's from +47.5, +22.5, +0.0 and −3.9 % to +40.0, +12.5, −30.0 and −23.2 %. **Second form, narrow** (on 7c4db53; branch `wip/firing-wood-narrow`, 50d346f; `/home/user/tce-pop-patches/firing-wood-narrow-on-7c4db53.patch`): counted only when the firing waits on its fuel alone (the way known, its tools held, its clay and every other input for one session's units held, and the fuel beyond the keep short), for that session. Its scene passed, the rent scene passed unchanged, smoke passed, and the gate against 7c4db53 **passed**, 20 of 40 runs changed: fixture 1's every-adult differences from +47.5, +22.5, +0.0 and −3.9 % to +40.0, +12.5, −30.0 and −23.2 % (all within 105, 55, 85 and 95 %), fixture 2 unchanged. `with_some_firewood_held_it_is_weighed_by_the_gathering_it_saves` still failed. **Reason** it is deferred: pots' wood reaches every roofed household's gathering, and through what households hold, its neighbours' offers and deals. The first form moved deliberation past the gate; the narrow one still changes the scene's world over the 200 days it lives before its setup. Its woman never met the narrow condition, but her neighbours' firewood offers moved, and she would buy 1.9 units of firewood for 0.11 hours saved. The scene's own words say it changes with fuel weighed with hunger when some is held (§8 21, seventh), so the firing's wood follows that item (§8 21, eighth).
 - **A stubble breach's case counted apart (2026-11-20; §8 21, first):** Decided by Claude under standing owner authority (2026-11-20). The justice row says, of its cases, how many were brought for a breach of a stubble law and how many of them were found, only where there were any. **Reason:** the crime and poverty row counted the breaches and those brought, but not what the hearings made of them; the polities keep every breach with its case, so the row reads them at a run's end. Report-only, so no gate.
 - **The m11 demo says how far round (2026-11-20; §8 21, second):** Decided by Claude under standing owner authority (2026-11-20). The demo's line for a body beyond the digging walk keeps "beyond a walk of 60 minutes from it" and adds the walk to it, however far round (Stonefield's 0.5 km body: 7.8 hours' walk); a body no walk reaches is said to be. **Reason:** "0.5 km … beyond a walk of 60 minutes" read as a contradiction. Measured, the body is not beyond every walk, as "The m11 demo on e209207" put it (a river no walk crosses), but beyond every walk of four hours: the way round the water is 7.8 hours. Words only, no gate.
+- **The twelfth coverage pass (2026-11-20; §8 21, third):** Decided by Claude under standing owner authority (2026-11-20). The slices since the eleventh pass (9ed0acf, fdb2232, e202c37) were read against the code. One fault was found and fixed: the dishes' credit was dropped when a household moved or merged. It now goes with the wood it is owed against. Three edges were pinned: a credit saved mid-day, a lean household with no boiled dish, and a stubble fine dearer than the gleaning. **Reason** for the fix: the credit is wood owed back to the burn, so it belongs with the stores it adjusts. Behaviour, so gated: 0 of 40 runs changed.

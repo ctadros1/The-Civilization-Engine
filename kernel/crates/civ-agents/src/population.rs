@@ -9854,6 +9854,21 @@ mod tests {
             (lean[0] - (10.0 - 3000.0 / 2500.0)).abs() < 1e-12,
             "{lean:?}"
         );
+        // With no boiled dish among what it holds, lean or not it eats the same (§8 21, third).
+        let raw: Vec<GoodDef> = goods
+            .iter()
+            .cloned()
+            .map(|mut g| {
+                if g.cooked() {
+                    g.eaten = Eaten::Raw;
+                }
+                g
+            })
+            .collect();
+        let (mut c, mut d) = (stores.clone(), stores.clone());
+        let tc = eat_from(&mut c, &raw, 3600.0, false);
+        let td = eat_from_by(&mut d, &raw, 3600.0, false, true);
+        assert_eq!((tc.to_bits(), c), (td.to_bits(), d));
         // With nothing that needs no fire, the boiled dishes are eaten, cheapest first.
         let mut only = vec![0.0, 2.0, 0.0, 5.0, 0.0];
         assert_eq!(eat_from_by(&mut only, &goods, 1500.0, false, true), 1500.0);

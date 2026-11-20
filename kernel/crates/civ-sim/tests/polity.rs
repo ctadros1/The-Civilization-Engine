@@ -1585,6 +1585,20 @@ fn a_household_short_of_food_proposes_to_keep_the_stubble_for_those_who_cannot_e
         "a fine they would sooner owe costs the able less: {fined:?} against {unfined:?}"
     );
     assert_eq!(gain_of(&fined, poor.0), gain_of(&unfined, poor.0));
+    // A fine dearer than the year's gleaning they would give up is not owed: they keep the law,
+    // and it weighs as with no fine (§8 21, third).
+    let dear = gains(
+        &mut sim,
+        civ_agents::polity::Sanction {
+            fine_days: 10_000.0,
+            ..bundle
+        },
+    );
+    assert_eq!(
+        gain_of(&dear, able.0).to_bits(),
+        gain_of(&unfined, able.0).to_bits(),
+        "a fine dearer than the gleaning: {dear:?} against {unfined:?}"
+    );
     // The gathering hears it from someone whose household would gain: review day by day until
     // it is proposed, each other proposal taken as passed (a village that has its common store
     // and its lending already).

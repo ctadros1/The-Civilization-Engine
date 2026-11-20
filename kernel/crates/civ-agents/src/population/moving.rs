@@ -455,7 +455,8 @@ impl Population {
             settlement: Some(to),
             stores: old.stores.clone(),
             stores_at: now,
-            fuel_credit_kg: 0.0,
+            // The wood of the dishes it skipped goes with the wood it carries (§8 21, third).
+            fuel_credit_kg: old.fuel_credit_kg,
             water_l: 0.0,
             water_at: now,
             water_use_l: 0.0,

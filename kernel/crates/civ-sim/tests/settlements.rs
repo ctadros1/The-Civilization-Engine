@@ -2277,3 +2277,46 @@ fn a_household_gone_to_fed_kin_walks_back_to_reap_the_crop_it_sowed() {
         pop.residence_problems()
     );
 }
+
+/// The wood of dishes skipped while short of fuel (§8 20, eleventh) is owed back to the burn of
+/// the wood it was saved from, so a household that moves to another settlement takes its credit
+/// with the wood it carries (§8 21, third).
+#[test]
+fn a_household_that_moves_takes_the_wood_its_skipped_dishes_saved() {
+    let mut sim = world(3, 30, &[30]).expect("generates");
+    sim.advance_minutes(24 * 60).expect("lives");
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let h = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(a) && !x.members.is_empty())
+        .map(|(_, x)| x.id)
+        .min()
+        .expect("a household");
+    let members = sim
+        .people()
+        .household(h)
+        .expect("household")
+        .members
+        .clone();
+    let params = sim.rules().people.clone();
+    let goods = sim.rules().catalog.goods.clone();
+    let now = sim.now();
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == h {
+            x.stores = civ_agents::population::stores_now(x, now, &params, &goods);
+            x.stores_at = now;
+            x.fuel_credit_kg = 1.5;
+        }
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.relocate_for_tests(ctx, h, b));
+    let moved = sim
+        .people()
+        .households
+        .iter()
+        .find(|(_, x)| x.settlement == Some(b) && x.members.contains(&members[0]))
+        .map(|(_, x)| x.fuel_credit_kg)
+        .expect("moved");
+    assert!((moved - 1.5).abs() < 1e-12, "{moved} kg owed back");
+}

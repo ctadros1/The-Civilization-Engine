@@ -79,6 +79,28 @@ pub struct NavGrid {
     barrier_revision: u32,
     /// Derived from effective walking conditions, stable across flow-only changes and loads.
     travel_revision: u64,
+    /// The same grid with no flood laid over it and every fordable reach at its usual flow
+    /// ([`NavGrid::dry`]), when this one has a flood or flows laid over it. Experimental.
+    dry: Option<std::sync::Arc<NavGrid>>,
+}
+
+/// Whether landmarks are built on the dry grid ([`NavGrid::dry`]): set by `TCE_DRY_LANDMARKS`
+/// (experimental, for measuring).
+fn dry_landmarks() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var_os("TCE_DRY_LANDMARKS").is_some())
+}
+
+static LANDMARK_BUILDS: AtomicU64 = AtomicU64::new(0);
+static LANDMARK_NANOS: AtomicU64 = AtomicU64::new(0);
+
+/// Landmark tables built in this process and the wall seconds their building took, on every
+/// thread: what a benchmark reads (experimental).
+pub fn landmark_builds() -> (u64, f64) {
+    (
+        LANDMARK_BUILDS.load(Ordering::Relaxed),
+        LANDMARK_NANOS.load(Ordering::Relaxed) as f64 * 1e-9,
+    )
 }
 
 /// Cells the route searches on this thread have expanded, summed: what a benchmark reads to
@@ -535,6 +557,22 @@ impl NavGrid {
         // The revision it was laid at, even when nothing bars walking: a grid that forgot it
         // would be laid again at every refresh (§8 18, second).
         grid.barrier_revision = barrier_revision;
+        if dry_landmarks() && (reach_discharges.is_some() || flood_depths.is_some()) {
+            // A flood only slows or closes a step, and a reach's flow only closes its ford:
+            // this grid's every step is at least as slow as the dry one's, so times on the dry
+            // grid are lower bounds of times on this one.
+            grid.dry = Some(std::sync::Arc::new(Self::with_barriers(
+                map,
+                params,
+                decks,
+                revision,
+                None,
+                None,
+                0,
+                barriers,
+                barrier_revision,
+            )));
+        }
         if barriers.is_empty() {
             return grid;
         }
@@ -550,6 +588,13 @@ impl NavGrid {
         }
         grid.travel_revision = hash.finish();
         grid
+    }
+
+    /// The grid with no flood laid over it and every fordable reach at its usual flow: no step
+    /// on it is slower than on this grid, so landmarks built on it bound searches on this one
+    /// (experimental). This grid itself when nothing was laid over it.
+    pub fn dry(&self) -> &NavGrid {
+        self.dry.as_deref().unwrap_or(self)
     }
 
     /// The revision of the enclosures laid over it.
@@ -651,6 +696,7 @@ impl NavGrid {
             flood_revision,
             barrier_revision: 0,
             travel_revision: hash.finish(),
+            dry: None,
         }
     }
 
@@ -669,6 +715,13 @@ impl NavGrid {
             && self.ground == previous.ground
         {
             self.id = previous.id;
+        }
+        if let (Some(dry), Some(was)) = (&self.dry, &previous.dry)
+            && dry.travel_revision == was.travel_revision
+            && dry.params == was.params
+            && dry.ground == was.ground
+        {
+            self.dry = Some(was.clone());
         }
     }
 
@@ -1160,6 +1213,7 @@ impl NavGrid {
         trail: &(impl Fn(usize) -> f32 + Sync + ?Sized),
         area: ((usize, usize), (usize, usize)),
     ) -> Landmarks {
+        let started = std::time::Instant::now();
         let n = self.width * self.height;
         let ((x0, y0), (x1, y1)) = self.clip(area);
         let (w, h) = (x1 - x0 + 1, y1 - y0 + 1);
@@ -1229,6 +1283,8 @@ impl NavGrid {
                 }
             }
         });
+        LANDMARK_BUILDS.fetch_add(1, Ordering::Relaxed);
+        LANDMARK_NANOS.fetch_add(started.elapsed().as_nanos() as u64, Ordering::Relaxed);
         Landmarks {
             cells: n,
             map_width: self.width,
@@ -2521,5 +2577,86 @@ mod tests {
             );
             assert_eq!(plain, fast, "{a} to {b}");
         }
+    }
+
+    #[test]
+    fn landmarks_on_dry_ground_bound_searches_on_flooded_ground() {
+        // Hills, a fordable river swollen shut, flood patches deep and shallow, trails: routes on
+        // the flooded grid bounded by landmarks built on its dry grid take as long as those
+        // bounded by landmarks built on the flooded grid itself, and as those not bounded at all.
+        let mut map = flat(64, 64);
+        let mut rng = Rng64::seed_from_u64(11);
+        for (c, z) in map.elevation.iter_mut().enumerate() {
+            let (x, y) = ((c % 64) as f32, (c / 64) as f32);
+            *z = 100.0 + 9.0 * (x / 8.0).sin() * (y / 6.0).cos() + (rng.next_f64() * 2.0) as f32;
+        }
+        let river: Vec<u32> = (0..64u32).map(|y| y * 64 + 30).collect();
+        for &c in &river {
+            map.water[c as usize] = WATER_RIVER;
+        }
+        let p = params();
+        map.reaches = vec![RiverReach {
+            id: 0,
+            cells: river,
+            downstream: None,
+            terminus: Terminus::Outlet,
+            order: 1,
+            discharge_m3s: (p.ford_max_discharge_m3s * 0.5) as f32,
+            width_m: 5.0,
+            drainage_area_km2: 10.0,
+        }];
+        let mut depths = vec![0.0f32; 4096];
+        for _ in 0..25 {
+            let (cx, cy) = ((rng.next_u64() % 64) as i64, (rng.next_u64() % 64) as i64);
+            let d = if rng.next_f64() < 0.5 { 0.2 } else { 0.8 };
+            for dy in -3..=3i64 {
+                for dx in -3..=3i64 {
+                    let (x, y) = (cx + dx, cy + dy);
+                    if (0..64).contains(&x) && (0..64).contains(&y) {
+                        depths[(y * 64 + x) as usize] = d;
+                    }
+                }
+            }
+        }
+        let swollen = [(p.ford_max_discharge_m3s * 2.0) as f32];
+        // Two bridges over the river its swelling closes to wading.
+        let bridges = [(10 * 64 + 30, 1.0), (50 * 64 + 30, 1.0)];
+        let flooded =
+            NavGrid::with_barriers(&map, p, &bridges, 1, Some(&swollen), Some(&depths), 1, &[], 0);
+        // As `NavGrid::dry` lays it beside the flooded grid.
+        let dry = &NavGrid::with_barriers(&map, p, &bridges, 1, None, None, 0, &[], 0);
+        assert!(
+            (0..4096).all(|c| dry.ground[c] >= flooded.ground[c]),
+            "no cell walked slower dry"
+        );
+        assert!((0..4096).any(|c| dry.ground[c] > flooded.ground[c]));
+        let trail = |c: usize| if (c / 64) % 7 == 3 { 1.0 } else { 0.2 };
+        let area = ((8, 8), (56, 56));
+        let wet_lm = flooded.landmarks(&map.elevation, &trail, area);
+        let dry_lm = dry.landmarks(&map.elevation, &trail, area);
+        let (mut found, mut unreachable) = (0, 0);
+        for _ in 0..400 {
+            let a = (rng.next_u64() % 4096) as usize;
+            let b = (rng.next_u64() % 4096) as usize;
+            let go = |lm: Option<&Landmarks>| {
+                flooded.route_with(&map.elevation, (a, b), &trail, 1.0, 1_000_000, lm)
+            };
+            let (plain, wet, by_dry) = (go(None), go(Some(&wet_lm)), go(Some(&dry_lm)));
+            match (&plain, &wet, &by_dry) {
+                (RouteResult::Found(p), RouteResult::Found(w), RouteResult::Found(d)) => {
+                    found += 1;
+                    let (p, w, d) = (p.total_seconds(), w.total_seconds(), d.total_seconds());
+                    assert!(
+                        (d - p).abs() <= 1e-4 * p.max(1.0) && (w - p).abs() <= 1e-4 * p.max(1.0),
+                        "{a} to {b}: {p} s plain, {w} s wet landmarks, {d} s dry landmarks"
+                    );
+                }
+                (RouteResult::Unreachable, RouteResult::Unreachable, RouteResult::Unreachable) => {
+                    unreachable += 1;
+                }
+                other => panic!("{a} to {b}: {other:?}"),
+            }
+        }
+        assert!(found > 200 && unreachable > 5, "{found} found, {unreachable} unreachable");
     }
 }

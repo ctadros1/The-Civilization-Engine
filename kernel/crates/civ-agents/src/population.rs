@@ -720,6 +720,8 @@ pub struct Population {
     /// a new revision leaves a tile's digest as it was, fields and landmarks that read only such
     /// tiles are kept (M10a slice DO). Derived.
     route_tiles: Vec<u64>,
+    /// As `route_tiles`, on the dry grid landmarks are built on ([`NavGrid::dry`]). Derived.
+    landmark_tiles: Vec<u64>,
     /// Per activity, what a trip is expected to bring from each patch today.
     priors: Vec<Prior>,
     /// How far the ground drops across each plot a site search has weighed, metres, by its
@@ -1688,6 +1690,7 @@ impl Population {
         self.known_pruned.clear();
         self.landmarks = None;
         self.route_tiles.clear();
+        self.landmark_tiles.clear();
         self.fields_moved();
     }
 
@@ -2495,15 +2498,41 @@ impl Population {
             f.rev = revision;
             f.day = i64::MIN;
         }
+        // Landmarks are built on the dry grid (experimental): kept where its tiles are as they were.
+        let dry = ctx.nav.dry();
+        let dry_digests = if std::ptr::eq(dry, ctx.nav) {
+            digests.clone()
+        } else {
+            dry.tile_digests(tile, &ctx.map.elevation, &|c| wear.factor(c))
+        };
+        let dry_changed: Vec<(usize, usize)> = if dry_digests.len() == self.landmark_tiles.len() {
+            dry_digests
+                .iter()
+                .zip(&self.landmark_tiles)
+                .enumerate()
+                .filter(|(_, (a, b))| a != b)
+                .map(|(k, _)| (k % tiles_x, k / tiles_x))
+                .collect()
+        } else {
+            (0..dry_digests.len())
+                .map(|k| (k % tiles_x, k / tiles_x))
+                .collect()
+        };
+        let dry_untouched = |((x0, y0), (x1, y1)): CellBox| {
+            !dry_changed.iter().any(|&(tx, ty)| {
+                tx * tile <= x1 && x0 < (tx + 1) * tile && ty * tile <= y1 && y0 < (ty + 1) * tile
+            })
+        };
         match self.landmarks.as_mut() {
             Some(by_region) if by_region.wear_rev == wear.rev() => {
                 for (region, built) in by_region.built.iter_mut().enumerate() {
-                    if built.as_ref().is_some_and(|(_, reach)| !untouched(*reach)) {
+                    if built.as_ref().is_some_and(|(_, reach)| !dry_untouched(*reach)) {
                         // Kept with the ground it was built on: the digests before this change.
                         if let Some((landmarks, reads)) = built.take()
-                            && self.route_tiles.len() == digests.len()
+                            && self.landmark_tiles.len() == dry_digests.len()
                         {
-                            let digests = digests_read(&self.route_tiles, (tile, tiles_x), reads);
+                            let digests =
+                                digests_read(&self.landmark_tiles, (tile, tiles_x), reads);
                             by_region.spare.insert(
                                 0,
                                 SpareLandmarks {
@@ -2520,6 +2549,7 @@ impl Population {
             _ => self.landmarks = None,
         }
         self.route_tiles = digests;
+        self.landmark_tiles = dry_digests;
     }
 
     /// Brings up to date the walking field the household `id` of `settlement`, living at `home`,
@@ -6333,12 +6363,12 @@ impl Population {
                     let region = by_region.regions.iter().position(|&((x0, y0), (x1, y1))| {
                         (x0..=x1).contains(&tx) && (y0..=y1).contains(&ty)
                     });
-                    let route_tiles = &self.route_tiles;
+                    let route_tiles = &self.landmark_tiles;
                     let landmarks = region.map(|k| {
                         let area = by_region.regions[k];
                         &*by_region.built[k]
                             .get_or_insert_with(|| {
-                                let reads = ctx.nav.landmark_reach(area);
+                                let reads = ctx.nav.dry().landmark_reach(area);
                                 // Those let go over the same ground, if any, else built anew.
                                 let tile = civ_land::paths::TILE as usize;
                                 let tiles = (tile, width.div_ceil(tile));
@@ -6351,7 +6381,7 @@ impl Population {
                                     Some(i) => by_region.spare.remove(i).landmarks,
                                     None => {
                                         let trail = |c| wear.factor(c);
-                                        std::sync::Arc::new(ctx.nav.landmarks(
+                                        std::sync::Arc::new(ctx.nav.dry().landmarks(
                                             &ctx.map.elevation,
                                             &trail,
                                             area,

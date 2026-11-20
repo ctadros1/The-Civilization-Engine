@@ -72,7 +72,7 @@ fn live_one_save_and_report() {
     writeln!(report, "mode {mode}, {days} days from {}", save.display()).ok();
     writeln!(
         report,
-        "month  wall_s  living  flood_rev  landmark_builds  landmark_s  route_clears"
+        "month  wall_s  living  flood_rev  landmark_builds  landmark_s  route_clears  searches  cells_M  gave_up"
     )
     .ok();
     let started = Instant::now();
@@ -82,8 +82,9 @@ fn live_one_save_and_report() {
         sim.advance_minutes(step as i64 * 24 * 60).expect("advances");
         lived += step;
         let (builds, secs) = civ_world::nav::landmark_builds();
+        let (searches, cells, gave_up) = civ_world::nav::searches_everywhere();
         let line = format!(
-            "{:>5}  {:>6.1}  {:>6}  {:>9}  {:>15}  {:>10.1}  {:>12}",
+            "{:>5}  {:>6.1}  {:>6}  {:>9}  {:>15}  {:>10.1}  {:>12}  {:>8}  {:>7.1}  {:>7}",
             lived / 30,
             started.elapsed().as_secs_f64(),
             sim.people().living(),
@@ -91,6 +92,9 @@ fn live_one_save_and_report() {
             builds,
             secs,
             sim.people().route_counts.0,
+            searches,
+            cells as f64 * 1e-6,
+            gave_up,
         );
         println!("{line}");
         writeln!(report, "{line}").ok();

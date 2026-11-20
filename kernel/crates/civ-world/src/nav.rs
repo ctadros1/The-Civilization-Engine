@@ -92,6 +92,19 @@ fn dry_landmarks() -> bool {
 }
 
 static LANDMARK_BUILDS: AtomicU64 = AtomicU64::new(0);
+static ALL_SEARCHES: AtomicU64 = AtomicU64::new(0);
+static ALL_CELLS: AtomicU64 = AtomicU64::new(0);
+static BUDGET_SPENT: AtomicU64 = AtomicU64::new(0);
+
+/// Route searches run, cells they expanded and searches that gave up at their budget, in this
+/// process on every thread: what a benchmark reads (experimental).
+pub fn searches_everywhere() -> (u64, u64, u64) {
+    (
+        ALL_SEARCHES.load(Ordering::Relaxed),
+        ALL_CELLS.load(Ordering::Relaxed),
+        BUDGET_SPENT.load(Ordering::Relaxed),
+    )
+}
 static LANDMARK_NANOS: AtomicU64 = AtomicU64::new(0);
 
 /// Landmark tables built in this process and the wall seconds their building took, on every
@@ -117,6 +130,8 @@ pub fn searches() -> u64 {
 
 /// Adds a search's expanded cells to [`cells_searched`], and the search to [`searches`].
 fn count_searched(cells: usize) {
+    ALL_CELLS.fetch_add(cells as u64, Ordering::Relaxed);
+    ALL_SEARCHES.fetch_add(1, Ordering::Relaxed);
     CELLS_SEARCHED.with(|c| c.set(c.get() + cells as u64));
     SEARCHES.with(|c| c.set(c.get() + 1));
 }
@@ -1151,6 +1166,7 @@ impl NavGrid {
             expanded += 1;
             if expanded > budget {
                 count_searched(expanded);
+                BUDGET_SPENT.fetch_add(1, Ordering::Relaxed);
                 return RouteResult::BudgetExhausted;
             }
             let (x, y) = ((i % self.width) as i64, (i / self.width) as i64);

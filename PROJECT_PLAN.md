@@ -10791,6 +10791,21 @@ and M6a gives rivers a daily flow.
       runs changed (fixture 1 proposals +47.5 %, enacted +22.5 %, offices +0.0 %, moved −3.9 %;
       fixture 2 proposals +36.9 %, enacted +46.0 %, offices +14.3 %, moved +50.0 %, before and
       after). **Not yet:** nothing.
+    - *Why Sedgehollow dug less copper on e209207 (2026-11-20): it never found its body* (§9, "Why
+      Sedgehollow dug less copper"; §8 21, fourth; "the m11 demo lived again on e209207", "Not
+      yet"). **Probed** (a copy of `m11_world` on f43da39, not kept; the demo's world, six years
+      and then three, each month the households of Sedgehollow knowing copper smelting): in three
+      years Sedgehollow knew no body of copper ore, not the showing one 2.2 km and 56 minutes'
+      walk out that the sixth run (9b7f3a8) found and dug. The ore it held was picked where copper
+      weathers out on upland ground: 93 kg by day 660 in the household that knew the way, all of it
+      smelted (20 kg of ore and 40 of firewood a kilogram of copper) into 4.67 kg of copper, all of
+      that used in what it made. Fuel was never short of it: that household held 400-490 kg of
+      firewood against a hearth's keep of 17-36 kg. It shrank from 8 to 2 people about day 1000,
+      and the household that knew the way next picked 3.8 kg in the years after. **Not a fault:** a
+      body is found by a walk passing within 50 m of it (ADR-0010 §1, `FIND_M`), and the walks of
+      Sedgehollow's people differ from the sixth run's after a month of slices (fuel fetched and
+      kept from the kiln, ground looked over on errands, gleaning and hired reaping among them).
+      Report-only. **Not yet:** nothing.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
@@ -12161,6 +12176,7 @@ and M6a gives rivers a daily flow.
     4. *Why Sedgehollow dug less copper than in the sixth run* (§7, "the m11 demo lived again on
        e209207", "Not yet"): 12 kg by year 7 on e209207 against 121 kg by year 5 on 9b7f3a8. A
        probe on the demo world, report-only.
+       *Probed 2026-11-20* (§7, "why Sedgehollow dug less copper on e209207"): its body never found; not a fault.
     5. *The harvest margins row read against a long run* (question 20, fifth, carried): long run
        84 on 9ed0acf, past f1706c6, has not reported. Report-only.
     6. *Research: the dishes' wood a kilogram grounded* (§9, "NUDGE: the dishes' wood a kilogram,
@@ -14004,3 +14020,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **A stubble breach's case counted apart (2026-11-20; §8 21, first):** Decided by Claude under standing owner authority (2026-11-20). The justice row says, of its cases, how many were brought for a breach of a stubble law and how many of them were found, only where there were any. **Reason:** the crime and poverty row counted the breaches and those brought, but not what the hearings made of them; the polities keep every breach with its case, so the row reads them at a run's end. Report-only, so no gate.
 - **The m11 demo says how far round (2026-11-20; §8 21, second):** Decided by Claude under standing owner authority (2026-11-20). The demo's line for a body beyond the digging walk keeps "beyond a walk of 60 minutes from it" and adds the walk to it, however far round (Stonefield's 0.5 km body: 7.8 hours' walk); a body no walk reaches is said to be. **Reason:** "0.5 km … beyond a walk of 60 minutes" read as a contradiction. Measured, the body is not beyond every walk, as "The m11 demo on e209207" put it (a river no walk crosses), but beyond every walk of four hours: the way round the water is 7.8 hours. Words only, no gate.
 - **The twelfth coverage pass (2026-11-20; §8 21, third):** Decided by Claude under standing owner authority (2026-11-20). The slices since the eleventh pass (9ed0acf, fdb2232, e202c37) were read against the code. One fault was found and fixed: the dishes' credit was dropped when a household moved or merged. It now goes with the wood it is owed against. Three edges were pinned: a credit saved mid-day, a lean household with no boiled dish, and a stubble fine dearer than the gleaning. **Reason** for the fix: the credit is wood owed back to the burn, so it belongs with the stores it adjusts. Behaviour, so gated: 0 of 40 runs changed.
+- **Why Sedgehollow dug less copper (2026-11-20; §8 21, fourth):** Decided by Claude under standing owner authority (2026-11-20). Probed on the demo's world, not kept: on today's head Sedgehollow never found the showing body of copper ore 2.2 km out in three years, which the sixth run (9b7f3a8) found and dug. Its copper came only from ore picked where it weathers out (93 kg of ore, 4.67 kg of copper, all used), and fuel never held it back. **Reason** nothing was changed: finding a body depends on whose walks pass within 50 m of it (ADR-0010 §1), and a month of slices since 9b7f3a8 moved those walks. That is emergence, not a fault. Nothing nudged.

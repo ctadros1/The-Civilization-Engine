@@ -44,10 +44,19 @@ pub(super) fn could_earn(catalog: &crate::params::Catalog, age: f64) -> bool {
         .any(|a| a.behavior == Behavior::Hire && (a.min_age_years..=a.max_age_years).contains(&age))
 }
 
+/// How much a household short of hands bids up the harvest wage's share for each day its crop has
+/// stood ripe while hours go untaken (§8 21, twelfth; research 08-10 §5.6: an ordinary review
+/// moves a wage 1-5 %, every 14-30 days, faster for urgent seasonal tasks): the top of that range,
+/// reviewed daily at the harvest. A design prior.
+pub const HARVEST_BID_PER_DAY: f64 = 0.05;
+
 impl Population {
     /// The pay household `employer`'s field `fi` offers for an hour of a capable adult's reaping
     /// on day `day`: `firm.wage_share` of the grain the field is expected to give over the hours
-    /// of work still needed to bring it in (0 when it is not ripe standing).
+    /// of work still needed to bring it in, bid up by [`HARVEST_BID_PER_DAY`] for each day the
+    /// crop has stood ripe, while hours go untaken (§8 21, twelfth; research 08-10 §5.6: faster
+    /// wage review for urgent seasonal tasks, harvest bidding), never past all of what the hour
+    /// brings (0 when it is not ripe standing).
     fn reap_wage(&self, ctx: &Ctx, fi: usize, day: i64) -> f64 {
         let f = &ctx.land.fields[fi];
         let Some(crop) = ctx.catalog.crops.get(usize::from(f.crop)) else {
@@ -69,7 +78,17 @@ impl Population {
         if remaining <= 0.0 {
             return 0.0;
         }
-        ctx.params.firm.wage_share * expected / remaining
+        let stood = (day - f.ripe_day(crop)).max(0) as f64;
+        let share = (ctx.params.firm.wage_share * (1.0 + HARVEST_BID_PER_DAY * stood)).min(1.0);
+        share * expected / remaining
+    }
+
+    /// What household `employer` would hire of reaping now, its hours and its pay for an hour:
+    /// for tests.
+    #[doc(hidden)]
+    pub fn reap_offer_for_tests(&self, ctx: &Ctx, employer: PermanentId) -> Option<(f64, f64)> {
+        self.reap_offer(ctx, employer)
+            .map(|o| (o.hours, o.kg_per_hour))
     }
 
     /// What household `employer` would hire of reaping now, if anything: its fields ripe standing

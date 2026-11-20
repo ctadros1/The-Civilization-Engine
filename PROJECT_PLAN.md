@@ -10901,6 +10901,24 @@ and M6a gives rivers a daily flow.
       40 runs changed (fixture 1 proposals +45.0 %, enacted +20.0 %, offices +0.0 %, moved −4.0 %;
       fixture 2 proposals +31.0 %, enacted +49.2 %, offices +25.0 %, moved +71.4 %, before and
       after). **Not yet:** nothing.
+    - *Hired field work, the wage bid up while hours go untaken (2026-11-20)* (§9, "The harvest wage
+      bid up"; §8 21, twelfth, its first slice; "Hired field work at the harvest, slice 1", "Not
+      yet"). The harvest wage was the custom's share of what an hour of the harvest brings however
+      long a household's crop had stood ripe unreaped. **Built:** while its offer stands, the
+      share is bid up by `HARVEST_BID_PER_DAY` (5 %) for each day the crop has stood ripe, never
+      past all of what the hour brings; nothing is kept, the bid read from the field's ripe day, and
+      the reaper is paid at the same bid. Chosen first of the slice's leftovers as the one that
+      touches deliberation least: no new state, no save, no hearing. **Tested:** people (37, one new:
+      a crop ripe eleven days offers a share of 0.775 against the custom's 0.5, failing without the
+      bid at 0.5; the two hiring scenes unchanged); the whole civ-sim suite (88 targets), the unit
+      tests; smoke (all 10 pass); fmt and clippy clean. **The notables' gate**, locally, against
+      0acf11e: passes, 40 of 40 runs changed, a behaviour change and no acceptance criterion
+      changed (fixture 1 proposals +45.0 % to +50.0 % against 105 %, enacted +20.0 % to +25.0 %
+      against 55 %, offices +0.0 %, food moved by the polity −4.0 % to −3.9 % against 95 %;
+      fixture 2 proposals +31.0 % to +29.6 %, enacted +49.2 % to +37.1 %, offices +25.0 % to −7.1 %
+      against 85 %, food moved by the polity +71.4 % to +29.9 %). **Not yet:** hire for sowing and
+      threshing; pay owed until threshing for a household with no grain (grain comes in only at
+      threshing, and an obligation would bring hearings); reapers from other settlements.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
@@ -12299,6 +12317,7 @@ and M6a gives rivers a daily flow.
        *Deferred 2026-11-20: needs an ADR* (§9, "A want weighed over years, deferred: needs an ADR"; §8 22, second).
     12. *Hired field work's leftovers* (question 20, thirteenth). Economy, gated, each its own
         slice.
+       *First slice built 2026-11-20* (§7, "the wage bid up while hours go untaken").
     13. *Word of barren ground between settlements* (question 20, fourteenth). Gated.
     14. *Deliberation's term leftovers* (question 20, fifteenth). Gated.
     15. *Writing's leftovers* (question 20, sixteenth). Larger, an ADR-0025 slice.
@@ -14149,3 +14168,5 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **The firewood edge's claim pinned (2026-11-20; §8 22, first):** Decided by the coordinator under standing owner authority (2026-11-20). Beside the scene's market-dependent assertion, a test of its stated claim: with a day and a half's burning held the fuel she wants before she can eat is nothing, and under a day's it is the hearth's days less what she holds. **Reason:** the assertion's "not her best purchase" moves with the neighbours' offers; the claim about the hunger edge should be held on its own, without weakening what is there.
 - **The one removed barred from the next lot (2026-11-20; §8 21, tenth):** Decided by Claude under standing owner authority (2026-11-20). A lot bars the holder of the last law under its template when that law was superseded, a recall or another holder's law, not when it lapsed. **Reason:** removal before the term (research 09-02 §8.6) should not be undone by the next draw; the core's lot templates do not renew, so their last holder was barred already, and the rule holds the same for any content that renews one. Gate: 0 of 40 runs changed.
 - **A want weighed over years, deferred: needs an ADR (2026-11-20; §8 21, eleventh; M11d's fourteenth part's "Not yet"):** Decided by the coordinator under standing owner authority (2026-11-20). **What the code does today:** a household's tool wants are on or off (`make::tool_wants_for`: wanted once work it knows needs the tool; only a lamp is weighed by its hours), and gathering toward a tool scores `w_tools` times `toward(kg)`, which is useful over useful plus half of the lesser of the need and a load, so a full load counts about two thirds whatever the shortfall: a trip of ore toward a dynamo's 2,080 kg pulls as one toward a hoe does, and making the tool counts its need capped at one. "Weighs its shortfall by the day" is that flat pull losing to leisure, not a short horizon. **The grounding:** research 04-07 §1.6, a long-run discount rate r = 0.05 a year (0-0.20, a design prior) and present bias β = 0.9 for effort (0.8-1.0; Augenblick et al. 2015, 0.888); 08-03 has none. **The narrow form sketched:** only for a tool whose remaining material shortfall needs more than a set number of carried loads (a season's trips), a trip would score the greater of today's pull and its share of the shortfall times the tool's discounted life value, β times the sum of e^(−r·y) over its life in years (from `life_h` and its hours of use a year), in units of one tool's `w_tools`; everyday tools unchanged. **The ADR's open questions:** whether a tool's yearly value comes from its life alone or from what it brings (a dynamo's current sold under ADR-0033 and ADR-0036, an instrument's telegrams); and whether the rule extends to wells, buildings and stores, which value their futures otherwise (a store by `store_horizon_days`, ADR-0009). **Reason** it is deferred: valuing a durable over its discounted life is a new decision principle (ADR-0003's utility-based choice; ADR-0006 §1's tools as requirements counted by life), it would set the precedent for wells, buildings and stores, and this milestone's ADR budget is spent with ADR-0046 still with the owner.
+- **The harvest wage bid up (2026-11-20; §8 21, twelfth, first slice; research 08-10 §5.6):** Decided by Claude under standing owner authority (2026-11-20). A household short of hands bids its harvest wage's share up 5 % for each day its crop has stood ripe while its hours go untaken, never past what an hour brings. **Reason:** 08-10 §5.6 has employers review wages every 14-30 days, faster for urgent seasonal tasks, so as not to prevent harvest bidding; the bid is read from the field, so nothing is kept. Chosen as the slice touching deliberation least. The gate: 40 of 40 runs changed, all within tolerance; fixture 2's enacted fell from +49.2 % to +37.1 % against 55 %.
+- **NUDGE: the harvest wage's bid, 5 % a day ripe (2026-11-20; the entry above; time-boxed):** `HARVEST_BID_PER_DAY` = 0.05, the top of 08-10 §5.6's 1-5 % a review, reviewed daily at the harvest. A design prior. Revisit if a long run's harvest margins show reapers' pay near all an hour brings, or households hiring no more than before.

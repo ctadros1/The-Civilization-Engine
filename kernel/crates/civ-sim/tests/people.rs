@@ -1729,6 +1729,56 @@ fn a_household_short_of_hands_at_the_harvest_hires_reapers() {
     );
 }
 
+/// The harvest wage bid up while hours go untaken (§8 21, twelfth; research 08-10 §5.6: faster
+/// wage review for urgent seasonal tasks): a household whose crop has stood ripe all but a day and
+/// a half of its grace, short of hands, offers more than the custom's share of what an hour of
+/// the harvest brings, by `HARVEST_BID_PER_DAY` a day stood ripe, never past all of it. Before, it
+/// offered the custom's share however long its crop had stood.
+#[test]
+fn a_household_whose_crop_has_stood_ripe_bids_the_harvest_wage_up() {
+    let (mut sim, employer, _, _, _) = short_of_hands_at_the_harvest(400.0);
+    let rules = sim.rules().clone();
+    let crop = rules.catalog.crops[rules.people.farm.crop].clone();
+    let day = sim.now().day_index();
+    let (kg_per_hour, field) = {
+        let (hours, kg) = sim
+            .with_ctx_for_tests(|pop, ctx| pop.reap_offer_for_tests(ctx, employer))
+            .expect("it offers reaping");
+        assert!(hours >= 0.5, "{hours} hours offered");
+        // The field ripe longest, as the offer is for.
+        let f = sim
+            .land()
+            .fields
+            .iter()
+            .filter(|f| {
+                f.household == employer && f.task(&crop, day) == Some(civ_land::FieldTask::Reap)
+            })
+            .min_by_key(|f| (f.ripe_day(&crop), f.id))
+            .cloned()
+            .expect("a ripe field");
+        (kg, f)
+    };
+    let water = match field.stage {
+        civ_land::FieldStage::Sown => sim.land().climatology.expected_crop_factor(
+            rules.people.farm.crop,
+            f64::from(field.need_mm),
+            f64::from(field.got_mm),
+        ),
+        _ => 1.0,
+    };
+    let expected = field.expected_kg(&crop, day, water);
+    let remaining = field.remaining_work_h(&crop, day, expected);
+    let share = kg_per_hour * remaining / expected;
+    let stood = (day - field.ripe_day(&crop)) as f64;
+    let custom = rules.people.firm.wage_share;
+    let bid = (custom * (1.0 + population::HARVEST_BID_PER_DAY * stood)).min(1.0);
+    assert!(stood > 1.0, "its crop has stood ripe {stood} days");
+    assert!(
+        (share - bid).abs() < 1e-9 && share > custom,
+        "a share of {share} offered, {bid} bid, the custom {custom}, {stood} days ripe"
+    );
+}
+
 /// Fuel weighed with hunger (§8 18, sixth; research 08-23 §4, §6): a household short of both
 /// fuel and food it can eat as it is, whose grain waits on a fire, weighs firewood by the meals it
 /// makes possible, not only by the hours of gathering it saves. A grown woman alone, able to

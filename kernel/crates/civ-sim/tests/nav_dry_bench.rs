@@ -79,7 +79,8 @@ fn live_one_save_and_report() {
     let mut lived = 0;
     while lived < days {
         let step = 30.min(days - lived);
-        sim.advance_minutes(step as i64 * 24 * 60).expect("advances");
+        sim.advance_minutes(step as i64 * 24 * 60)
+            .expect("advances");
         lived += step;
         let (builds, secs) = civ_world::nav::landmark_builds();
         let (searches, cells, gave_up) = civ_world::nav::searches_everywhere();

@@ -2526,7 +2526,10 @@ impl Population {
         match self.landmarks.as_mut() {
             Some(by_region) if by_region.wear_rev == wear.rev() => {
                 for (region, built) in by_region.built.iter_mut().enumerate() {
-                    if built.as_ref().is_some_and(|(_, reach)| !dry_untouched(*reach)) {
+                    if built
+                        .as_ref()
+                        .is_some_and(|(_, reach)| !dry_untouched(*reach))
+                    {
                         // Kept with the ground it was built on: the digests before this change.
                         if let Some((landmarks, reads)) = built.take()
                             && self.landmark_tiles.len() == dry_digests.len()

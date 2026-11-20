@@ -84,11 +84,11 @@ pub struct NavGrid {
     dry: Option<std::sync::Arc<NavGrid>>,
 }
 
-/// Whether landmarks are built on the dry grid ([`NavGrid::dry`]): set by `TCE_DRY_LANDMARKS`
-/// (experimental, for measuring).
+/// Whether landmarks are built on the dry grid ([`NavGrid::dry`]): on unless
+/// `TCE_FLOODED_LANDMARKS` is set (diagnostic branch, for measuring).
 fn dry_landmarks() -> bool {
     static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *ON.get_or_init(|| std::env::var_os("TCE_DRY_LANDMARKS").is_some())
+    *ON.get_or_init(|| std::env::var_os("TCE_FLOODED_LANDMARKS").is_none())
 }
 
 static LANDMARK_BUILDS: AtomicU64 = AtomicU64::new(0);
@@ -2637,8 +2637,17 @@ mod tests {
         let swollen = [(p.ford_max_discharge_m3s * 2.0) as f32];
         // Two bridges over the river its swelling closes to wading.
         let bridges = [(10 * 64 + 30, 1.0), (50 * 64 + 30, 1.0)];
-        let flooded =
-            NavGrid::with_barriers(&map, p, &bridges, 1, Some(&swollen), Some(&depths), 1, &[], 0);
+        let flooded = NavGrid::with_barriers(
+            &map,
+            p,
+            &bridges,
+            1,
+            Some(&swollen),
+            Some(&depths),
+            1,
+            &[],
+            0,
+        );
         // As `NavGrid::dry` lays it beside the flooded grid.
         let dry = &NavGrid::with_barriers(&map, p, &bridges, 1, None, None, 0, &[], 0);
         assert!(
@@ -2673,6 +2682,9 @@ mod tests {
                 other => panic!("{a} to {b}: {other:?}"),
             }
         }
-        assert!(found > 200 && unreachable > 5, "{found} found, {unreachable} unreachable");
+        assert!(
+            found > 200 && unreachable > 5,
+            "{found} found, {unreachable} unreachable"
+        );
     }
 }

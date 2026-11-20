@@ -779,6 +779,10 @@ pub struct JusticeSeen {
     /// which one who sat recalled a finding they held only on the page.
     pub written: u32,
     pub read_hearings: u32,
+    /// Of the cases, those brought for a breach of a stubble law, and those of them found (§8 21,
+    /// first; research 08-22 §1, §4): counted apart from the other cases.
+    pub breach_cases: u32,
+    pub breach_found: u32,
 }
 
 impl JusticeSeen {
@@ -819,6 +823,23 @@ impl JusticeSeen {
         j
     }
 
+    /// Counts the cases of `order` brought for `breaches` of a stubble law, and those found
+    /// (§8 21, first). The polities keep every breach, with its case, so a run's end reads them
+    /// all.
+    pub fn count_breaches<'a>(
+        &mut self,
+        order: &civ_agents::crime::Order,
+        breaches: impl IntoIterator<Item = &'a civ_agents::polity::StubbleBreach>,
+    ) {
+        for id in breaches.into_iter().filter_map(|b| b.case) {
+            let Some(c) = order.cases.iter().find(|c| c.id == id) else {
+                continue;
+            };
+            self.breach_cases += 1;
+            self.breach_found += u32::from(c.stage == civ_agents::crime::CaseStage::Found);
+        }
+    }
+
     fn join(&mut self, o: &JusticeSeen) {
         self.gathering += o.gathering;
         self.forum += o.forum;
@@ -835,6 +856,8 @@ impl JusticeSeen {
         self.closed += o.closed;
         self.written += o.written;
         self.read_hearings += o.read_hearings;
+        self.breach_cases += o.breach_cases;
+        self.breach_found += o.breach_found;
     }
 
     /// In words: "12 cases before the gathering, 4 before forums; 7 found, 5 not found, 1
@@ -850,9 +873,17 @@ impl JusticeSeen {
         } else {
             "none closed".to_owned()
         };
+        // Said only where a stubble law's breach was brought, as few worlds keep one.
+        let breaches = match self.breach_cases {
+            0 => String::new(),
+            n => format!(
+                " ({n} of them for a breach of a stubble law, {} found)",
+                self.breach_found
+            ),
+        };
         format!(
-            "{} cases before the gathering, {} before forums; {} found, {} not found, {} \
-             unheard, {} lapsed, {} settled, {} withdrawn; {} challenges, {} laws struck down; \
+            "{} cases before the gathering, {} before forums{breaches}; {} found, {} not found, \
+             {} unheard, {} lapsed, {} settled, {} withdrawn; {} challenges, {} laws struck down; \
              {} departures; {days}; {} findings written and kept, {} hearings recalled one only \
              from the page",
             self.gathering,
@@ -1709,6 +1740,13 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
             .flat_map(|p| &p.stubble_breaches),
     );
     world.justice = JusticeSeen::of(&sim.people().order);
+    world.justice.count_breaches(
+        &sim.people().order,
+        sim.people()
+            .polities
+            .iter()
+            .flat_map(|p| &p.stubble_breaches),
+    );
     world.water = WaterSeen::of(sim);
     world.fires.count(sim);
     world.floods.count(sim);
@@ -3602,6 +3640,44 @@ mod tests {
         assert!(
             all.words().ends_with(
                 "4 findings written and kept, 2 hearings recalled one only from the page"
+            ),
+            "{}",
+            all.words()
+        );
+        assert!(
+            !all.words().contains("stubble"),
+            "said only where a breach was brought: {}",
+            all.words()
+        );
+        // Cases brought for breaches of a stubble law, counted apart, with those found, read
+        // from the breaches the polities keep and summed over the worlds (§8 21, first); a breach
+        // never brought, or whose case is not in the order, is not counted.
+        let breach = |case: Option<u32>| civ_agents::polity::StubbleBreach {
+            day: 10,
+            law: id(7),
+            person: id(8),
+            household: id(9),
+            seen_by: Vec::new(),
+            case,
+        };
+        let mut j = JusticeSeen::of(&order);
+        j.count_breaches(
+            &order,
+            &[
+                breach(Some(1)),
+                breach(Some(3)),
+                breach(None),
+                breach(Some(99)),
+            ],
+        );
+        assert_eq!((j.breach_cases, j.breach_found), (2, 1));
+        let mut all = JusticeSeen::default();
+        all.join(&j);
+        all.join(&j);
+        assert!(
+            all.words().starts_with(
+                "2 cases before the gathering, 6 before forums (4 of them for a breach of a \
+                 stubble law, 2 found); 4 found"
             ),
             "{}",
             all.words()

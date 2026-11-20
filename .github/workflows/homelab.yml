@@ -46,7 +46,9 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: homelab-${{ inputs.suite == 'routing-check' && github.run_id || github.ref }}-${{ github.event_name }}-${{ inputs.suite || 'full' }}-${{ inputs.runner || 'tce-ci' }}
+  # The input ref is part of the group: two dispatches from main testing different revisions
+  # must not cancel each other (2026-11-10, long run 42780885881 cancelled by 42780904049).
+  group: homelab-${{ inputs.suite == 'routing-check' && github.run_id || github.ref }}-${{ inputs.ref || 'self' }}-${{ github.event_name }}-${{ inputs.suite || 'full' }}-${{ inputs.runner || 'tce-ci' }}
   cancel-in-progress: true
 env:
   CARGO_TERM_COLOR: always

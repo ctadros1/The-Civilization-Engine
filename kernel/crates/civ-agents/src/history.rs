@@ -1057,6 +1057,9 @@ pub enum WellStep {
     FellIn = 2,
     /// Its household made it a lid and curb (M6a slice BA).
     Covered = 3,
+    /// Its rotting lining was relined, so that it is sound again (backlog D, second item's "Not
+    /// yet").
+    Relined = 4,
 }
 
 /// What happened to a sewer, in a [`ChronicleKind::Sewer`] entry. Numeric in saves: append only.

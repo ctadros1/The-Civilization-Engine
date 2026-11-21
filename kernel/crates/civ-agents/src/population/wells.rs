@@ -1599,6 +1599,34 @@ impl Population {
             w.mend_h = 0.0;
             w.loss = 0.0;
             w.quality = condition::draw_rebuilt_quality(seed, w.id, 0, now, avg, spread);
+            // Told in the chronicle, as its covering is (backlog D, second item's "Not yet").
+            let place = Some(w.rect.centre_m());
+            let of_polity = w.polity.is_some();
+            let settlement = self.household(household).and_then(|x| x.settlement);
+            let sentence = if of_polity {
+                format!(
+                    "{}'s people relined the {} beside the hearth, {} finishing it: it is sound \
+                     again.",
+                    self.village_name(ctx, settlement),
+                    def.name.to_lowercase(),
+                    self.name_of(who)
+                )
+            } else {
+                format!(
+                    "{}'s household relined their {}: it is sound again.",
+                    self.name_of(who),
+                    def.name.to_lowercase()
+                )
+            };
+            self.chronicle_push(
+                now,
+                ChronicleKind::Well,
+                vec![who],
+                settlement,
+                place,
+                f64::from(WellStep::Relined as u8),
+                sentence,
+            );
             return;
         }
         w.depth_m = (f64::from(w.depth_m) + done / per_m.max(1e-9)) as f32;

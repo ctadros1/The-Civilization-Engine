@@ -588,10 +588,28 @@ fn rot_takes_a_lining_until_its_household_relines_it_or_it_falls_in() {
     assert!((f64::from(w.mend_h) - f64::from(w.depth_m) * lining).abs() < 1e-3);
     assert!(w.is_open(), "drawn from while it is relined");
     let mend = f64::from(w.mend_h);
-    sim.with_ctx_for_tests(|pop, ctx| pop.well_work_for_tests(ctx, well, mend + 0.1));
+    let relined = |sim: &Sim| {
+        well_entries(sim)
+            .iter()
+            .filter(|e| e.0 == f64::from(WellStep::Relined as u8))
+            .count()
+    };
+    // Half the work tells nothing; finished, the relining is told once (backlog D, second
+    // item's "Not yet").
+    sim.with_ctx_for_tests(|pop, ctx| pop.well_work_for_tests(ctx, well, mend / 2.0));
+    assert_eq!(relined(&sim), 0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.well_work_for_tests(ctx, well, mend));
     let w = *sim.land().wells.get(well).expect("the well");
     assert_eq!((w.mend_h, w.loss), (0.0, 0.0));
     assert!(w.quality > 0.0 && w.quality <= 1.0);
+    assert_eq!(relined(&sim), 1);
+    let told = well_entries(&sim).last().cloned().expect("an entry");
+    assert_eq!(told.0, f64::from(WellStep::Relined as u8));
+    assert!(
+        told.1.contains("'s household relined their ") && told.1.ends_with(": it is sound again."),
+        "{}",
+        told.1
+    );
     // Left to rot through, it falls in on the first of a month.
     sim.land_mut_for_tests()
         .wells
@@ -1131,6 +1149,27 @@ fn a_polity_relines_and_covers_its_well_while_its_law_is_in_force_and_not_after(
     let w = *sim.land().wells.get(well).expect("the well");
     assert_eq!((w.mend_h, w.loss), (0.0, 0.0));
     assert!(w.quality > 0.0 && w.quality <= 1.0);
+    // The relining finished is told in the chronicle, naming who finished it (backlog D, second
+    // item's "Not yet").
+    let village = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|s| s.id == sim.people().polities[pi].settlement)
+        .map(|s| s.name.clone())
+        .expect("the settlement");
+    let worker_name = sim.people().name_of(worker);
+    assert!(
+        well_entries(&sim).iter().any(|(step, s)| {
+            *step == f64::from(WellStep::Relined as u8)
+                && s == &format!(
+                    "{village}'s people relined the timber-lined well beside the hearth, \
+                     {worker_name} finishing it: it is sound again."
+                )
+        }),
+        "{:?}",
+        well_entries(&sim)
+    );
     assert!((f64::from(sim.land().wells.given(well, third) - before) - mend).abs() < 1e-3);
     // Someone of the settlement holds that its water sickens: the polity asks a lid and curb, as
     // a household covers a well it suspects, and its people make it.

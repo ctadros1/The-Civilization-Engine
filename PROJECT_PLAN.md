@@ -10950,6 +10950,42 @@ and M6a gives rivers a daily flow.
       +37.1 % to +36.5 %, offices −7.1 % to +7.1 % against 85 %, food moved by the polity +29.9 %
       to +34.1 %). **Not yet:** hire for sowing; pay owed until threshing; reapers from other
       settlements.
+    - *Backlog E, the notables' gate read with Welch's t and the least detectable difference
+      (2026-11-21; 9245c51, the coordinator's)* (§9, "The notables' gate: t and the least detectable
+      difference beside the tolerance"). Each comparison now carries `t`, the difference over its
+      standard error from both runs' spreads (Welch), and `detectable`, three standard errors over
+      the scale: what ten runs a side can tell apart. Both are in the JSON and the table and are not
+      graded, so the pass rule is unchanged. **First reading** (the full gate on 3116d91, run
+      locally, which passed; the difference, then what the runs can detect): valley proposals
+      +50.0 %, t +2.63, detects 57.0 %; enacted +25.0 %, t +1.37, 54.8 %; offices 0.0 %, t 0.00,
+      44.7 %; food moved by the polity −3.9 %, t −0.27, 42.3 %; coast proposals +29.6 %, t +1.09,
+      81.3 %; enacted +37.1 %, t +2.38, 46.8 %; offices −7.1 %, t −0.33, 65.9 %; food moved by the
+      polity +29.9 %, t +1.14, 78.8 %. The fixed tolerances (55-105 %) sit close to what ten runs a
+      side can detect (42-81 %). **Not yet:** whether the notables tier under-proposes (§8 22, fifth),
+      the owner's.
+    - *Hired field work, preparing and sowing (2026-11-21)* (§9, "Hired preparing and sowing"; §8
+      21, twelfth, its third slice). **Built:** in the window for preparing ground, a household
+      whose fields to prepare and sow, with the sheaves it must thresh first, need more hours than
+      its members give at a peak's hours over the workable days left offers the preparing and sowing
+      short, less what hired hands already set out to give, as far as the grain it holds pays for;
+      the wage is the custom's share of what an hour of the field's work brings (its expected crop
+      over the hours still needed to bring it in), as reaping's is before its bid. A hand does the
+      field's task at the best of it their household has the tools for, the field's household's
+      seed sown, and is paid for the hours the field took. The observer says "preparing ground" or
+      "sowing for wages", read from the field's task. **Tested:** people (39, one new: in the
+      window's last week a household with fallow fields and 600 kg of grain offers it, a neighbour
+      whose fields are sown and food gone works its ground and is paid in grain; it fails without
+      the offer); the whole civ-sim suite (88 targets), the unit tests; smoke (all 10 pass); fmt and
+      clippy clean. **The notables' gate**, locally, against 77f1d9d: passes, 32 of 40 runs changed,
+      a behaviour change and no acceptance criterion changed (difference, t and what the runs
+      detect, before and after: fixture 1 proposals +53.8 % to +61.5 % against 105 %, t +2.97 to
+      +2.29, detects 54.3 % to 80.7 %; enacted +28.2 % to +33.3 % against 55 %, t +1.63 to +1.37,
+      51.9 % to 72.8 %; offices +0.0 % to +20.0 % against 85 %, t 0.00 to +0.80, 44.7 % to 74.8 %;
+      food moved by the polity −3.5 % to −5.0 % against 95 %, t −0.25 to −0.36, 42.8 % to 41.5 %;
+      fixture 2 proposals +36.0 % to +38.4 %, t +1.54 to +1.59, 70.3 % to 72.4 %; enacted +36.5 %
+      to +38.3 %, t +2.08 to +2.30, 52.8 % to 50.0 %; offices +7.1 % to +18.2 %, t +0.29 to +0.57,
+      74.6 % to 95.3 %; food moved by the polity +34.1 % to +43.7 %, t +1.36 to +1.43, 75.0 % to
+      91.9 %). **Not yet:** pay owed until threshing; reapers from other settlements.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
@@ -12350,6 +12386,7 @@ and M6a gives rivers a daily flow.
         slice.
        *First slice built 2026-11-20* (§7, "the wage bid up while hours go untaken").
        *Second slice built 2026-11-21* (§7, "threshing").
+       *Third slice built 2026-11-21* (§7, "preparing and sowing").
     13. *Word of barren ground between settlements* (question 20, fourteenth). Gated.
     14. *Deliberation's term leftovers* (question 20, fifteenth). Gated.
     15. *Writing's leftovers* (question 20, sixteenth). Larger, an ADR-0025 slice.
@@ -12390,6 +12427,12 @@ and M6a gives rivers a daily flow.
        check from fa84a6c, whose quorum fixes 06d020e and 920a4b2 are on verification but not
        on main, so likely a main-side fault this branch already addresses (likely, not proven).
        Report-only.
+    5. *Open question for the owner: does the notables tier under-propose?* (§9, "The notables'
+       gate: t and the least detectable difference beside the tolerance"): with the tier on, fewer
+       laws are proposed (valley 4.0 against 6.0, t +2.63) and fewer enacted (coast 6.2 against
+       8.5, t +2.38) than with every adult: more than chance, not shown, and within the fixed
+       tolerances. The answer is a model change or a criterion change, either the owner's call.
+       The gate is not to be changed meanwhile.
 
 ---
 
@@ -14225,5 +14268,8 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **NUDGE: the harvest wage's bid, 5 % a day ripe (2026-11-20; the entry above; time-boxed):** `HARVEST_BID_PER_DAY` = 0.05, the top of 08-10 §5.6's 1-5 % a review, reviewed daily at the harvest. A design prior. Revisit if a long run's harvest margins show reapers' pay near all an hour brings, or households hiring no more than before.
 - **Hired threshing (2026-11-21; §8 21, twelfth, second slice; research 08-10 §1.3, 08-02 §3.2):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A household hires threshers when its sheaves and sowing need more hours than its own hands give over the workable days left of the window for preparing ground, paying the custom's share of the grain an hour threshes out of that grain. **Reason:** threshing has no deadline of its own, but unthreshed sheaves keep a field from being prepared and sown, so the sowing window is threshing's deadline; paying from what is threshed means a household need hold no grain to hire. The gate: 25 of 40 runs changed, all within tolerance; fixture 2's enacted at +36.5 % against 55 %.
 - **NUDGE: threshing hired against the sowing window (2026-11-21; the entry above; time-boxed):** the deadline is the window's workable days left at a peak's hours, as reaping's grace is a quarter of the crop lost; the wage is the reaping custom's share. Design priors. Revisit if a long run shows households hiring threshers early in the window, or sheaves still waiting when it closes.
+- **The notables' gate: t and the least detectable difference beside the tolerance (2026-11-21; 9245c51, the coordinator's; ADR-0014 §4):** Decided by the coordinator under standing owner authority (2026-11-21). **Reason:** backlog E's "a gate on a test of both runs' spreads would hold its power as politics changes", read before any change to acceptance criteria. On 3116d91 two aggregates show t above 2.3: valley proposals, t +2.63 (p ≈ 0.017), and coast enacted, t +2.38 (p ≈ 0.029), Welch with about 18 degrees of freedom. If all 8 comparisons were noise, two or more this small would turn up about 2 % of the time, though proposals and enacted are correlated. With the notables tier on, fewer laws are proposed (valley 4.0 against 6.0) and fewer enacted (coast 6.2 against 8.5) than when every adult takes part: more than chance, not shown, and the kind of difference the fixed 55-105 % tolerances cannot catch. The gate is unchanged; any change to its criterion is the owner's (§8 22, fifth).
+- **Hired preparing and sowing (2026-11-21; §8 21, twelfth, third slice; research 08-10 §1.3, 04-02 §1.3):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A household hires hands to prepare and sow when its fields, with the sheaves it must thresh first, need more hours than its own give over the workable days left of the window, paying the custom's share of what an hour of the field's work brings from the grain it holds. **Reason:** field work left over the hours available before the season closes is the farm's own urgency (04-02 §1.3), and a household short of hands at the sowing, as at the harvest, may hire from neighbours with time; paid from what it holds, since nothing is yet harvested. The gate: 32 of 40 runs changed, all within tolerance; the nearest, fixture 2's enacted at +38.3 % against 55 %, and fixture 2's offices at +18.2 % against 85 %.
+- **NUDGE: preparing and sowing hired against the window, paid as reaping's custom (2026-11-21; the entry above; time-boxed):** the deadline is the window's workable days left at a peak's hours, the sheaves to thresh counted first; the wage is the custom's share of the field's expected crop over its remaining hours, not bid up. Design priors. Revisit if a long run shows sowing hired early in the window, or ground left unsown at its close with hands idle.
 - **Flooding: water and walkability stay daily (2026-11-20; the owner's call; answers long run 67's and run 80's walking-grid question):** Decided by the owner (2026-11-20), relayed by the coordinator. The walking ground and its landmarks stay laid again for each day's flood depths. **Reason, the owner's words:** "Weekly walkability could leave flooded routes usable—or reopened routes blocked—for several days, changing travel, food access and survival." Option (a), the walking ground changing in coarser steps, is **declined**. Reducing or rebuilding the route structures incrementally, with today's water restrictions kept, is left for later (§8 22, third).
 - **"Moved" in the notables' gate means food moved by the polity (2026-11-20; the owner's acceptance criteria, relayed by the coordinator):** the notables' `moved` aggregate measures the polity's food collection and redistribution, not migration. In earlier entries, "moved" means food transfers. Its tolerance here is 95 %, recalibrated, against main's 25 %. From now on gate figures call it "food moved by the polity", and a change in behaviour is told apart from a changed acceptance criterion.

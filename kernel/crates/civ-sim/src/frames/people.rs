@@ -1157,13 +1157,20 @@ pub fn doing(sim: &Sim, p: &Person) -> String {
     // fourth), or threshing its sheaves (§8 21, twelfth): said as such, not as a workshop's hand.
     let what = match (def, p.act.target) {
         (Some(d), Target::Field(f)) if d.behavior == civ_agents::Behavior::Hire => {
-            let sheaves = sim.land.fields.iter().any(|x| {
-                x.id == f && x.stage == civ_land::FieldStage::Reaped && x.sheaves_kg > 0.0
+            // What the field needs now says which work it is (§8 21, twelfth).
+            let day = sim.now().day_index();
+            let task = sim.land.fields.iter().find(|x| x.id == f).and_then(|x| {
+                sim.rules
+                    .catalog
+                    .crops
+                    .get(usize::from(x.crop))
+                    .and_then(|c| x.task(c, day))
             });
-            if sheaves {
-                "threshing for wages"
-            } else {
-                "reaping for wages"
+            match task {
+                Some(civ_land::FieldTask::Thresh) => "threshing for wages",
+                Some(civ_land::FieldTask::Prepare) => "preparing ground for wages",
+                Some(civ_land::FieldTask::Sow) => "sowing for wages",
+                _ => "reaping for wages",
             }
         }
         _ => def.map_or("busy", |d| d.doing.as_str()),

@@ -113,6 +113,7 @@ impl Population {
     pub(super) fn reap_offer(&self, ctx: &Ctx, employer: PermanentId) -> Option<ReapOffer> {
         self.reaping_offer(ctx, employer)
             .or_else(|| self.thresh_offer(ctx, employer))
+            .or_else(|| self.sowing_offer(ctx, employer))
     }
 
     /// Hired threshing (§8 21, twelfth; research 08-10 §1.3: a household allocates its hands
@@ -173,6 +174,95 @@ impl Population {
             kg_per_hour,
             good: crop.good,
         })
+    }
+
+    /// Hired preparing and sowing (§8 21, twelfth, third slice; research 08-10 §1.3; 04-02 §1.3:
+    /// field work left over the hours available before the season closes): in the window for
+    /// preparing ground, a household whose fields to prepare and sow, with the sheaves it must
+    /// thresh first, need more hours than its members give at a peak's hours over the workable
+    /// days left of the window offers the preparing and sowing short, less what hired hands
+    /// already set out to give, as far as the grain it holds pays for. The wage is the custom's
+    /// share of what an hour of the field's work brings (its expected crop over the hours still
+    /// needed to bring it in), as reaping's is before it is bid up.
+    fn sowing_offer(&self, ctx: &Ctx, employer: PermanentId) -> Option<ReapOffer> {
+        let (now, params) = (ctx.now, ctx.params);
+        let day = now.day_index();
+        let x = self.household(employer)?;
+        let crop = ctx.catalog.crops.get(params.farm.crop)?;
+        if !crop.can_prepare(day) {
+            return None;
+        }
+        let (mut thresh, mut sow) = (0.0, 0.0);
+        let mut first: Option<(PermanentId, usize)> = None;
+        let mut ids: Vec<PermanentId> = Vec::new();
+        for f in self.fields_of(ctx.land, employer) {
+            if usize::from(f.crop) != params.farm.crop {
+                continue;
+            }
+            match f.stage {
+                FieldStage::Reaped if f.sheaves_kg > 0.0 => {
+                    thresh += crop.thresh_h_per_kg * f64::from(f.sheaves_kg);
+                }
+                FieldStage::Fallow | FieldStage::Prepared
+                    if matches!(f.task(crop, day), Some(FieldTask::Prepare | FieldTask::Sow)) =>
+                {
+                    sow += crate::farm::to_sow_h(f, crop);
+                    ids.push(f.id);
+                    if first.is_none_or(|(id, _)| f.id < id) {
+                        let fi = ctx.land.fields.iter().position(|g| g.id == f.id)?;
+                        first = Some((f.id, fi));
+                    }
+                }
+                _ => {}
+            }
+        }
+        let (field, fi) = first?;
+        let days = (crate::farm::sowing_days_left(crop, day)
+            * super::workable_share(ctx.land, params.farm.crop))
+        .max(1.0);
+        let own = self.labour_per_day(&x.members, now, params) * peak_ratio(params) * days;
+        let mut short = (sow + thresh - own).min(sow);
+        if short < 0.5 {
+            return None;
+        }
+        short -= self.hired_hours_set_out(ctx, &ids);
+        let kg_per_hour = self.sow_wage(ctx, fi, day);
+        if kg_per_hour <= 0.0 {
+            return None;
+        }
+        let held = stores_now(x, now, params, &ctx.catalog.goods)
+            .get(crop.good)
+            .copied()
+            .unwrap_or(0.0)
+            .max(0.0);
+        let hours = short.min(held / kg_per_hour);
+        (hours >= 0.5).then_some(ReapOffer {
+            task: FieldTask::Sow,
+            field,
+            at: ctx.land.fields[fi].rect.centre_m(),
+            hours,
+            kg_per_hour,
+            good: crop.good,
+        })
+    }
+
+    /// The pay field `fi` offers for an hour of a capable adult's preparing or sowing on day
+    /// `day`: the custom's share of the grain it is expected to give over the hours still needed
+    /// to bring it in (0 when nothing is to be prepared or sown).
+    fn sow_wage(&self, ctx: &Ctx, fi: usize, day: i64) -> f64 {
+        let f = &ctx.land.fields[fi];
+        let Some(crop) = ctx.catalog.crops.get(usize::from(f.crop)) else {
+            return 0.0;
+        };
+        if !matches!(f.task(crop, day), Some(FieldTask::Prepare | FieldTask::Sow)) {
+            return 0.0;
+        }
+        let expected = f.expected_kg(crop, day, 1.0);
+        let remaining = f.remaining_work_h(crop, day, expected);
+        if remaining <= 0.0 || expected <= 0.0 {
+            return 0.0;
+        }
+        ctx.params.firm.wage_share * expected / remaining
     }
 
     /// Hours of hired field work already set out for fields `ids`: what is left of the work steps
@@ -299,6 +389,13 @@ impl Population {
         // Sheaves waiting are threshed for hire at the household's home (§8 21, twelfth).
         if ctx.land.fields[fi].stage == FieldStage::Reaped && ctx.land.fields[fi].sheaves_kg > 0.0 {
             self.hired_threshing(ctx, h, field, minutes);
+            return;
+        }
+        // Ground to prepare or sow is worked for hire (§8 21, twelfth, third slice).
+        if let Some(task @ (FieldTask::Prepare | FieldTask::Sow)) =
+            ctx.land.fields[fi].task(crop, day)
+        {
+            self.hired_sowing(ctx, h, field, task, minutes);
             return;
         }
         let good = crop.good;
@@ -440,6 +537,104 @@ impl Population {
             to: worker,
             good,
             amount: pay,
+        }];
+        if self.transfer(now, params, goods, &leg, Channel::Wage) {
+            let (wages, work) = (crate::ties::Act::WagesPaid, crate::ties::Act::WorkSeen);
+            self.note_between(ctx, Some(who), worker, employer, wages, work, 0.0);
+        }
+    }
+
+    /// Person `h` has prepared or sown (`task`) `field` for hire for `minutes` (§8 21, twelfth,
+    /// third slice): as the field's household's own would, its seed from that household's store,
+    /// at the best of that work the worker's household has the tools for, wearing them; paid for
+    /// the hours the field took, the custom's share of what an hour of it brings, out of the grain
+    /// the field's household holds.
+    fn hired_sowing(
+        &mut self,
+        ctx: &mut Ctx,
+        h: Handle<Person>,
+        field: PermanentId,
+        task: FieldTask,
+        minutes: u32,
+    ) {
+        let (now, params) = (ctx.now, ctx.params);
+        let day = now.day_index();
+        let Some((who, worker, age)) = self
+            .people
+            .get(h)
+            .map(|p| (p.id, p.household, p.age_years(now)))
+        else {
+            return;
+        };
+        let Some(fi) = ctx.land.fields.iter().position(|f| f.id == field) else {
+            return;
+        };
+        let employer = ctx.land.fields[fi].household;
+        let Some(crop) = ctx.catalog.crops.get(usize::from(ctx.land.fields[fi].crop)) else {
+            return;
+        };
+        let good = crop.good;
+        let kg_per_hour = self.sow_wage(ctx, fi, day);
+        let Some(held) = self
+            .household(worker)
+            .map(|x| stores_now(x, now, params, &ctx.catalog.goods))
+        else {
+            return;
+        };
+        let goods = &ctx.catalog.goods;
+        let tool = |t: &usize| {
+            make::tools_for(goods, *t, &|g| held.get(g).copied().unwrap_or(0.0)) >= MIN_TOOL
+        };
+        let Some(def) = ctx
+            .catalog
+            .activities
+            .iter()
+            .filter(|a| a.behavior == Behavior::Farm && a.task == Some(task))
+            .filter(|a| a.tools.iter().all(tool))
+            .max_by(|a, b| a.rate.total_cmp(&b.rate))
+            .cloned()
+        else {
+            return;
+        };
+        let can = self
+            .household(employer)
+            .map(|x| stores_now(x, now, params, goods))
+            .and_then(|s| s.get(good).copied())
+            .unwrap_or(0.0)
+            .max(0.0);
+        if kg_per_hour <= 0.0 {
+            return;
+        }
+        let eff = interpolate(&params.capacity_by_age, age) * def.rate;
+        let full = (f64::from(minutes) / 60.0 * eff).min(can / kg_per_hour);
+        if full <= 1e-6 {
+            return;
+        }
+        // The hours the field took: its stage's work done, as far as its seed allowed.
+        let (stage, before) = {
+            let f = &ctx.land.fields[fi];
+            (f.stage, f64::from(f.work_h))
+        };
+        let left = (ctx.land.fields[fi].stage_work_h(crop) - before).max(0.0);
+        self.field_work(ctx, who, employer, field, task, full);
+        let f = &ctx.land.fields[fi];
+        let done = if f.stage != stage {
+            left
+        } else {
+            (f64::from(f.work_h) - before).max(0.0)
+        }
+        .min(full);
+        if done <= 1e-6 {
+            return;
+        }
+        let used = f64::from(minutes) / 60.0 * (done / (f64::from(minutes) / 60.0 * eff).max(1e-9));
+        self.wear_tools(ctx, worker, &def.tools, used);
+        let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        let leg = [Leg {
+            from: employer,
+            to: worker,
+            good,
+            amount: kg_per_hour * done,
         }];
         if self.transfer(now, params, goods, &leg, Channel::Wage) {
             let (wages, work) = (crate::ties::Act::WagesPaid, crate::ties::Act::WorkSeen);

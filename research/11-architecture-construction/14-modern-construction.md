@@ -350,4 +350,56 @@ Recommendations are listed with the existing TCE parts they stand on. None is a 
 
 ---
 
+## 7. A casing's stiffness and strength (2026-11-21)
+
+TCE's cased skeleton (ADR-0037 §5; plan backlog D, first item) weighs its concrete casing in the checks but takes **no strength or stiffness** from it: the casing is cover against fire only. The content casing is plain: 2,250 kg of dry mix a cubic metre of the members' envelope, with no bar or wire (`content/core/building/workshop.toml`, `hall.toml`). §5.8 deferred composite construction. Three codes were read for what a casing adds to a steel post (plan §8 23, twelfth; time-boxed).
+
+**What the codes credit a casing with.**
+
+- **BS 449:1959, clause 30b (cased struts), as the Dorman Long handbook of 1960 prints it.**
+  - Safe load **W = p_c·a_s + (p_c/30)·a_c**: the steel's permissible stress over its own area, plus a thirtieth of it over the whole cased area. The total may **never exceed twice** what the bare section is allowed.
+  - Stiffness through the weak axis only: the radius of gyration may be taken as **0.2(B + 4 in)**, B being the flange's width, where that is larger than the steel's own. The strong axis is taken as unchanged.
+  - Concrete outside 3 in of cover is ignored, and the casing helps with no bending from an eccentric load.
+  - **Conditions:** unpainted steel, solidly cased in dense concrete of at least 3,000 lb/in² (about 21 MPa) at 28 days, at least 2 in of cover, a casing at least B + 4 in wide, and **wire of at least 3/16 in at no more than 6 in pitch** round the flanges, on at least four longitudinal bars.
+  - A Building Research Station summary of 1960 put the share the same way: the concrete carries direct load at about a thirtieth of the steel's stress (*search summary*).
+- **ANSI/AISC 360-16, §I2.1 (encased composite members).**
+  - Squash load **P_no = F_y·A_s + F_ysr·A_sr + 0.85 f′_c·A_c**.
+  - Stiffness **EI_eff = E_s·I_s + E_s·I_sr + C1·E_c·I_c**, with **C1 = 0.25 + 3(A_s + A_sr)/A_g ≤ 0.7**. The commentary says the 2016 change "reduced the considerable conservatism" of earlier editions' C1.
+  - **Conditions:** steel at least 1 % of the section; the casing reinforced with continuous longitudinal bars (at least 0.4 % of the section) and ties or spirals.
+- **EN 1994-1-1 (Eurocode 4), §6.7.3, as Unterweger and Kettler (2018) set it out.**
+  - Squash load **N_pl,Rd = A_a·f_yd + 0.85·A_c·f_cd + A_s·f_sd** for an encased section (1.0 in place of 0.85 only for a filled tube).
+  - Stiffness for buckling **(EI)_eff = E_a·I_a + E_s·I_s + K_e·E_cm·I_c, K_e = 0.6**; for a second-order analysis 0.9(E_a·I_a + E_s·I_s + 0.5·E_cm·I_c).
+  - The standard's own reinforcement and cover limits were not read.
+
+**What that would mean for a cased post (*derived*; an example, not TCE's own section).** A 200 mm H-section (HEB 200: 78 cm², S235) cased to 300 mm square in concrete of about 20 MPa:
+
+| | Gain over the bare steel | Basis |
+| --- | --- | --- |
+| Squash load | **+76 %** (0.85 f′_c over the concrete) | AISC, Eurocode 4 |
+| Allowed load at short length | **+38 %** (the gross area over 30) | BS 449 |
+| Weak-axis stiffness | **×2.7** (AISC, C1 = 0.51) to **×3.8** (Eurocode 4, K_e = 0.6) | concrete modulus 21–30 GPa |
+| Strong-axis stiffness | **×1.6** to **×1.9** | the same |
+| Weak-axis buckling at equal area | **×1.4** (radius 60 mm against 51 mm) | BS 449 |
+| Any load | **at most ×2** | BS 449's cap |
+
+So the codes span a casing adding about **40–80 % to a short post's strength** and **one and a half to four times its stiffness against buckling**, the older British rule being the most cautious and capping the whole at twice the bare steel.
+
+**For TCE:**
+
+- **Cover only *holds* for TCE's casing as authored.** Every code read gives a casing its share only when it is reinforced: BS 449's wire binding, AISC's bars and ties. TCE's casing carries no bar or wire, so none of them would credit it.
+- A casing wired as BS 449 asks would earn its share. That is a content change (a few kilograms of wire a metre and its hours) and a change to the checks (a post's crushing and buckling read with the concrete). It is left for a gated slice, under ADR-0037, and not made here.
+- Beams: none of the three credits a casing with bending strength in the clauses read. BS 449's rule for cased beams was not read.
+
+**Thin:** these are design rules, deliberately cautious, not test means; the tests behind them (Talbot and Lord 1912, the Building Research Station's of the 1950s) were not reached. The example's concrete strength and modulus are assumptions. Each figure applies to a casing that fills the post's envelope with sound concrete, as TCE's does.
+
+**Sources for §7:**
+
+- Dorman Long (Steel) Ltd (1960). *Handbook Supplement for Constructional Engineers*, Middlesbrough, pp. 60–62, "Universal Columns Cased" (BS 449:1959, clause 30b). [PDF](https://www.dlteng.com/Download_files/DL%20Historical/Dorman%20Long%201960%20handbook.pdf) (pages read as scanned, 2026-11-21).
+- ANSI/AISC 360-16, *Specification for Structural Steel Buildings* (2016), §I2.1 and the Chapter I commentary. [PDF](https://enme.umd.edu/~ccfu/ref/a360-16-spec-and-commentary.pdf) (read, 2026-11-21).
+- Unterweger, H. and Kettler, M. (2018). Design of composite columns based on Eurocode: comparison between general and simplified methods. *ASCCS 2018*, Universitat Politècnica de València. doi:10.4995/ASCCS2018.2018.7064. [PDF](https://riunet.upv.es/bitstream/10251/108226/1/7064-22671-1-PB.pdf) (read, 2026-11-21; EN 1994-1-1 itself not read).
+- Recent engineering work at the Building Research Station. *The Structural Engineer* 38(12), 1960. [Record](https://www.istructe.org/journal/volumes/volume-38-(published-in-1960)/issue-12/recent-engineering-work-at-the-building-research-s/) (*search summary*).
+- Talbot, A. N. and Lord, A. R. (1912). *Tests of Columns: An Investigation of the Value of Concrete as Reinforcement for Structural Steel Columns*. University of Illinois Engineering Experiment Station Bulletin 56. [Record](https://catalog.hathitrust.org/Record/101821082) (not read; its host refused the download).
+
+---
+
 Research notes: compiled in this session from web search results; several hosts (enr.com, structurae.net, asce.org, steelconstruction.info) could not be fetched directly, so their figures were taken from search-result summaries of those pages and are marked M.

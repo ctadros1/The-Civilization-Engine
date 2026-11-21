@@ -11296,7 +11296,11 @@ and M6a gives rivers a daily flow.
       offices +0.0 %, +0.00, 44.7 %; food moved by the polity −4.6 %, −0.32, 42.3 %; fixture 2
       +16.1 %, +0.71, 67.7 %; +24.6 %, +1.45, 50.9 %; +7.1 %, +0.29, 74.6 %; +20.0 %, +0.89, 67.8
       %): none of the forty runs has a boat or cart nobody holds. **Not yet:** a lived world where
-      one is taken up so.
+      one is taken up so; a household that could not make one beginning one when another took the
+      cart it meant to take up that same day (beginning stays as permissive as before: a cart
+      still needs its timber, but one lacking only the technique could begin one it cannot work;
+      blocking it would move the eleventh item's scene, whose household is given timber by the
+      test hook without the technique).
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
@@ -12822,6 +12826,15 @@ and M6a gives rivers a daily flow.
         otherwise the owner's (a saved kind).
        *Checked 2026-11-21: open* (no decision; threshing for hire already pays from what is
        threshed, so this is reaping's case, a household with no grain left).
+       *Checked again 2026-11-21, not built: needs a save-format change (the owner's).* The credit
+       book could hold the wage owed (a `Claim`, creditor the reaper's household, debtor the
+       employer, due when its sheaves would be threshed), as a workshop's unpaid wage already is.
+       But a workshop's wage claim is told apart from a loan only by its debtor being a workshop;
+       one a household owes would read as a loan everywhere: its words ("repaid what … lent
+       it"), the credit rows' loans lent, and the lender's history weighed in lending. Telling
+       them apart needs a kind saved on the claim. An `Obligation` of a new appended `Owed` code
+       would avoid that, but it is answered as a finding's obligation is (paid in any food,
+       refusable by the comply weighing), which a wage owed is not.
     11. *Tips' and sewers' smaller deferrals* (question 21, sixteenth): compaction and burning
         tips, a sewer rate, inspection as a law's term, a store's tank spreading its sludge. Each
         small, of low value until a lived world keeps them for years. **Buildable now.**
@@ -12849,6 +12862,13 @@ and M6a gives rivers a daily flow.
        *Checked 2026-11-21: open* (ADR-0025's "Revisit when", writing arrives, holds, and §9's
        "Written findings" slices leave reach beyond the household open, deciding against only a
        written finding in the review's forecast).
+       *Checked again 2026-11-21, not built: decided against* (§9, "Written findings, slice 3",
+       2026-11-18: of the three ways past the household, reading aloud was built as the best
+       grounded; "keeping by the forum would invent an office's archive the engine has no holder
+       for, and copying a finding has no source beyond the copying of technique records, which is
+       for kin living apart"). The saved record could name a polity as its holder without a
+       format change; what is missing is an office to keep and read it, a design for the owner
+       (an ADR-0025 amendment, or an archive kept by an office of a later milestone).
     14. *A boat or cart a way would bring only later, passing then* (backlog D, ninth item, "Not
         yet"): the heir would have to be kept beside the vehicle, a saved field. **Needs the
         owner's decision** (a save-format change).

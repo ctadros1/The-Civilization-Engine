@@ -9051,7 +9051,7 @@ and M6a gives rivers a daily flow.
       whole suite target by target (94 targets, 1,556 tests, none failing); the smoke seeds pass; fmt and clippy clean. No
       existing assertion moved. **Not yet:** a cover's worth in hours (its work is weighed by the
       gathering's word alone, a household's by what its well was worth), a chronicle entry for a
-      relining finished, a polity choosing to fill a well in rather than keep it while its law
+      relining finished (done 2026-11-21, see backlog D, twenty-ninth item), a polity choosing to fill a well in rather than keep it while its law
       stands, ending a closing whose source is still suspected by a few, and a lived world where
       a closing ends.
     - *Backlog D, third item (2026-11-02): what a household that is no more had on the land and

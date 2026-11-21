@@ -9416,8 +9416,10 @@ and M6a gives rivers a daily flow.
       seeds pass; fmt and clippy clean. No existing assertion moved. **Not yet:** ~~a pledged field
       taken told~~ (not told, by §9's "Word of a debt kept…" of 2026-11-02: it teaches nothing the
       default did not), a default a finding imposes told as set right when its obligation is paid,
-      a default to or a repayment into the common store told, a guarantor who could pay nothing
-      told (done 2026-11-21, see backlog D's tenth item, "a guarantor who could pay nothing"), and a lived world where a lender lends, or refuses, for what it heard.
+      a default to or a repayment into the common store told (done 2026-11-03, see backlog D's
+      sixteenth item), a guarantor who could pay nothing told (done 2026-11-21, see backlog D's
+      tenth item, "a guarantor who could pay nothing"), and a lived world where a lender lends, or
+      refuses, for what it heard.
     - *Recurring red (2026-11-02): structural failures* (§9, "Structural failures, a recurring
       red"). The 50-year dashboard's lived-in failures stayed red after the rot fix (run 57: 4.34
       per 1,000). Scenes found no stalled upkeep; a diagnostic dashboard found half the failures
@@ -11107,8 +11109,7 @@ and M6a gives rivers a daily flow.
       polity −4.6 %, −0.32, 42.3 %; fixture 2 +17.2 %, +0.75, 68.7 %; +26.1 %, +1.48, 52.9 %;
       +7.1 %, +0.29, 74.6 %; +20.6 %, +0.91, 67.7 %): a behaviour change none of the forty runs
       reaches, since none has a guarantor called on with nothing to spare. **Not yet:** a lived
-      world where a guarantor fails to pay; a default a finding imposes told as set right; a
-      repayment into the common store told.
+      world where a guarantor fails to pay; a default a finding imposes told as set right.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's

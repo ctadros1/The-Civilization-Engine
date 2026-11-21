@@ -1259,3 +1259,92 @@ fn a_boat_or_cart_nobody_was_left_to_take_is_told_once_when_a_household_takes_it
         assert!(p.bytes == q.bytes, "section `{}` differs", p.tag);
     }
 }
+
+/// §8 23, seventh (backlog D, eleventh item's "Not yet"): a household that could not make a cart
+/// itself, holding no timber for one, weighs its errands by a sound cart nobody is left to take
+/// standing at its door, and takes it up; one nobody is left to finish it does not take, since it
+/// could not finish it, and it begins none of its own.
+#[test]
+fn a_household_that_could_not_make_a_cart_takes_up_a_made_one_nobody_holds_but_not_a_half_made_one()
+{
+    let mut sim = village(1);
+    let cart_v = sim
+        .rules()
+        .catalog
+        .vehicle_index("core:vehicle/handcart")
+        .expect("a handcart");
+    let timber = sim.rules().catalog.vehicles[cart_v].good;
+    let map = sim.map().clone();
+    let door = |home: (f32, f32)| civ_agents::population::cell_of(&map, home) as u32;
+    let households: Vec<(civ_core::PermanentId, (f32, f32))> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| (x.id, x.home))
+        .collect();
+    let ((f, f_home), (g, g_home)) = (households[0], households[1]);
+    for x in [f, g] {
+        sim.people_mut_for_tests()
+            .households
+            .iter_mut()
+            .map(|(_, h)| h)
+            .find(|h| h.id == x)
+            .expect("household")
+            .stores[timber] = 0.0;
+    }
+    // A household that is no more: a sound handcart at `f`'s door, a half-made one at `g`'s.
+    let gone = sim.allocate_id_for_tests();
+    let (sound, half) = (sim.allocate_id_for_tests(), sim.allocate_id_for_tests());
+    {
+        let land = sim.land_mut_for_tests();
+        land.carts
+            .list
+            .push(vehicle(sound, cart_v, gone, door(f_home)));
+        land.carts.list.push(Boat {
+            labour_h: 40.0,
+            work_h: 10.0,
+            ..vehicle(half, cart_v, gone, door(g_home))
+        });
+        land.carts.changed();
+    }
+    let could = |sim: &mut Sim, x| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.vehicles_it_could_have_for_tests(ctx, x))
+            .0
+    };
+    // `f`, with no timber to make one, weighs its errands by the cart at its door.
+    assert_eq!(
+        could(&mut sim, f),
+        Some(cart_v),
+        "the cart nobody holds at its door"
+    );
+    // `g` does not: the one at its door is half made, and it could not finish it.
+    assert_eq!(
+        could(&mut sim, g),
+        None,
+        "a half-made cart it could not finish"
+    );
+    // Finding one would save them 30 hours a year: `f` takes up the sound one; `g` takes nothing
+    // and begins nothing.
+    sim.with_ctx_for_tests(|pop, ctx| {
+        pop.begin_vehicle_for_tests(ctx, f, cart_v, door(f_home), 30.0);
+        pop.begin_vehicle_for_tests(ctx, g, cart_v, door(g_home), 30.0);
+    });
+    let owner = |sim: &Sim, id| {
+        sim.land()
+            .carts
+            .list
+            .iter()
+            .find(|x| x.id == id)
+            .map(|x| x.owner)
+            .expect("there")
+    };
+    assert_eq!(owner(&sim, sound), f, "`f` took up the sound cart");
+    assert_eq!(owner(&sim, half), gone, "the half-made one stays nobody's");
+    assert_eq!(
+        sim.land().carts.of(g).count(),
+        0,
+        "`g` began none of its own"
+    );
+    assert!(sim.land().carts.problems().is_empty());
+    saves_and_goes_on_alike(&mut sim, DAY);
+}

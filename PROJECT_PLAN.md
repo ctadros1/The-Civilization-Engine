@@ -9496,7 +9496,8 @@ and M6a gives rivers a daily flow.
       change), the unit tests (712) and the whole suite target by target (94 targets, 1,576
       tests, none failing); the ten smoke seeds pass; fmt and clippy clean. No existing assertion
       moved. **Not yet:** a household that could not make a boat or cart itself taking up one
-      nobody is left to take, one taken up told in the chronicle (done 2026-11-04, see backlog D,
+      nobody is left to take (done 2026-11-21, see "A boat or cart nobody holds taken up by a
+      household that could not make one"), one taken up told in the chronicle (done 2026-11-04, see backlog D,
       seventeenth item), salvaging a worn-out one's timber, wagons and lines nobody is left to
       take (done 2026-11-04, see backlog D, eighteenth item: a line nobody holds is taken up, its
       wagons with it), and a custom or law that gives what nobody holds to the settlement rather
@@ -11258,6 +11259,27 @@ and M6a gives rivers a daily flow.
       +0.29, 74.6 %; +20.0 %, +0.89, 67.8 %): none of the forty runs has a household short of
       hands near another settlement. **Not yet:** seasonal hands from afar (a journey and a stay
       away: a mechanism, the owner's); a lived world where a neighbouring village's hands reap.
+    - *A boat or cart nobody holds taken up by a household that could not make one (2026-11-21)*
+      (§9, "A household that could not make a boat or cart takes up one nobody holds"; §8 23,
+      seventh; backlog D, eleventh item's "Not yet"). Only a household that could make a boat or
+      cart weighed its errands by one, so only it took up one nobody was left to take. **Built:**
+      a household that could not make one (no one of it knowing the technique, no tool, or for a
+      cart no timber) weighs its errands by a made one nobody holds, standing where it could use
+      it (not a motor cart), as one that could make it weighs its own; and taking up, by such a
+      household, is of a made one only, which it could not finish otherwise. Who could make it
+      is now one rule (`could_make`) for weighing and taking up. The beginning of one is as
+      before. No content, schema, save or wire change. **Tested:** boats (9, one new: a household
+      with no timber weighs its errands by the sound cart nobody holds at its door and takes it
+      up; another, a half-made one at its door, weighs by none, takes nothing and begins nothing;
+      it saves and goes on alike; it fails without the change at the first; the eleventh item's
+      scene unchanged and passing); the whole civ-sim suite (88 targets), the unit tests; smoke
+      (all 10 pass); fmt, clippy and the schema check clean. **The notables' gate**, locally,
+      against 14607bc: passes, 0 of 40 runs changed, every difference, t and detects the same
+      (fixture 1 proposals +53.8 %, t +2.97, detects 54.3 %; enacted +28.2 %, +1.63, 51.9 %;
+      offices +0.0 %, +0.00, 44.7 %; food moved by the polity −4.6 %, −0.32, 42.3 %; fixture 2
+      +16.1 %, +0.71, 67.7 %; +24.6 %, +1.45, 50.9 %; +7.1 %, +0.29, 74.6 %; +20.0 %, +0.89, 67.8
+      %): none of the forty runs has a boat or cart nobody holds. **Not yet:** a lived world where
+      one is taken up so.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
@@ -12764,6 +12786,8 @@ and M6a gives rivers a daily flow.
        (backlog D, eleventh item, "Not yet"). Gated, small. **Buildable now.**
        *Checked 2026-11-21: open* (§9, "A boat or cart nobody is left to take", 2026-11-03, builds
        the taking up into the making's weighing and leaves this out without deciding it).
+       *Built 2026-11-21* (§7, "A boat or cart nobody holds taken up by a household that could not
+       make one"): gate 0 of 40.
     8. *The hours of bringing a moving household's boats and carts* (backlog D, twenty-fifth item,
        "Not yet"): moving counts no hours for its goods either. Gated, small. **Buildable now.**
        *Checked 2026-11-21: decided against* (§9, "A household that moves takes its boats and
@@ -14680,5 +14704,6 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **A motor cart to an heir far off (2026-11-21; backlog D, the ninth item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A made motor cart passes to an heir in another settlement only where it stands within a fetch's walk and the heir holds the fuel its drive home burns, by the twenty-fifth item's drive rule (one function, `drive_home`, for moving and fetching), as a boat or cart passes only where a way would bring it today; it is fetched by walking to it and driving it home, its fuel weighed at the household's own cost as a motor cart's trip to market is, and burned as the drive sets out, only while held. Its road line does not go with it: a line passes with its cart only within its settlement, the twentieth item's rule, now its own condition, and the line left behind still says whose it had been. **Reason:** the ninth item kept a motor cart back only because nothing drove one home; the drive rule existed, and an heir that holds no fuel for it could not bring it, so it stays as before. No new state: the gate shows 0 of 40 runs changed, none of them holding a motor cart.
 - **The fourteenth coverage pass (2026-11-21; §8 21):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. Today's four behaviour slices, which the gate did not reach, were pinned by scenes at their edges. One fault was found and fixed: passing motor carts to an heir far off now reckons the fuel of their drives home across them, as moving does, so an heir with fuel for one drive takes one. **Reason** for the fix: the twenty-fifth item's rule is that a household without a trip's fuel cannot take it, and the second cart's drive was fuel the heir did not hold beyond the first's. The gate: 0 of 40 runs changed, none of them holding a motor cart.
 - **Reapers from other settlements (2026-11-21; §8 23, first):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A household's people weigh the field work another settlement's households offer where one of those households' fields lies within the hired work's own walk of home (the content's `max_walk_minutes`), and only while its walk is within that walk; no knowledge of the offer is asked beyond its being within a walk, as for a neighbour's. **Reason:** hired field work's leftovers named reapers from other settlements, gated on a long run measuring the three hiring slices, which long run 93 did; the hiring rule is reused whole, and the walk is the content's, so nothing is authored. Seasonal hands come from afar historically, but that is a journey and a stay away from home, a mechanism left for the owner. The gate: 0 of 40 runs changed.
+- **A household that could not make a boat or cart takes up one nobody holds (2026-11-21; §8 23, seventh; backlog D, eleventh item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A household that could not make one weighs its errands by a made one nobody is left to take, standing where it could use it, and takes up only a made one; the bar for taking it is the eleventh item's (worth no less over its remaining life than making a new one would keep), unchanged. **Reason:** what nobody holds is taken up by first use (08-09 §1.2), and the eleventh item tied that use to the making's weighing only because the weighing lived there; a household without the means to make one is the likeliest to use one left standing. A half-made one stays for a household that could finish it. A motor cart is left out: its fuel is weighed by other rules. The gate: 0 of 40 runs changed.
 - **Flooding: water and walkability stay daily (2026-11-20; the owner's call; answers long run 67's and run 80's walking-grid question):** Decided by the owner (2026-11-20), relayed by the coordinator. The walking ground and its landmarks stay laid again for each day's flood depths. **Reason, the owner's words:** "Weekly walkability could leave flooded routes usable—or reopened routes blocked—for several days, changing travel, food access and survival." Option (a), the walking ground changing in coarser steps, is **declined**. Reducing or rebuilding the route structures incrementally, with today's water restrictions kept, is left for later (§8 22, third).
 - **"Moved" in the notables' gate means food moved by the polity (2026-11-20; the owner's acceptance criteria, relayed by the coordinator):** the notables' `moved` aggregate measures the polity's food collection and redistribution, not migration. In earlier entries, "moved" means food transfers. Its tolerance here is 95 %, recalibrated, against main's 25 %. From now on gate figures call it "food moved by the polity", and a change in behaviour is told apart from a changed acceptance criterion.

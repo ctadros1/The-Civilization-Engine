@@ -506,14 +506,19 @@ impl Population {
             .activities
             .iter()
             .find(|a| a.behavior == Behavior::Boat)?;
-        let (vehicle, def) = ctx.catalog.vehicles.iter().enumerate().find(|(_, d)| {
-            d.mode == crate::params::VehicleMode::Boat
-                && d.technique
-                    .is_none_or(|t| self.household_knows(&hh.members, t))
-                && d.tool.is_none_or(|t| {
-                    stores.get(t).copied().unwrap_or(0.0) >= crate::decide::MIN_TOOL
-                })
-        })?;
+        let boats = || {
+            ctx.catalog
+                .vehicles
+                .iter()
+                .enumerate()
+                .filter(|(_, d)| d.mode == crate::params::VehicleMode::Boat)
+        };
+        let (vehicle, def) = boats()
+            .find(|(i, _)| self.could_make(ctx, hh, stores, *i))
+            // Or a made one nobody is left to take, where it could use it (§8 23, seventh).
+            .or_else(|| {
+                boats().find(|(i, _)| !self.nobodys_usable(ctx, hh.id, *i, true).is_empty())
+            })?;
         let within = Self::bank_reach_m(ctx, work);
         let (rivers, hull) = (&ctx.land.rivers, def.hull());
         let (hyd, q) = (&ctx.land.floodplain.reaches, &ctx.land.reach_discharges);
@@ -775,9 +780,40 @@ impl Population {
         household: PermanentId,
         vehicle: usize,
         saves_h_year: f32,
+        made_only: bool,
     ) -> Option<PermanentId> {
         let def = ctx.catalog.vehicles.get(vehicle)?;
-        let home = self.household(household)?.home;
+        let life_h = f64::from(saves_h_year) * def.life_years;
+        let new_net = life_h - def.labour_h;
+        let mut best: Option<(f64, PermanentId)> = None;
+        for v in self.nobodys_usable(ctx, household, vehicle, made_only) {
+            let net = life_h * (1.0 - f64::from(v.wear)).max(0.0)
+                - f64::from(v.labour_h - v.work_h).max(0.0);
+            if net + 1e-9 >= new_net
+                && best.is_none_or(|(b, id)| net > b || (net == b && v.id < id))
+            {
+                best = Some((net, v.id));
+            }
+        }
+        best.map(|(_, id)| id)
+    }
+
+    /// The boats or carts of vehicle `vehicle` nobody is left to take that household `household`
+    /// could use as its own where they stand ([`Self::nobodys_vehicle`]'s rule), made ones only
+    /// where `made_only` (a household that could not finish one).
+    fn nobodys_usable<'a>(
+        &self,
+        ctx: &'a Ctx,
+        household: PermanentId,
+        vehicle: usize,
+        made_only: bool,
+    ) -> Vec<&'a Boat> {
+        let Some(def) = ctx.catalog.vehicles.get(vehicle) else {
+            return Vec::new();
+        };
+        let Some(home) = self.household(household).map(|x| x.home) else {
+            return Vec::new();
+        };
         let (map, land) = (ctx.map, &*ctx.land);
         let cart = def.mode == crate::params::VehicleMode::Cart;
         let list = if cart { &land.carts } else { &land.boats };
@@ -796,14 +832,12 @@ impl Population {
             .map_or(0.0, |w| f64::from(Self::bank_reach_m(ctx, w)));
         let range_m = Self::fetch_range_m(ctx);
         let door = cell_of(map, home) as u32;
-        let life_h = f64::from(saves_h_year) * def.life_years;
-        let new_net = life_h - def.labour_h;
-        let mut best: Option<(f64, PermanentId)> = None;
-        for v in list
-            .list
-            .iter()
-            .filter(|v| usize::from(v.vehicle) == vehicle && self.household(v.owner).is_none())
-        {
+        let mut found = Vec::new();
+        for v in list.list.iter().filter(|v| {
+            usize::from(v.vehicle) == vehicle
+                && self.household(v.owner).is_none()
+                && (!made_only || v.made())
+        }) {
             let at = if cart {
                 cell_centre(map, v.at as usize)
             } else {
@@ -819,18 +853,25 @@ impl Population {
                 // Where it draws one up, or, made, brought there.
                 off_m <= boat_reach_m || (v.made() && brought())
             };
-            if !usable {
-                continue;
-            }
-            let net = life_h * (1.0 - f64::from(v.wear)).max(0.0)
-                - f64::from(v.labour_h - v.work_h).max(0.0);
-            if net + 1e-9 >= new_net
-                && best.is_none_or(|(b, id)| net > b || (net == b && v.id < id))
-            {
-                best = Some((net, v.id));
+            if usable {
+                found.push(v);
             }
         }
-        best.map(|(_, id)| id)
+        found
+    }
+
+    /// Whether household `hh`, holding `stores`, could make a boat or cart of vehicle `vehicle`
+    /// itself: someone of it knows its technique and it holds its tool, and, a cart, its timber
+    /// (M8b slices CO and CP).
+    fn could_make(&self, ctx: &Ctx, hh: &Household, stores: &[f64], vehicle: usize) -> bool {
+        let Some(d) = ctx.catalog.vehicles.get(vehicle) else {
+            return false;
+        };
+        let held = |g: usize| stores.get(g).copied().unwrap_or(0.0);
+        d.technique
+            .is_none_or(|t| self.household_knows(&hh.members, t))
+            && d.tool.is_none_or(|t| held(t) >= crate::decide::MIN_TOOL)
+            && (d.mode != crate::params::VehicleMode::Cart || held(d.good) >= d.material_kg)
     }
 
     /// The cart household `hh`, holding `stores`, could make, if any (M8b slice CP, third part):
@@ -852,14 +893,43 @@ impl Population {
         {
             return None;
         }
-        let held = |g: usize| stores.get(g).copied().unwrap_or(0.0);
-        ctx.catalog.vehicles.iter().position(|d| {
-            d.mode == crate::params::VehicleMode::Cart
-                && d.technique
-                    .is_none_or(|t| self.household_knows(&hh.members, t))
-                && d.tool.is_none_or(|t| held(t) >= crate::decide::MIN_TOOL)
-                && held(d.good) >= d.material_kg
-        })
+        let carts = || {
+            ctx.catalog
+                .vehicles
+                .iter()
+                .enumerate()
+                .filter(|(_, d)| d.mode == crate::params::VehicleMode::Cart)
+                .map(|(i, _)| i)
+        };
+        carts()
+            .find(|&i| self.could_make(ctx, hh, stores, i))
+            // Or one it could not make, a made one nobody is left to take standing where it
+            // could use it (§8 23, seventh; backlog D, eleventh item's "Not yet"); not a motor
+            // cart, whose fuel is weighed by other rules.
+            .or_else(|| {
+                carts().find(|&i| {
+                    ctx.catalog.vehicles[i].engine.is_none()
+                        && !self.nobodys_usable(ctx, hh.id, i, true).is_empty()
+                })
+            })
+    }
+
+    /// The cart and the boat household `household` would weigh its errands by, as planning one
+    /// finds them ([`Self::cart_it_could_make`], [`Self::boat_it_could_make`]): for tests.
+    #[doc(hidden)]
+    pub fn vehicles_it_could_have_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+    ) -> (Option<usize>, Option<usize>) {
+        let Some(hh) = self.household(household) else {
+            return (None, None);
+        };
+        let stores = stores_now(hh, ctx.now, ctx.params, &ctx.catalog.goods);
+        (
+            self.cart_it_could_make(ctx, hh, &stores),
+            self.boat_it_could_make(ctx, hh, &stores).map(|b| b.vehicle),
+        )
     }
 
     /// The households that found, planning an errand, that a boat would save them more walking
@@ -884,8 +954,14 @@ impl Population {
                 continue;
             }
             // One nobody is left to take, standing where it could use it, is taken up instead
-            // where that keeps it as much (backlog D, eleventh item).
-            if let Some(v) = self.nobodys_vehicle(ctx, household, vehicle, saves_h_year) {
+            // where that keeps it as much (backlog D, eleventh item); by a household that could
+            // not make one, only a made one, which it could not finish otherwise (§8 23,
+            // seventh).
+            let can = self.household(household).is_some_and(|x| {
+                let stores = stores_now(x, ctx.now, ctx.params, &ctx.catalog.goods);
+                self.could_make(ctx, x, &stores, vehicle)
+            });
+            if let Some(v) = self.nobodys_vehicle(ctx, household, vehicle, saves_h_year, !can) {
                 let list = if cart {
                     &mut ctx.land.carts
                 } else {

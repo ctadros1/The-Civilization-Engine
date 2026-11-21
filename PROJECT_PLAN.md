@@ -9491,9 +9491,10 @@ and M6a gives rivers a daily flow.
       tests, none failing); the ten smoke seeds pass; fmt and clippy clean. No existing assertion
       moved. **Not yet:** a household that could not make a boat or cart itself taking up one
       nobody is left to take, one taken up told in the chronicle (done 2026-11-04, see backlog D,
-      seventeenth item), salvaging a worn-out one's
-      timber, wagons and lines nobody is left to take, and a custom or law that gives what
-      nobody holds to the settlement rather than to whoever takes it up.
+      seventeenth item), salvaging a worn-out one's timber, wagons and lines nobody is left to
+      take (done 2026-11-04, see backlog D, eighteenth item: a line nobody holds is taken up, its
+      wagons with it), and a custom or law that gives what nobody holds to the settlement rather
+      than to whoever takes it up.
     - *Backlog D, twelfth item (2026-11-03): a conveyance laid whole told in the chronicle* (the
       fifth item's "Not yet": a chronicle entry for a sewer laid whole, no conveyance laid, a gas
       main or a line of current, being told yet). No new ADR. **The kind:**
@@ -9532,7 +9533,9 @@ and M6a gives rivers a daily flow.
       (712) and the whole suite target by target (94 targets, 1,579 tests, none failing); the ten
       smoke seeds pass; fmt and clippy clean. No existing assertion moved. **Not yet:** a
       telegraph wire strung whole told (done 2026-11-03, see backlog D, fifteenth item), a
-      conveyance given up unfinished or broken told, and a lived world where each is laid.
+      conveyance given up unfinished or broken told (used up 2026-11-21: nothing in the kernel
+      breaks one or gives one up being laid, so there is nothing to tell; §9, "Backlog D's
+      chronicle-only 'Not yet' lines, used up"), and a lived world where each is laid.
     - *Backlog D, thirteenth item (2026-11-03): a hearer's term ending while a case waits, a
       hearer removed before their term, and a watch kept by turns* (the eighth item's "Not yet";
       research 09-02 §3.6: death, removal and a term's expiry are procedures of their own; §8.6:
@@ -9583,9 +9586,10 @@ and M6a gives rivers a daily flow.
       id, an append, as each new template has needed), the unit tests (712) and the whole suite
       target by target (94 targets, 1,583 tests, none failing); the ten smoke seeds pass; fmt and
       clippy clean. No existing assertion moved. **Not yet:** a hearer paid for hearing, a
-      recall that ends a forum without naming another (the gathering hearing cases again), the
-      one removed barred from the next lot, and a lived world where a gathering draws a hearer, or
-      removes one.
+      recall that ends a forum without naming another (the gathering hearing cases again; done
+      2026-11-19, see "A faction may recall a forum"), the one removed barred from the next lot
+      (done 2026-11-20, see "The one removed by a recall barred from the next lot"), and a lived
+      world where a gathering draws a hearer, or removes one.
     - *Backlog D, fourteenth item (2026-11-03): a passing place kept by law, its cleared margin
       growing over when left unkept, and a household's long way for its carts told once cleared*
       (the sixth item's "Not yet"; ADR-0029 §1, §6; research 10-07 §1.1: clearance and surface
@@ -9721,8 +9725,9 @@ and M6a gives rivers a daily flow.
       exactly, the entry with it); the test cannot pass without the change; the unit tests
       (714) and the whole suite target by target (94 targets, 1,594 tests, none failing); the ten
       smoke seeds pass; fmt and clippy clean. No existing assertion moved. **Not yet:** a wire
-      broken (nothing breaks one yet) or given up unfinished told, and a lived world where one is
-      strung.
+      broken (nothing breaks one yet) or given up unfinished told (used up 2026-11-21: nothing to
+      tell; §9, "Backlog D's chronicle-only 'Not yet' lines, used up"), and a lived world where one
+      is strung.
     - *Backlog D, sixteenth item (2026-11-03): word of a loan from the common store goes about*
       (the seventh item's "Not yet": a default to the common store told; research 08-07 §5.3:
       observed repayment spreads by meeting, never as a score everyone sees; ADR-0027 §4: the
@@ -11414,7 +11419,8 @@ and M6a gives rivers a daily flow.
       line added, no assertion moved), boats, carts, rail, fetch, settlements, people, regimes,
       roundtrip and determinism, the civ-agents and civ-sim unit tests, the civ-host lib tests;
       the ten smoke seeds pass; fmt and clippy clean. **Not yet:** a moved household's road line
-      reposted from its new door (its keeper weighs posting at its review, as any keeper does);
+      reposted from its new door (its keeper weighs posting at its review, as any keeper does;
+      done 2026-11-18, see backlog D, twenty-sixth item);
       the hours of bringing them, which moving does not count for its goods either.
     - *Covered tip, end to end (2026-11-18; backlog C's covering, its "Not yet": a review
       proposing it and a gathering passing it untested).* A test only; no code changed. In a
@@ -14429,7 +14435,7 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Hired sowing paid only from grain to spare (2026-11-21; §8 21, twelfth; the coordinator's review of d5dd5b1):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A household hiring hands to prepare or sow offers and pays only the grain it holds beyond its keep, the food that sees it to its next harvest and its margin (`holding_of`, as the market keeps it back from sale). **Reason:** at the sowing the next harvest is months off, so the cap reaping used (all the grain held, refilled within days) let a household pay away the grain it eats; the keep already exists, so no rate is authored. The gate: 28 of 40 runs changed, all within tolerance; coast's offices back within what the runs can detect (74.6 % against 85 %).
 - **A well relined told (2026-11-21; backlog D, second item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-21). A well whose relining is finished is told in the chronicle as a covering is, naming who finished a polity's. **Reason:** the oldest gate-neutral "Not yet" in backlog D needing no Unreal and no owner's decision; a record no decision reads, so the gate is unmoved (0 of 40 runs changed).
 - **A sewer's blockage and its asked mending told (2026-11-21; backlog D, fifth item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A sewer's deposit first turning homes away is told once at its outfall, and the mending its gathering asks is told when asked. **Reason:** the next gate-neutral "Not yet" in backlog D's order; records no decision reads, so the gate is unmoved (0 of 40 runs changed).
-- **Backlog D's chronicle-only "Not yet" lines, used up (2026-11-21):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. Read in order after the thirtieth item: the twelfth's "a conveyance given up unfinished or broken told" and the fifteenth's "a wire broken … or given up unfinished told" have no path to hook (nothing in the kernel sets a gas main, line of current or wire broken, only tests do, and one still being laid is never given up: it stands with its metres laid); the sixth's and twentieth's "told" lines are done; the tenth's (a pledged field taken told, and the rest) and the sixteenth's (a levy unpaid as arrears, told) are word, which changes regard and so lending (`default_chance`), behaviour that waits on long run 93 on f1f5ee8; the seventeenth's and nineteenth's "whose it had been" were done by the twenty-third item and are now marked so. **Reason:** these are records of what the plan already holds, so the next gate-neutral work comes from the backlog's later sources (the ADRs' deferrals, §8's questions, the improvement passes).
+- **Backlog D's chronicle-only "Not yet" lines, used up (2026-11-21):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. Read in order after the thirtieth item: the twelfth's "a conveyance given up unfinished or broken told" and the fifteenth's "a wire broken … or given up unfinished told" have no path to hook (nothing in the kernel sets a gas main, line of current or wire broken, only tests do, and one still being laid is never given up: it stands with its metres laid); the sixth's and twentieth's "told" lines are done; the tenth's (a pledged field taken told, and the rest) are word, which changes regard and so lending (`default_chance`), behaviour that waited on long run 93 on f1f5ee8; the sixteenth's (a levy unpaid as arrears, told) is a mechanism, not word (corrected 2026-11-21: its own entry, "Word of a loan from the common store", has booking a levy as arrears a new mechanism, since nothing is owed in the credit book to tell of); the seventeenth's and nineteenth's "whose it had been" were done by the twenty-third item and are now marked so. **Reason:** these are records of what the plan already holds, so the next gate-neutral work comes from the backlog's later sources (the ADRs' deferrals, §8's questions, the improvement passes).
 - **The thirteenth coverage pass (2026-11-21; §8 21):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. Today's slices (the wage bid, threshing and sowing for hire, the sewer entries) were read against the code: no fault found, eleven edges pinned by five new scenes. **Reason:** tests only, so the gate is unmoved (0 of 40 runs changed). The sowing wage read at the work, not the offer, is left as built: it is reaping's rule, and the coordinator's to change.
 - **The hired task on the wire (2026-11-21; backlog E, observer states; wire 1.114):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. Someone at work for hire on another household's field carries its task (reap, thresh, prepare, sow) in `PersonInfo.hired_task`, an enum appended at the table's end, read from the field as `doing` reads it, so older peers read None and the words never disagree. **Reason:** the decision panel named all four "Work for hire"; one appended field is backward-compatible and needs no new table, and offers and wages stay off the wire until a slice asks for them. Wire only, so the gate is unmoved (0 of 40 runs changed).
 - **A guarantor who could pay nothing, told (2026-11-21; backlog D, the tenth item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A guarantor called on that can spare nothing makes a word claim of an appended kind, `ClaimKind::GuarantorFailed` (code 16), and the lender's household notes `defaulted` of the guarantor's elder; hearers note `defaulted_others`. A kind of its own, not `Defaulted`, since a default names the debtor's elder and this the guarantor's, of the same loan, and only the kind tells them apart in words; the acts are the default's, since the guarantor's word failed as the debtor's did, and their reasons read true of it. Every member of the lender's household notes it, as of a default (a guarantor that pays is noted by the lender's elder alone, as before). A guarantor that pays anything, in full or in part, is told as paying only. **Reason:** it is evidence the default does not give (the guarantor's own word, not the debtor's), unlike a pledged field taken, which stays untold by the 2026-11-02 entry. The gate: 0 of 40 runs changed, none of them reaching the case.

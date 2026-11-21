@@ -141,3 +141,25 @@ export function spread(
   }
   return out;
 }
+
+/** Wire 1.114: the field work done for hire, by the person's hired task, for the panel. */
+const HIRED_WORK: Record<number, string> = {
+  1: "Reaping for hire",
+  2: "Threshing for hire",
+  3: "Preparing ground for hire",
+  4: "Sowing for hire",
+};
+
+/**
+ * What the panel calls the activity of an option: the field work done for hire when the option is
+ * the person's current activity and they are at hired field work (wire 1.114), or else the
+ * activity's own name, as before.
+ */
+export function optionActivityName(
+  activityName: string,
+  optionActivity: number,
+  current: { activity: number; hiredTask: number } | null,
+): string {
+  if (!current || current.activity !== optionActivity) return activityName;
+  return HIRED_WORK[current.hiredTask] ?? activityName;
+}

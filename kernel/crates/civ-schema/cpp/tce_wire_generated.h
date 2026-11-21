@@ -1463,6 +1463,45 @@ inline const char *EnumNameSpanKind(SpanKind e) {
   return EnumNamesSpanKind()[index];
 }
 
+enum class HiredTask : uint8_t {
+  None = 0,
+  Reap = 1,
+  Thresh = 2,
+  Prepare = 3,
+  Sow = 4,
+  MIN = None,
+  MAX = Sow
+};
+
+inline const HiredTask (&EnumValuesHiredTask())[5] {
+  static const HiredTask values[] = {
+    HiredTask::None,
+    HiredTask::Reap,
+    HiredTask::Thresh,
+    HiredTask::Prepare,
+    HiredTask::Sow
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesHiredTask() {
+  static const char * const names[6] = {
+    "None",
+    "Reap",
+    "Thresh",
+    "Prepare",
+    "Sow",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameHiredTask(HiredTask e) {
+  if (::flatbuffers::IsOutRange(e, HiredTask::None, HiredTask::Sow)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesHiredTask()[index];
+}
+
 enum class GroupState : uint8_t {
   Sound = 0,
   Symptom = 1,
@@ -11278,7 +11317,8 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_LIGHT = 122,
     VT_CARE = 124,
     VT_TEACHING = 126,
-    VT_LETTERS = 128
+    VT_LETTERS = 128,
+    VT_HIRED_TASK = 130
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -11469,6 +11509,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *letters() const {
     return GetPointer<const ::flatbuffers::String *>(VT_LETTERS);
   }
+  tce::wire::HiredTask hired_task() const {
+    return static_cast<tce::wire::HiredTask>(GetField<uint8_t>(VT_HIRED_TASK, 0));
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -11589,6 +11632,7 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyString(teaching()) &&
            VerifyOffset(verifier, VT_LETTERS) &&
            verifier.VerifyString(letters()) &&
+           VerifyField<uint8_t>(verifier, VT_HIRED_TASK, 1) &&
            verifier.EndTable();
   }
 };
@@ -11786,6 +11830,9 @@ struct PersonInfoBuilder {
   void add_letters(::flatbuffers::Offset<::flatbuffers::String> letters) {
     fbb_.AddOffset(PersonInfo::VT_LETTERS, letters);
   }
+  void add_hired_task(tce::wire::HiredTask hired_task) {
+    fbb_.AddElement<uint8_t>(PersonInfo::VT_HIRED_TASK, static_cast<uint8_t>(hired_task), 0);
+  }
   explicit PersonInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -11861,7 +11908,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
     ::flatbuffers::Offset<::flatbuffers::String> light = 0,
     ::flatbuffers::Offset<::flatbuffers::String> care = 0,
     ::flatbuffers::Offset<::flatbuffers::String> teaching = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> letters = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> letters = 0,
+    tce::wire::HiredTask hired_task = tce::wire::HiredTask::None) {
   PersonInfoBuilder builder_(_fbb);
   builder_.add_household_admired(household_admired);
   builder_.add_left_minute(left_minute);
@@ -11924,6 +11972,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
   builder_.add_age_years(age_years);
   builder_.add_name(name);
   builder_.add_activity(activity);
+  builder_.add_hired_task(hired_task);
   builder_.add_alive(alive);
   builder_.add_sex(sex);
   return builder_.Finish();
@@ -11998,7 +12047,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
     const char *light = nullptr,
     const char *care = nullptr,
     const char *teaching = nullptr,
-    const char *letters = nullptr) {
+    const char *letters = nullptr,
+    tce::wire::HiredTask hired_task = tce::wire::HiredTask::None) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto cause__ = cause ? _fbb.CreateString(cause) : 0;
   auto origin__ = origin ? _fbb.CreateString(origin) : 0;
@@ -12097,7 +12147,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
       light__,
       care__,
       teaching__,
-      letters__);
+      letters__,
+      hired_task);
 }
 
 struct NewsLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

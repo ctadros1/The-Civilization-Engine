@@ -8,6 +8,7 @@ import { Decision } from '../../tce/wire/decision.js';
 import { FactionLine } from '../../tce/wire/faction-line.js';
 import { GrievanceLine } from '../../tce/wire/grievance-line.js';
 import { HeardLine } from '../../tce/wire/heard-line.js';
+import { HiredTask } from '../../tce/wire/hired-task.js';
 import { IdeologyLine } from '../../tce/wire/ideology-line.js';
 import { InfluenceLine } from '../../tce/wire/influence-line.js';
 import { KinLink } from '../../tce/wire/kin-link.js';
@@ -505,8 +506,13 @@ letters(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+hiredTask():HiredTask {
+  const offset = this.bb!.__offset(this.bb_pos, 130);
+  return offset ? this.bb!.readUint8(this.bb_pos + offset) : HiredTask.None;
+}
+
 static startPersonInfo(builder:flatbuffers.Builder) {
-  builder.startObject(63);
+  builder.startObject(64);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -1000,6 +1006,10 @@ static addTeaching(builder:flatbuffers.Builder, teachingOffset:flatbuffers.Offse
 
 static addLetters(builder:flatbuffers.Builder, lettersOffset:flatbuffers.Offset) {
   builder.addFieldOffset(62, lettersOffset, 0);
+}
+
+static addHiredTask(builder:flatbuffers.Builder, hiredTask:HiredTask) {
+  builder.addFieldInt8(63, hiredTask, HiredTask.None);
 }
 
 static endPersonInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

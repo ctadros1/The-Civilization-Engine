@@ -1021,6 +1021,9 @@ struct StoreLine {
   kg: float;
 }
 
+// The field work someone at work for hire does (wire 1.114): what the field needs now.
+enum HiredTask : ubyte { None = 0, Reap = 1, Thresh = 2, Prepare = 3, Sow = 4 }
+
 table PersonInfo {
   id: ulong (id: 0);
   name: string (id: 1);
@@ -1155,6 +1158,9 @@ table PersonInfo {
   // pottery, kept by Ada's household; reading laying out from a record Bo wrote, 12 of 80
   // hours"); empty for none.
   letters: string (id: 62);
+  // Wire 1.114 (backlog E, observer states): the field work they are at for hire, by what the
+  // field needs now, as `doing` says it; None when not working another household's field for hire.
+  hired_task: HiredTask (id: 63);
 }
 
 // Wire 1.47 (M4c slice AJ): a claim that may be whispered.

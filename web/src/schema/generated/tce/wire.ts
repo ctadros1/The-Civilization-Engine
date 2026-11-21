@@ -104,6 +104,7 @@ export { GroupState } from './wire/group-state.js';
 export { HandOver } from './wire/hand-over.js';
 export { HeardLine } from './wire/heard-line.js';
 export { Hello } from './wire/hello.js';
+export { HiredTask } from './wire/hired-task.js';
 export { HouseholdWealth } from './wire/household-wealth.js';
 export { Hydrography } from './wire/hydrography.js';
 export { IdeologyInfo } from './wire/ideology-info.js';

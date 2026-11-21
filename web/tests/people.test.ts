@@ -6,6 +6,7 @@ import {
   activityColour,
   estimateMinute,
   missingTrips,
+  optionActivityName,
   personPosition,
   positionOnTrip,
   pruneTrips,
@@ -265,6 +266,7 @@ describe("people payloads", () => {
     W.PersonInfo.addCare(b, care);
     W.PersonInfo.addTeaching(b, teaching);
     W.PersonInfo.addLetters(b, letters);
+    W.PersonInfo.addHiredTask(b, W.HiredTask.Thresh);
     const body = W.PersonInfo.endPersonInfo(b);
     b.finish(W.Response.createResponse(b, W.ResponseBody.PersonInfo, body));
     const r = M.decodeResponse(b.asUint8Array());
@@ -284,6 +286,8 @@ describe("people payloads", () => {
     expect(r.person.teaching).toBe("Studies pottery with Bo, 40 of 300 hours, asking nothing");
     // Wire 1.106: their letters, in words.
     expect(r.person.letters).toBe("Wrote a record of pottery, kept by Ada's household");
+    // Wire 1.114: the field work they are at for hire.
+    expect(r.person.hiredTask).toBe(2);
     expect(r.person.skills).toEqual([
       { skill: 0, level: 0.75 },
       { skill: 4, level: 0.25 },
@@ -297,6 +301,8 @@ describe("people payloads", () => {
     e.finish(W.Response.createResponse(e, W.ResponseBody.PersonInfo, empty));
     const nobody = M.decodeResponse(e.asUint8Array());
     if (nobody.kind !== "person") throw new Error(nobody.kind);
+    // At no hired field work, or from a kernel before wire 1.114: none.
+    expect(nobody.person.hiredTask).toBe(0);
     expect([nobody.person.carryGood, nobody.person.stores, nobody.person.skills]).toEqual([
       -1,
       [],
@@ -469,5 +475,22 @@ describe("people payloads", () => {
         },
       ],
     });
+  });
+});
+
+describe("hired field work in the decision panel (wire 1.114)", () => {
+  it("names the work done for hire only for the option they are at now", () => {
+    const now = { activity: 7, hiredTask: 1 };
+    expect(optionActivityName("Work for hire", 7, now)).toBe("Reaping for hire");
+    expect(optionActivityName("Work for hire", 7, { activity: 7, hiredTask: 2 })).toBe("Threshing for hire");
+    expect(optionActivityName("Work for hire", 7, { activity: 7, hiredTask: 3 })).toBe(
+      "Preparing ground for hire",
+    );
+    expect(optionActivityName("Work for hire", 7, { activity: 7, hiredTask: 4 })).toBe("Sowing for hire");
+    // Another option, no hired task, an unknown one, or no current activity: today's words.
+    expect(optionActivityName("Gather", 3, now)).toBe("Gather");
+    expect(optionActivityName("Work for hire", 7, { activity: 7, hiredTask: 0 })).toBe("Work for hire");
+    expect(optionActivityName("Work for hire", 7, { activity: 7, hiredTask: 9 })).toBe("Work for hire");
+    expect(optionActivityName("Work for hire", 7, null)).toBe("Work for hire");
   });
 });

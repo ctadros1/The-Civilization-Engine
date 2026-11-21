@@ -1243,6 +1243,102 @@ impl<'a> ::flatbuffers::Verifiable for SpanKind {
 
 impl ::flatbuffers::SimpleToVerifyInSlice for SpanKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_HIRED_TASK: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_HIRED_TASK: u8 = 4;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_HIRED_TASK: [HiredTask; 5] = [
+  HiredTask::None,
+  HiredTask::Reap,
+  HiredTask::Thresh,
+  HiredTask::Prepare,
+  HiredTask::Sow,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct HiredTask(pub u8);
+#[allow(non_upper_case_globals)]
+impl HiredTask {
+  pub const None: Self = Self(0);
+  pub const Reap: Self = Self(1);
+  pub const Thresh: Self = Self(2);
+  pub const Prepare: Self = Self(3);
+  pub const Sow: Self = Self(4);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 4;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::None,
+    Self::Reap,
+    Self::Thresh,
+    Self::Prepare,
+    Self::Sow,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::None => Some("None"),
+      Self::Reap => Some("Reap"),
+      Self::Thresh => Some("Thresh"),
+      Self::Prepare => Some("Prepare"),
+      Self::Sow => Some("Sow"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for HiredTask {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for HiredTask {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for HiredTask {
+    type Output = HiredTask;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for HiredTask {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for HiredTask {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for HiredTask {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_GROUP_STATE: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MAX_GROUP_STATE: u8 = 2;
@@ -19452,6 +19548,7 @@ impl<'a> PersonInfo<'a> {
   pub const VT_CARE: ::flatbuffers::VOffsetT = 124;
   pub const VT_TEACHING: ::flatbuffers::VOffsetT = 126;
   pub const VT_LETTERS: ::flatbuffers::VOffsetT = 128;
+  pub const VT_HIRED_TASK: ::flatbuffers::VOffsetT = 130;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -19524,6 +19621,7 @@ impl<'a> PersonInfo<'a> {
     builder.add_age_years(args.age_years);
     if let Some(x) = args.name { builder.add_name(x); }
     builder.add_activity(args.activity);
+    builder.add_hired_task(args.hired_task);
     builder.add_alive(args.alive);
     builder.add_sex(args.sex);
     builder.finish()
@@ -19971,6 +20069,13 @@ impl<'a> PersonInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PersonInfo::VT_LETTERS, None)}
   }
+  #[inline]
+  pub fn hired_task(&self) -> HiredTask {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<HiredTask>(PersonInfo::VT_HIRED_TASK, Some(HiredTask::None)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonInfo<'_> {
@@ -20042,6 +20147,7 @@ impl ::flatbuffers::Verifiable for PersonInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("care", Self::VT_CARE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("teaching", Self::VT_TEACHING, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("letters", Self::VT_LETTERS, false)?
+     .visit_field::<HiredTask>("hired_task", Self::VT_HIRED_TASK, false)?
      .finish();
     Ok(())
   }
@@ -20110,6 +20216,7 @@ pub struct PersonInfoArgs<'a> {
     pub care: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub teaching: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub letters: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub hired_task: HiredTask,
 }
 impl<'a> Default for PersonInfoArgs<'a> {
   #[inline]
@@ -20178,6 +20285,7 @@ impl<'a> Default for PersonInfoArgs<'a> {
       care: None,
       teaching: None,
       letters: None,
+      hired_task: HiredTask::None,
     }
   }
 }
@@ -20440,6 +20548,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_LETTERS, letters);
   }
   #[inline]
+  pub fn add_hired_task(&mut self, hired_task: HiredTask) {
+    self.fbb_.push_slot::<HiredTask>(PersonInfo::VT_HIRED_TASK, hired_task, HiredTask::None);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonInfoBuilder {
@@ -20520,6 +20632,7 @@ impl ::core::fmt::Debug for PersonInfo<'_> {
       ds.field("care", &self.care());
       ds.field("teaching", &self.teaching());
       ds.field("letters", &self.letters());
+      ds.field("hired_task", &self.hired_task());
       ds.finish()
   }
 }

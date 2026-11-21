@@ -2981,3 +2981,98 @@ fn hired_sowing_pays_from_the_spare_for_the_work_the_seed_allows_and_nothing_onc
     sim.with_ctx_for_tests(|pop, ctx| pop.hired_field_work_for_tests(ctx, hand, field, 240));
     assert_eq!((work(&sim) - w1, wages(&sim) - p1), (0.0, 0.0));
 }
+
+/// The observer's hired task (wire 1.114, backlog E's observer states): someone at work for hire
+/// on another household's field is told as reaping, threshing, preparing or sowing by what the
+/// field needs now, the same work `doing` names; anyone else's is none.
+#[test]
+fn the_person_frame_names_the_field_work_done_for_hire() {
+    use civ_schema::{flatbuffers, wire};
+    let (mut sim, employer, fields) = sheaves_in_the_window();
+    let rules = sim.rules().clone();
+    let crop = rules.catalog.crops[rules.people.farm.crop].clone();
+    let hire = rules
+        .catalog
+        .index_of("core:activity/hired_work")
+        .expect("working for hire is an activity");
+    let field = fields[0];
+    let hand = sim
+        .people()
+        .people
+        .iter()
+        .filter(|(_, p)| p.household != employer)
+        .filter(|(_, p)| (20.0..=50.0).contains(&p.age_years(sim.now())))
+        .map(|(_, p)| p.id)
+        .min()
+        .expect("a grown neighbour");
+    let read = |sim: &Sim| {
+        let payload = civ_sim::frames::people::person_response(sim, hand.get(), 0).expect("alive");
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("a response");
+        let info = response.body_as_person_info().expect("a person");
+        (
+            info.hired_task(),
+            info.doing().unwrap_or_default().to_owned(),
+        )
+    };
+    let set_act = |sim: &mut Sim, def: usize| {
+        for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+            if p.id == hand {
+                p.act.def = def as u16;
+                p.act.target = civ_agents::person::Target::Field(field);
+            }
+        }
+    };
+    let stage = |sim: &mut Sim, stage: civ_land::FieldStage, sheaves: f32| {
+        let day = sim.now().day_index();
+        for f in sim.land_mut_for_tests().fields.iter_mut() {
+            if f.id == field {
+                f.stage = stage;
+                f.broken = true;
+                f.work_h = 0.0;
+                f.sheaves_kg = sheaves;
+                f.sown_day = day - i64::from(crop.grow_days) - 3;
+            }
+        }
+    };
+    set_act(&mut sim, hire);
+    for (s, sheaves, task, words) in [
+        (
+            civ_land::FieldStage::Sown,
+            0.0,
+            wire::HiredTask::Reap,
+            "reaping for wages",
+        ),
+        (
+            civ_land::FieldStage::Reaped,
+            10.0,
+            wire::HiredTask::Thresh,
+            "threshing for wages",
+        ),
+        (
+            civ_land::FieldStage::Fallow,
+            0.0,
+            wire::HiredTask::Prepare,
+            "preparing ground for wages",
+        ),
+        (
+            civ_land::FieldStage::Prepared,
+            0.0,
+            wire::HiredTask::Sow,
+            "sowing for wages",
+        ),
+    ] {
+        stage(&mut sim, s, sheaves);
+        let (got, doing) = read(&sim);
+        assert_eq!(got, task, "{s:?}");
+        assert!(doing.contains(words), "{s:?}: {doing}");
+    }
+    // At other work aimed at the same field, there is no hired task.
+    let farm = rules
+        .catalog
+        .activities
+        .iter()
+        .position(|a| a.behavior == Behavior::Farm)
+        .expect("farming is an activity");
+    set_act(&mut sim, farm);
+    assert_eq!(read(&sim).0, wire::HiredTask::None);
+}

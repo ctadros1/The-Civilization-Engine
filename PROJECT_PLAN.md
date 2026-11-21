@@ -11059,6 +11059,24 @@ and M6a gives rivers a daily flow.
       locally, against 2b60825's kernel: passes, 0 of 40 runs changed, every difference, t and
       detects the same (fixture 1 proposals +53.8 %, enacted +28.2 %, offices +0.0 %, food moved
       by the polity −4.6 %; fixture 2 +17.2 %, +26.1 %, +7.1 %, +20.6 %). **Not yet:** nothing.
+    - *Backlog E, observer states (2026-11-21; wire 1.114): the field work done for hire named
+      in the decision panel* (§9, "The hired task on the wire"). The person's line already said
+      "reaping for wages", "threshing for wages", "preparing ground for wages" or "sowing for
+      wages", by what the field needs now; the decision panel's "Why" said "Work for hire" for
+      all four. **Built:** `HiredTask` (None, Reap, Thresh, Prepare, Sow) appended to `PersonInfo`
+      as `hired_task` (id 63), from the same reading of the field that `doing` uses (one function,
+      `frames::people::hired_task`, for both); wire 1.114, the web envelope's minor following. The
+      panel says "Reaping for hire — the field of …" (and threshing, preparing ground, sowing) for
+      the newest decision when it is the activity they are at now, and today's words otherwise or
+      from an older kernel (absent reads None). No wage, ledger or offer export; no save, content
+      or simulation change. **Tested:** people (43, one new: the frame's task and `doing`'s words
+      for a ripe, a threshed, a fallow and a prepared field, and none at other work on it); web
+      unit tests (224, one new for the panel's words, the person decode extended); web build;
+      e2e (31 pass, the 16 demo specs skipped without `TCE_DEMO`, as always); the whole civ-sim
+      suite (88 targets), the unit tests; smoke (all 10 pass); fmt, clippy and the schema check
+      clean. **The notables' gate**, locally, against 2f02804: passes, 0 of 40 runs changed, every
+      difference, t and detects the same. **Not yet:** offers and wages on the wire (a table of
+      its own, if wanted).
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
@@ -14353,5 +14371,6 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **A sewer's blockage and its asked mending told (2026-11-21; backlog D, fifth item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A sewer's deposit first turning homes away is told once at its outfall, and the mending its gathering asks is told when asked. **Reason:** the next gate-neutral "Not yet" in backlog D's order; records no decision reads, so the gate is unmoved (0 of 40 runs changed).
 - **Backlog D's chronicle-only "Not yet" lines, used up (2026-11-21):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. Read in order after the thirtieth item: the twelfth's "a conveyance given up unfinished or broken told" and the fifteenth's "a wire broken … or given up unfinished told" have no path to hook (nothing in the kernel sets a gas main, line of current or wire broken, only tests do, and one still being laid is never given up: it stands with its metres laid); the sixth's and twentieth's "told" lines are done; the tenth's (a pledged field taken told, and the rest) and the sixteenth's (a levy unpaid as arrears, told) are word, which changes regard and so lending (`default_chance`), behaviour that waits on long run 93 on f1f5ee8; the seventeenth's and nineteenth's "whose it had been" were done by the twenty-third item and are now marked so. **Reason:** these are records of what the plan already holds, so the next gate-neutral work comes from the backlog's later sources (the ADRs' deferrals, §8's questions, the improvement passes).
 - **The thirteenth coverage pass (2026-11-21; §8 21):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. Today's slices (the wage bid, threshing and sowing for hire, the sewer entries) were read against the code: no fault found, eleven edges pinned by five new scenes. **Reason:** tests only, so the gate is unmoved (0 of 40 runs changed). The sowing wage read at the work, not the offer, is left as built: it is reaping's rule, and the coordinator's to change.
+- **The hired task on the wire (2026-11-21; backlog E, observer states; wire 1.114):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. Someone at work for hire on another household's field carries its task (reap, thresh, prepare, sow) in `PersonInfo.hired_task`, an enum appended at the table's end, read from the field as `doing` reads it, so older peers read None and the words never disagree. **Reason:** the decision panel named all four "Work for hire"; one appended field is backward-compatible and needs no new table, and offers and wages stay off the wire until a slice asks for them. Wire only, so the gate is unmoved (0 of 40 runs changed).
 - **Flooding: water and walkability stay daily (2026-11-20; the owner's call; answers long run 67's and run 80's walking-grid question):** Decided by the owner (2026-11-20), relayed by the coordinator. The walking ground and its landmarks stay laid again for each day's flood depths. **Reason, the owner's words:** "Weekly walkability could leave flooded routes usable—or reopened routes blocked—for several days, changing travel, food access and survival." Option (a), the walking ground changing in coarser steps, is **declined**. Reducing or rebuilding the route structures incrementally, with today's water restrictions kept, is left for later (§8 22, third).
 - **"Moved" in the notables' gate means food moved by the polity (2026-11-20; the owner's acceptance criteria, relayed by the coordinator):** the notables' `moved` aggregate measures the polity's food collection and redistribution, not migration. In earlier entries, "moved" means food transfers. Its tolerance here is 95 %, recalibrated, against main's 25 %. From now on gate figures call it "food moved by the polity", and a change in behaviour is told apart from a changed acceptance criterion.

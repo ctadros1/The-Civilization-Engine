@@ -905,6 +905,9 @@ export interface PersonInfo {
   /** Wire 1.106 (M10c slice EC): their letters, the records they wrote and who keeps each, a
    * record they are writing, and what they read toward from a record; empty for none. */
   letters: string;
+  /** Wire 1.114: the field work they are at for hire, by what the field needs now (0 none, 1
+   * reaping, 2 threshing, 3 preparing ground, 4 sowing); 0 from an older kernel. */
+  hiredTask: number;
 }
 
 /** A claim the observer may whisper (wire 1.47). */
@@ -4978,6 +4981,7 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     care: p.care() ?? "",
     teaching: p.teaching() ?? "",
     letters: p.letters() ?? "",
+    hiredTask: p.hiredTask(),
   };
 }
 

@@ -1150,29 +1150,43 @@ pub fn household_name(sim: &Sim, id: PermanentId) -> String {
     }
 }
 
+/// The field work person `p` is at for hire, if they are working another household's field for
+/// hire: what the field needs now says which (§8 21, twelfth), reaping when it needs nothing
+/// else; `None` otherwise (wire 1.114, with [`doing`]'s words).
+pub fn hired_task(sim: &Sim, p: &Person) -> wire::HiredTask {
+    let def = sim.rules.catalog.activities.get(usize::from(p.act.def));
+    let (Some(d), Target::Field(f)) = (def, p.act.target) else {
+        return wire::HiredTask::None;
+    };
+    if d.behavior != civ_agents::Behavior::Hire {
+        return wire::HiredTask::None;
+    }
+    let day = sim.now().day_index();
+    let task = sim.land.fields.iter().find(|x| x.id == f).and_then(|x| {
+        sim.rules
+            .catalog
+            .crops
+            .get(usize::from(x.crop))
+            .and_then(|c| x.task(c, day))
+    });
+    match task {
+        Some(civ_land::FieldTask::Thresh) => wire::HiredTask::Thresh,
+        Some(civ_land::FieldTask::Prepare) => wire::HiredTask::Prepare,
+        Some(civ_land::FieldTask::Sow) => wire::HiredTask::Sow,
+        _ => wire::HiredTask::Reap,
+    }
+}
+
 /// What a living person is doing now, in words.
 pub fn doing(sim: &Sim, p: &Person) -> String {
     let def = sim.rules.catalog.activities.get(usize::from(p.act.def));
     // Work for hire on a field is reaping another household's crop (§8 17, fourth; §8 18,
     // fourth), or threshing its sheaves (§8 21, twelfth): said as such, not as a workshop's hand.
-    let what = match (def, p.act.target) {
-        (Some(d), Target::Field(f)) if d.behavior == civ_agents::Behavior::Hire => {
-            // What the field needs now says which work it is (§8 21, twelfth).
-            let day = sim.now().day_index();
-            let task = sim.land.fields.iter().find(|x| x.id == f).and_then(|x| {
-                sim.rules
-                    .catalog
-                    .crops
-                    .get(usize::from(x.crop))
-                    .and_then(|c| x.task(c, day))
-            });
-            match task {
-                Some(civ_land::FieldTask::Thresh) => "threshing for wages",
-                Some(civ_land::FieldTask::Prepare) => "preparing ground for wages",
-                Some(civ_land::FieldTask::Sow) => "sowing for wages",
-                _ => "reaping for wages",
-            }
-        }
+    let what = match hired_task(sim, p) {
+        wire::HiredTask::Thresh => "threshing for wages",
+        wire::HiredTask::Prepare => "preparing ground for wages",
+        wire::HiredTask::Sow => "sowing for wages",
+        wire::HiredTask::Reap => "reaping for wages",
         _ => def.map_or("busy", |d| d.doing.as_str()),
     };
     let home = sim.people.household(p.household).map(|h| h.home);
@@ -1665,6 +1679,7 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
         args.settlement_name = settlement_name;
         args.activity = p.act.def;
         args.doing = Some(doing);
+        args.hired_task = hired_task(sim, p);
         args.since_minute = p.act.started.minutes();
         args.until_minute = p.act.step_ends.minutes();
         args.hunger = population::hunger(p, now, params) as f32;

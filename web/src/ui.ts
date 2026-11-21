@@ -102,7 +102,7 @@ import type {
   Welcome,
   WorldInfo,
 } from "./net/messages.js";
-import { activityColour, cssColour } from "./people.js";
+import { activityColour, cssColour, optionActivityName } from "./people.js";
 import type { AppState, FirmPage, Selection, Store } from "./state.js";
 
 export interface Actions {
@@ -929,15 +929,28 @@ export function bindUi(store: Store, actions: Actions): void {
   };
   /** A utility total to one decimal, without "-0.0". */
   const total = (v: number) => (Math.abs(v) < 0.05 ? 0 : v).toFixed(1);
-  const optionText = (welcome: Welcome | null, o: ScoredOption) =>
-    o.target ? `${activityName(welcome, o.activity)} — ${o.target}` : activityName(welcome, o.activity);
-  const whyBlock = (welcome: Welcome | null, d: Decision, now: number): Node => {
+  /** An option in words; `current` names hired field work when the option is what they do now
+   * (wire 1.114). */
+  const optionText = (
+    welcome: Welcome | null,
+    o: ScoredOption,
+    current: { activity: number; hiredTask: number } | null = null,
+  ) => {
+    const name = optionActivityName(activityName(welcome, o.activity), o.activity, current);
+    return o.target ? `${name} — ${o.target}` : name;
+  };
+  const whyBlock = (
+    welcome: Welcome | null,
+    d: Decision,
+    now: number,
+    current: { activity: number; hiredTask: number } | null = null,
+  ): Node => {
     const box = el("div", { className: "why" }, el("h4", { text: "Why" }));
     if (!d.chosen) return box;
     box.append(
       el("p", {
         className: "choice",
-        text: `At ${formatClockTime(d.minute, now)} chose ${optionText(welcome, d.chosen)} (${formatPercent(d.probability)} likely).`,
+        text: `At ${formatClockTime(d.minute, now)} chose ${optionText(welcome, d.chosen, current)} (${formatPercent(d.probability)} likely).`,
       }),
     );
     const terms = el("ul", { className: "terms" });
@@ -1458,7 +1471,8 @@ export function bindUi(store: Store, actions: Actions): void {
       nodes.push(needs);
       const [latest, ...earlier] = p.decisions;
       if (latest) {
-        const why = whyBlock(welcome, latest, now);
+        // The newest decision is what they do now: hired field work is named (wire 1.114).
+        const why = whyBlock(welcome, latest, now, p.alive ? p : null);
         if (earlier.length > 0) {
           why.appendChild(
             el(

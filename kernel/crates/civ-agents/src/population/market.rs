@@ -1743,6 +1743,46 @@ impl Population {
         let mp = &params.market;
         let m = self.market_mut(market, goods.len(), now.day_index(), mp.memory_days);
         m.record_trade(trade, d.ask_h * d.units, mp.recent_trades);
+        if away && std::env::var_os("TCE_TRADE_DIAG").is_some() {
+            // Diagnostic (claude/trade-diag, not for landing): each purchase between settlements,
+            // with the least ask for the good at home this moment and whether it was for resale.
+            let least_home = |s: PermanentId| {
+                let hh_asks = self
+                    .households
+                    .iter()
+                    .filter(|(_, h)| h.settlement == Some(s) && !h.members.is_empty())
+                    .flat_map(|(_, h)| h.offers.iter());
+                let firm_asks = self
+                    .firms
+                    .iter()
+                    .filter(|f| f.is_open() && f.settlement == Some(s))
+                    .flat_map(|f| f.offers.iter());
+                hh_asks
+                    .chain(firm_asks)
+                    .filter(|o| usize::from(o.good) == d.good)
+                    .map(|o| f64::from(o.ask_h))
+                    .fold(f64::INFINITY, f64::min)
+            };
+            let name = |s: PermanentId| {
+                ctx.land
+                    .settlements
+                    .iter()
+                    .find(|x| x.id == s)
+                    .map_or_else(|| format!("{s:?}"), |x| x.name.clone())
+            };
+            eprintln!(
+                "TRADEDIAG month {month} {} <- {} good {} units {:.3} ask_h {:.3} home_least {:.3} there_least {:.3} resale {for_resale} payment {} paid {:.3}",
+                name(settlement),
+                name(market),
+                d.good,
+                d.units,
+                d.ask_h,
+                least_home(settlement),
+                least_home(market),
+                d.payment,
+                d.paid,
+            );
+        }
         if away {
             self.contacts.bought(year, settlement, market);
             self.convergence

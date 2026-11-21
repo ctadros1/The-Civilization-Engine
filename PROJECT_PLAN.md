@@ -12680,6 +12680,90 @@ and M6a gives rivers a daily flow.
        8.5, t +2.38) than with every adult: more than chance, not shown, and within the fixed
        tolerances. The answer is a model change or a criterion change, either the owner's call.
        The gate is not to be changed meanwhile.
+23. **What is open next, ranked (2026-11-21 survey, made as 16 to 22 were: §7's "Not yet" lines
+    still open after today's marking of backlog D's (done, used up, decided against or needing an
+    ADR; §7's own entries say which), the ADRs' "Revisit when" sections, question 21's carried
+    items and question 22's candidates, and backlog E's ideas):** each was checked against `git
+    log` (to d20bd1b) and §9. **The ADRs' revisit conditions:** ADR-0034 to ADR-0046 read again;
+    none has newly come true since question 21 (ADR-0044's food route was met by ADR-0045 on
+    2026-11-19, and research 12-12 found its workers' half needs a new disease route: item 18).
+    Each is marked **buildable now**, **needs an ADR (the owner's)**, **needs the owner's
+    decision** or **needs Unreal**, and ranked by value against size.
+    **Ranked:**
+    1. *Reapers from other settlements* (§7, "Hired field work, preparing and sowing", "Not
+       yet"; question 21, twelfth, closed at three slices "after a long run has measured the three
+       slices together"): long run 93 on f1f5ee8 measured them and passed but for the known
+       price-convergence red, so the condition holds. A household short of hands at the reaping
+       hires only its own settlement's people; a neighbouring settlement's idle hands within a
+       session's walk could take the work. Economy, gated. **Buildable now.**
+    2. *Deliberation's term leftovers* (question 21, fourteenth; question 20, fifteenth, less
+       its bar from the next lot, built): a council's seats' term in the amendment forecast, and a
+       renewable hearer's chance of being named again. Deliberation, gated (the notables' gate
+       measures it). **Buildable now.**
+    3. *Word of barren ground between settlements* (question 21, thirteenth; ADR-0043's "Not
+       yet"): ground looked over and found barren is a settlement's own memory; a claim of its
+       own in the word would carry it to neighbours, as a deposit's word does. Gated. **Buildable
+       now.**
+    4. *The field-hire offer and its wage on the wire* (§7, "observer states … wire 1.114", "Not
+       yet"): the task is shown; what is offered, for how many hours and at what wage is not. A
+       new wire table and a web panel line; no simulation change. Gate-neutral. **Buildable now.**
+    5. *A lived-world probe of the 2026-11-21 behaviour slices* (the "a lived world where …"
+       lines of the backlog D entries; the fourteenth coverage pass): how often a guarantor pays
+       nothing, an imposed debt is met, a passing place is cleared again under a new law, or a
+       motor cart reaches an heir far off, on the demo worlds over decades. Report-only,
+       gate-neutral. **Buildable now.**
+    6. *A former keeper telling the store's loan it saw made* (backlog D, sixteenth item, "Not
+       yet"). Word, gated, small. **Buildable now.**
+    7. *A household that could not make a boat or cart taking up one nobody is left to take*
+       (backlog D, eleventh item, "Not yet"). Gated, small. **Buildable now.**
+    8. *The hours of bringing a moving household's boats and carts* (backlog D, twenty-fifth item,
+       "Not yet"): moving counts no hours for its goods either. Gated, small. **Buildable now.**
+    9. *A hearer paid for hearing* (backlog D, thirteenth item, "Not yet"). Deliberation, gated,
+       medium. **Buildable now.**
+    10. *Pay owed until threshing* (§7, "Hired field work, preparing and sowing", "Not yet"):
+        wages owed in grain not yet threshed, as a claim in the credit book (no new saved kind if
+        it is one). Economy, gated, medium. **Buildable now**, if the credit book carries it;
+        otherwise the owner's (a saved kind).
+    11. *Tips' and sewers' smaller deferrals* (question 21, sixteenth): compaction and burning
+        tips, a sewer rate, inspection as a law's term, a store's tank spreading its sludge. Each
+        small, of low value until a lived world keeps them for years. **Buildable now.**
+    12. *Research gaps:* fish's fuel figure on an open hearth (research 08-24 §7, kept
+        unmeasured); a casing's stiffness and strength (backlog D, first item). Gate-neutral.
+        **Buildable now.**
+    13. *Writing's leftovers* (question 21, fifteenth): a finding kept by the forum or the polity,
+        and copies. Larger, an ADR-0025 slice. **Buildable now**, as a slice of that ADR.
+    14. *A boat or cart a way would bring only later, passing then* (backlog D, ninth item, "Not
+        yet"): the heir would have to be kept beside the vehicle, a saved field. **Needs the
+        owner's decision** (a save-format change).
+    15. *The sowing wage read at the work, not the offer* (§9, "The thirteenth coverage pass").
+        **Needs the owner's decision.**
+    16. *The price convergence row judged per purchase* (§9, "The price convergence row's
+        recurring red, investigated"): the saved convergence record would change. **Needs the
+        owner's decision.**
+    17. *Does the notables tier under-propose?* (question 22, fifth). **Needs the owner's
+        decision.**
+    18. *A sewage farm's workers' exposure* (§9, "Research 12-12"): a new disease route, by
+        hands and soil. **Needs an ADR (the owner's)**, an ADR-0021 amendment.
+    19. *A durable weighed over its discounted life* (question 22, second; §9, "A want weighed
+        over years, deferred: needs an ADR"). **Needs an ADR (the owner's).**
+    20. *A meal tied to its fuel, then the lean hearth* (question 21, seventeenth; §9, "A meal
+        tied to its fuel, measured and not built"). **Needs an ADR (the owner's)**, an ADR-0033
+        amendment.
+    21. *New mechanisms from backlog D's "Not yet":* a polity filling a well in (second item), a
+        boat carried overland (ninth), a polity laying or widening a longer stretch (sixth and
+        fourteenth), a levy unpaid owed as arrears (sixteenth), a custom or law giving what nobody
+        holds to the settlement (eleventh), and salvaging a worn-out boat or cart's timber
+        (eleventh; ADR-0044 salvages buildings only). **Each needs an ADR (the owner's).**
+    22. *The route structures rebuilt for less* (question 22, third): the coordinator's, in hand
+        (`exp/dry-landmarks`). Not ranked here.
+    23. *Speed against the budgets* (backlog E; §9, M9's 100,000-person target not met): the speed
+        pass. **Needs the owner's decision**, as question 21 left it.
+    24. *Close-up fidelity and viewers beyond the local network* (ADR-0039's "Revisit when").
+        **Needs Unreal** (and the owner's PC).
+    Not carried from 21: its fifth (measured: long run 93), its eleventh and seventeenth (now
+    18 to 20 here), its twelfth (closed, its leftovers 1 and 10 here) and its thirteenth to
+    sixteenth (2, 3, 13 and 11 here). From 22: its first done, its fourth report-only and settled
+    (smoke's variation, §1 rule 6), its others 17, 19 and 22 here.
 
 ---
 

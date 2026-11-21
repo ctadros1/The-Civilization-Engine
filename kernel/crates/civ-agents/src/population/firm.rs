@@ -1030,12 +1030,42 @@ impl Population {
             .filter(|f| !self.order.credit.owes(f.id))
             .filter_map(|f| f.wage.filter(|w| w.open_hours() >= 0.5).map(|w| (f, w)))
             .collect();
-        // Reaping the settlement's other households would hire (§8 17, fourth).
+        // Reaping the settlement's other households would hire (§8 17, fourth), and another
+        // settlement's whose fields lie within the work's walk of home (§8 23, first): a
+        // neighbouring village's hands, not a gang come from afar.
+        let walk_min = ctx
+            .catalog
+            .activities
+            .iter()
+            .filter(|a| a.behavior == Behavior::Hire)
+            .map(|a| f64::from(a.max_walk_minutes))
+            .fold(0.0, f64::max);
+        let walk_m = walk_min * 60.0 * ctx.params.nav.tobler_ms(0.0);
+        let mut nearby: Vec<PermanentId> = ctx
+            .land
+            .fields
+            .iter()
+            .filter(|f| {
+                let at = f.rect.centre_m();
+                f64::from((at.0 - hh.home.0).hypot(at.1 - hh.home.1)) <= walk_m
+            })
+            .map(|f| f.household)
+            .filter(|&e| {
+                e != hh.id
+                    && self
+                        .household(e)
+                        .is_some_and(|x| x.settlement.is_some() && x.settlement != Some(settlement))
+            })
+            .collect();
+        nearby.sort_unstable();
+        nearby.dedup();
         let reaping: Vec<(PermanentId, super::reapers::ReapOffer)> = self
             .households
             .iter()
             .filter(|(_, x)| x.id != hh.id && x.settlement == Some(settlement))
-            .filter_map(|(_, x)| self.reap_offer(ctx, x.id).map(|o| (x.id, o)))
+            .map(|(_, x)| x.id)
+            .chain(nearby.iter().copied())
+            .filter_map(|e| self.reap_offer(ctx, e).map(|o| (e, o)))
             .collect();
         if hiring.is_empty() && reaping.is_empty() {
             return None;
@@ -1132,6 +1162,10 @@ impl Population {
             else {
                 continue;
             };
+            // Another settlement's only within the work's walk, lest a far one hide a near one.
+            if walk > walk_min && nearby.binary_search(&employer).is_ok() {
+                continue;
+            }
             let minutes = (o.hours * 60.0).min(session_min);
             let Some((hours, worth)) = worth_of(o.good, o.kg_per_hour * minutes / 60.0) else {
                 continue;
@@ -1155,6 +1189,30 @@ impl Population {
             }
         }
         best.map(|(_, j)| j)
+    }
+
+    /// The paid work someone of household `household` could go and do now, as their decision
+    /// finds it ([`Self::best_job`]): the workshop or household hiring, the field for reaping,
+    /// and the walk, minutes: for tests.
+    #[doc(hidden)]
+    pub fn best_job_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        household: PermanentId,
+    ) -> Option<(PermanentId, Option<PermanentId>, f64)> {
+        let hh = self.household(household)?.clone();
+        let (key, _) = self.walking_field_of(ctx, (hh.id, hh.settlement, hh.home));
+        let stores = stores_now(&hh, ctx.now, ctx.params, &ctx.catalog.goods);
+        let session_min = ctx
+            .catalog
+            .activities
+            .iter()
+            .filter(|a| a.behavior == Behavior::Hire)
+            .map(|a| f64::from(a.max_minutes))
+            .fold(0.0, f64::max);
+        let reach = self.homes.get(&key).map(|f| &f.reach);
+        self.best_job(ctx, &hh, &stores, reach, session_min)
+            .map(|j| (j.firm, j.field, j.walk_min))
     }
 
     /// Someone takes `minutes` of the work workshop `id` is hiring for.

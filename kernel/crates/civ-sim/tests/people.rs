@@ -2647,3 +2647,337 @@ fn the_wood_of_skipped_dishes_passes_in_a_merge_and_saves_mid_day() {
         x.fuel_credit_kg
     );
 }
+
+/// The thirteenth coverage pass (§8 21, twelfth's slices; the coordinator's list). What the
+/// harvest wage's share comes to for household `employer`'s offer now, with the days its field
+/// ripe longest has stood ripe; `None` without a reaping offer.
+fn reaping_share(sim: &mut Sim, employer: PermanentId) -> Option<(f64, f64)> {
+    let rules = sim.rules().clone();
+    let crop = rules.catalog.crops[rules.people.farm.crop].clone();
+    let day = sim.now().day_index();
+    let (task, _, kg) =
+        sim.with_ctx_for_tests(|pop, ctx| pop.field_hire_for_tests(ctx, employer))?;
+    if task != civ_land::FieldTask::Reap {
+        return None;
+    }
+    let f = sim
+        .land()
+        .fields
+        .iter()
+        .filter(|f| {
+            f.household == employer && f.task(&crop, day) == Some(civ_land::FieldTask::Reap)
+        })
+        .min_by_key(|f| (f.ripe_day(&crop), f.id))
+        .cloned()?;
+    let water = match f.stage {
+        civ_land::FieldStage::Sown => sim.land().climatology.expected_crop_factor(
+            rules.people.farm.crop,
+            f64::from(f.need_mm),
+            f64::from(f.got_mm),
+        ),
+        _ => 1.0,
+    };
+    let expected = f.expected_kg(&crop, day, water);
+    let remaining = f.remaining_work_h(&crop, day, expected);
+    Some((kg * remaining / expected, (day - f.ripe_day(&crop)) as f64))
+}
+
+/// Coverage: the harvest wage's bid never passes all of what an hour brings; at the grace's edge
+/// (a quarter of the crop lost between the twelfth and thirteenth days ripe) the bid is as the
+/// days stood ripe make it; and the bid is read from the crop ripe now, so a field reaped and its
+/// next crop ripe again starts from that crop's days, not the last's.
+#[test]
+fn the_harvest_wage_bid_caps_at_an_hours_yield_and_follows_the_crop_ripe_now() {
+    let (mut sim, employer, _, _, _) = short_of_hands_at_the_harvest(400.0);
+    let rules = sim.rules().clone();
+    let crop = rules.catalog.crops[rules.people.farm.crop].clone();
+    let custom = rules.people.firm.wage_share;
+    let bid = |stood: f64| (custom * (1.0 + population::HARVEST_BID_PER_DAY * stood)).min(1.0);
+    let ripe_for = |sim: &mut Sim, stood: i64| {
+        let day = sim.now().day_index();
+        let sown = day - i64::from(crop.grow_days) - stood;
+        for f in sim.land_mut_for_tests().fields.iter_mut() {
+            if f.household == employer {
+                f.stage = civ_land::FieldStage::Sown;
+                f.sown_day = sown;
+                f.work_h = 0.0;
+                f.sheaves_kg = 0.0;
+            }
+        }
+        sim.people_mut_for_tests().forget_views();
+    };
+    for stood in [12, 13, 25] {
+        ripe_for(&mut sim, stood);
+        let (share, seen) = reaping_share(&mut sim, employer).expect("it offers reaping");
+        assert_eq!(seen, stood as f64);
+        assert!(
+            (share - bid(stood as f64)).abs() < 1e-9 && share <= 1.0 + 1e-12,
+            "{stood} days ripe: {share} offered, {} bid",
+            bid(stood as f64)
+        );
+    }
+    // Past twenty days the share is all an hour brings, no more.
+    ripe_for(&mut sim, 25);
+    let (share, _) = reaping_share(&mut sim, employer).expect("it offers reaping");
+    assert!((share - 1.0).abs() < 1e-9, "{share}");
+    // Reaped, there is no reaping to bid for.
+    for f in sim.land_mut_for_tests().fields.iter_mut() {
+        if f.household == employer {
+            f.stage = civ_land::FieldStage::Reaped;
+            f.sheaves_kg = 0.0;
+        }
+    }
+    sim.people_mut_for_tests().forget_views();
+    assert!(reaping_share(&mut sim, employer).is_none());
+    // Its next crop ripe twelve days: the bid starts again from those days, not the last crop's.
+    ripe_for(&mut sim, 12);
+    let (share, seen) = reaping_share(&mut sim, employer).expect("it offers reaping");
+    assert_eq!(seen, 12.0);
+    assert!(
+        (share - bid(12.0)).abs() < 1e-9,
+        "{share} offered, {} bid",
+        bid(12.0)
+    );
+}
+
+/// The threshing scene's household and day: the window for preparing ground in its last week,
+/// the household with the most fields of the crop, among neighbours whose fields are sown and
+/// whose food is gone. Gives the world, the household and its fields.
+fn sheaves_in_the_window() -> (Sim, PermanentId, Vec<PermanentId>) {
+    let mut sim = new_world(3, 0);
+    let rules = sim.rules().clone();
+    let crop = rules.catalog.crops[rules.people.farm.crop].clone();
+    let left = |day: i64| {
+        i64::from(crop.sow_until_day) - day.rem_euclid(civ_core::time::DAYS_PER_YEAR) + 1
+    };
+    for _ in 0..400 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        let day = sim.now().day_index();
+        if crop.can_prepare(day) && (3..=8).contains(&left(day)) {
+            break;
+        }
+    }
+    let mut count: std::collections::BTreeMap<PermanentId, usize> = Default::default();
+    for f in sim
+        .land()
+        .fields
+        .iter()
+        .filter(|f| usize::from(f.crop) == rules.people.farm.crop)
+    {
+        *count.entry(f.household).or_default() += 1;
+    }
+    let employer = count
+        .iter()
+        .max_by_key(|(h, n)| (**n, std::cmp::Reverse(**h)))
+        .map(|(h, _)| *h)
+        .expect("a household with fields");
+    let fields: Vec<PermanentId> = sim
+        .land()
+        .fields
+        .iter()
+        .filter(|f| f.household == employer)
+        .map(|f| f.id)
+        .collect();
+    (sim, employer, fields)
+}
+
+/// Coverage: the threshing offer is for the sheaves' hours at most, whatever sowing waits behind
+/// them; reaping a crop standing ripe is offered before threshing when both are due; and outside
+/// the window for preparing ground nothing presses, so no threshing is offered.
+#[test]
+fn hired_threshing_caps_at_its_sheaves_gives_way_to_reaping_and_waits_for_the_window() {
+    let (mut sim, employer, fields) = sheaves_in_the_window();
+    let rules = sim.rules().clone();
+    let crop = rules.catalog.crops[rules.people.farm.crop].clone();
+    assert!(
+        fields.len() >= 2,
+        "the household has fields enough: {fields:?}"
+    );
+    let day = sim.now().day_index();
+    // Ten kilograms of sheaves, an hour's threshing, and the rest fallow to sow (or, `ripe`,
+    // standing ripe thirteen days).
+    let stage = |sim: &mut Sim, ripe: bool| {
+        let day = sim.now().day_index();
+        for (k, f) in sim
+            .land_mut_for_tests()
+            .fields
+            .iter_mut()
+            .filter(|f| f.household == employer)
+            .enumerate()
+        {
+            f.work_h = 0.0;
+            if k == 0 {
+                f.stage = civ_land::FieldStage::Reaped;
+                f.sheaves_kg = 10.0;
+            } else if ripe {
+                f.stage = civ_land::FieldStage::Sown;
+                f.sown_day = day - i64::from(crop.grow_days) - 13;
+                f.sheaves_kg = 0.0;
+            } else {
+                f.stage = civ_land::FieldStage::Fallow;
+                f.broken = true;
+                f.sheaves_kg = 0.0;
+            }
+        }
+        // The grain to pay with.
+        for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+            if x.id == employer {
+                x.stores[crop.good] = 400.0;
+            }
+        }
+        sim.people_mut_for_tests().forget_views();
+    };
+    let hire =
+        |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.field_hire_for_tests(ctx, employer));
+    stage(&mut sim, false);
+    let (task, hours, _) = hire(&mut sim).expect("it offers threshing");
+    assert_eq!(task, civ_land::FieldTask::Thresh);
+    assert!(
+        (hours - 10.0 * crop.thresh_h_per_kg).abs() < 1e-6,
+        "the sheaves' hour and no more: {hours}"
+    );
+    // A crop standing ripe as well: reaping is offered first. No crop the world grows stands
+    // ripe in this window, so the staged one, sown out of the sowing season, is given the yield
+    // a timely sowing would have, or it would be worth nothing to reap.
+    let c = rules.people.farm.crop;
+    drop(rules);
+    sim.rules_mut_for_tests().expect("rules").catalog.crops[c].late_sowing_loss_per_day = 0.0;
+    stage(&mut sim, true);
+    let (task, _, _) = hire(&mut sim).expect("it offers reaping");
+    assert_eq!(task, civ_land::FieldTask::Reap);
+    // Past the window, the same sheaves press on nothing.
+    while crop.can_prepare(sim.now().day_index()) {
+        sim.advance_minutes(24 * 60).expect("advances");
+    }
+    assert!(sim.now().day_index() > day);
+    stage(&mut sim, false);
+    assert!(
+        hire(&mut sim).is_none_or(|(task, _, _)| task != civ_land::FieldTask::Thresh),
+        "no threshing offered outside the window"
+    );
+}
+
+/// Coverage: the sowing offer pays no more than the grain to spare with several fields to sow;
+/// a hand whose sowing the seed cuts short is paid for the work the field took, not the session;
+/// and an employer whose grain to spare is gone by the time the hand works pays nothing and has
+/// nothing done.
+#[test]
+fn hired_sowing_pays_from_the_spare_for_the_work_the_seed_allows_and_nothing_once_it_is_gone() {
+    let (mut sim, employer, neighbours, mut fields, _) =
+        short_of_hands_at_the_sowing(|x, grain| {
+            if let Some(kg) = x.stores.get_mut(grain) {
+                *kg = 5000.0;
+            }
+        });
+    let rules = sim.rules().clone();
+    let crop = rules.catalog.crops[rules.people.farm.crop].clone();
+    let goods = rules.catalog.goods.clone();
+    // Several fields: a neighbour's field becomes the household's too.
+    if fields.len() < 2 {
+        let extra = sim
+            .land()
+            .fields
+            .iter()
+            .find(|f| neighbours.contains(&f.household))
+            .map(|f| f.id)
+            .expect("a neighbour's field");
+        for f in sim.land_mut_for_tests().fields.iter_mut() {
+            if f.id == extra {
+                f.household = employer;
+                f.holder = civ_land::Party::Household(employer);
+                f.stage = civ_land::FieldStage::Fallow;
+                f.broken = true;
+                f.work_h = 0.0;
+            }
+        }
+        fields.push(extra);
+    }
+    // Grain its only food: its keep, and 40 kg to spare.
+    let only_grain = |sim: &mut Sim, kg: f64| {
+        for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+            if x.id == employer {
+                for (g, d) in goods.iter().enumerate() {
+                    if d.purpose == civ_agents::params::GoodUse::Food
+                        && g != crop.good
+                        && !d.kept_back()
+                    {
+                        x.stores[g] = 0.0;
+                    }
+                }
+                x.stores[crop.good] = kg;
+            }
+        }
+    };
+    only_grain(&mut sim, 5000.0);
+    let keep = sim.with_ctx_for_tests(|pop, ctx| pop.keep_for_tests(ctx, employer))[crop.good];
+    only_grain(&mut sim, keep + 40.0);
+    sim.people_mut_for_tests().forget_views();
+    let (task, hours, kg) = sim
+        .with_ctx_for_tests(|pop, ctx| pop.field_hire_for_tests(ctx, employer))
+        .expect("it offers sowing");
+    assert_eq!(task, civ_land::FieldTask::Sow);
+    assert!(
+        hours * kg <= 40.0 + 1e-6,
+        "{hours} hours at {kg} kg pay no more than the 40 kg to spare"
+    );
+    // The field to sow, prepared, with seed for a little of it.
+    let field = fields[0];
+    for f in sim.land_mut_for_tests().fields.iter_mut() {
+        if f.id == field {
+            f.stage = civ_land::FieldStage::Prepared;
+            f.work_h = 0.0;
+        }
+    }
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == employer {
+            x.stores[crop.seed_good] = 2.0;
+        }
+    }
+    let hand = sim
+        .people()
+        .people
+        .iter()
+        .filter(|(_, p)| neighbours.contains(&p.household))
+        .filter(|(_, p)| (20.0..=50.0).contains(&p.age_years(sim.now())))
+        .map(|(_, p)| p.id)
+        .min()
+        .expect("a grown neighbour");
+    let work = |sim: &Sim| {
+        sim.land()
+            .fields
+            .iter()
+            .find(|f| f.id == field)
+            .map_or(0.0, |f| f64::from(f.work_h))
+    };
+    let grain = crop.good;
+    let wages = |sim: &Sim| sim.people().transfers.get(civ_agents::Channel::Wage, grain);
+    // The rate for an hour of the field as it stands now, prepared: the offer read again.
+    sim.people_mut_for_tests().forget_views();
+    let (task, _, kg) = sim
+        .with_ctx_for_tests(|pop, ctx| pop.field_hire_for_tests(ctx, employer))
+        .expect("it offers sowing");
+    assert_eq!(task, civ_land::FieldTask::Sow);
+    let (w0, p0) = (work(&sim), wages(&sim));
+    sim.with_ctx_for_tests(|pop, ctx| pop.hired_field_work_for_tests(ctx, hand, field, 240));
+    let (done, paid) = (work(&sim) - w0, wages(&sim) - p0);
+    let per_hour = crop.seed_kg_per_ha / crop.sow_h_per_ha;
+    assert!(
+        (done - 2.0 / per_hour).abs() < 1e-3,
+        "the seed allows {} hours: {done} done",
+        2.0 / per_hour
+    );
+    assert!(
+        (paid - kg * done).abs() < 1e-6,
+        "paid {paid} for {done} hours at {kg} kg"
+    );
+    // The grain to spare gone before the next session: nothing paid, nothing done.
+    only_grain(&mut sim, keep);
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == employer {
+            x.stores[crop.seed_good] = 100.0;
+        }
+    }
+    let (w1, p1) = (work(&sim), wages(&sim));
+    sim.with_ctx_for_tests(|pop, ctx| pop.hired_field_work_for_tests(ctx, hand, field, 240));
+    assert_eq!((work(&sim) - w1, wages(&sim) - p1), (0.0, 0.0));
+}

@@ -2283,3 +2283,131 @@ fn sludge_a_tank_keeper_holds_is_spread_on_its_field_as_dung_its_load_with_it() 
     assert!((used - spread).abs() < 1e-9, "used, on the books: {used}");
     saves_and_goes_on_alike(&mut sim, DAY);
 }
+
+/// The thirteenth coverage pass (§8 21; the twelfth's chronicle entries): a blockage that clears
+/// and comes back is told again, each time it begins, and not on the days it goes on.
+#[test]
+fn a_blockage_that_clears_and_comes_back_is_told_again() {
+    let (mut sim, _, _, _) = three_homes_sewered();
+    let blocked = |sim: &Sim| {
+        sewer_entries(sim)
+            .iter()
+            .filter(|e| e.number == f64::from(SewerStep::Blocked as u8))
+            .count()
+    };
+    let causes = |sim: &Sim| -> Vec<SewerCause> {
+        sim.people().polities[0].sewers[0]
+            .connections
+            .iter()
+            .map(|c| c.cause)
+            .collect()
+    };
+    assert_eq!(blocked(&sim), 0);
+    let full = deposit_for_room(&sim, 0.0);
+    // Choked: told.
+    sim.people_mut_for_tests().polities[0].sewers[0].deposit_kg = full;
+    sim.advance_minutes(DAY).expect("lives");
+    assert!(causes(&sim).iter().all(|&c| c == SewerCause::Blocked));
+    assert_eq!(blocked(&sim), 1);
+    // Still choked the next day: not told again.
+    sim.advance_minutes(DAY).expect("lives");
+    assert_eq!(blocked(&sim), 1);
+    // Cleared, every home is served again, and nothing is told.
+    sim.people_mut_for_tests().polities[0].sewers[0].deposit_kg = 0.0;
+    sim.advance_minutes(DAY).expect("lives");
+    assert!(
+        causes(&sim).iter().all(|&c| c == SewerCause::Served),
+        "{:?}",
+        causes(&sim)
+    );
+    assert_eq!(blocked(&sim), 1);
+    // Choked again: a new blockage, told again.
+    sim.people_mut_for_tests().polities[0].sewers[0].deposit_kg = full;
+    sim.advance_minutes(DAY).expect("lives");
+    assert!(causes(&sim).iter().all(|&c| c == SewerCause::Blocked));
+    assert_eq!(blocked(&sim), 2, "told each time it begins");
+    saves_and_goes_on_alike(&mut sim, DAY);
+}
+
+/// Coverage: a review that finds the sewer both fallen in and choked asks relining and clearing
+/// together, told in one entry naming both.
+#[test]
+fn a_review_that_asks_both_relining_and_clearing_tells_both_in_one_entry() {
+    let (mut sim, order, _, _) = three_homes_sewered();
+    let (brick, lime) = (
+        index(&sim, "core:good/brick"),
+        index(&sim, "core:good/quicklime"),
+    );
+    let b = entry(&sim, order[1]).expect("beside it");
+    let full = deposit_for_room(&sim, 0.0);
+    {
+        let s = &mut sim.people_mut_for_tests().polities[0].sewers[0];
+        s.loss[b] = 1.0;
+        s.broken = Some(b as u32);
+        s.deposit_kg = full;
+    }
+    sim.advance_minutes(DAY).expect("lives");
+    let s = sim.people().polities[0].sewers[0].clone();
+    let causes: Vec<SewerCause> = s.connections.iter().map(|c| c.cause).collect();
+    assert!(
+        causes.contains(&SewerCause::Broken) && causes.contains(&SewerCause::Blocked),
+        "homes backing up for the collapse and for the deposit both: {causes:?}"
+    );
+    for &h in &order {
+        set(&mut sim, h, brick, 1.0e6);
+        set(&mut sim, h, lime, 1.0e5);
+    }
+    // A round's fee for calls at its homes, as carrying would cost them, so mending repays.
+    let (id, tip, cart) = (
+        sim.allocate_id_for_tests(),
+        sim.allocate_id_for_tests(),
+        sim.allocate_id_for_tests(),
+    );
+    let today = sim.now().day_index();
+    sim.people_mut_for_tests().polities[0]
+        .rounds
+        .push(civ_agents::polity::RefuseRound {
+            id,
+            operator: order[0],
+            cart,
+            tip,
+            law: None,
+            homes: order.clone(),
+            every_days: 1,
+            fee_kcal: 1.0e5,
+            since: today,
+            last_run: -1,
+            next: 0,
+            runs: Vec::new(),
+        });
+    let before = sewer_entries(&sim).len();
+    let deposit = sim.people().polities[0].sewers[0].deposit_kg;
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewer_reviews_for_tests(ctx, 0));
+    sim.people_mut_for_tests().polities[0].rounds.clear();
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert!(s.reline, "relining asked");
+    assert!(
+        (s.clear_kg - deposit).abs() < 1e-9,
+        "{} of {deposit}",
+        s.clear_kg
+    );
+    let village = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|x| x.id == sim.people().polities[0].settlement)
+        .map(|x| x.name.clone())
+        .expect("the settlement");
+    let told: Vec<String> = sewer_entries(&sim)[before..]
+        .iter()
+        .map(|e| e.name.clone())
+        .collect();
+    assert_eq!(
+        told,
+        vec![format!(
+            "{village}'s gathering asked its people to reline their sewer where it fell in and \
+             clear the {deposit:.0} kg settled in it."
+        )]
+    );
+    saves_and_goes_on_alike(&mut sim, DAY);
+}

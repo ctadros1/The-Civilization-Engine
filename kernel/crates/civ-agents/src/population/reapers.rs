@@ -94,6 +94,21 @@ impl Population {
             .map(|o| (o.hours, o.kg_per_hour))
     }
 
+    /// Person `person` works `minutes` for hire on `field`, as a session out for hire ends:
+    /// reaping, threshing, preparing or sowing, by what the field needs: for tests.
+    #[doc(hidden)]
+    pub fn hired_field_work_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        person: PermanentId,
+        field: PermanentId,
+        minutes: u32,
+    ) {
+        if let Some(&h) = self.index.get(&person) {
+            self.hired_reaping(ctx, h, field, minutes);
+        }
+    }
+
     /// What household `employer` would hire of field work now, whether reaping or threshing, its
     /// hours and its pay for an hour: for tests.
     #[doc(hidden)]

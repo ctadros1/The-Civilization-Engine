@@ -208,6 +208,7 @@ impl Population {
                     kind: g.kind,
                     quality: c.quality,
                     loss: c.loss,
+                    charred: c.charred,
                 });
             } else if g.kind == GroupKind::MassWall && m.strength < STRAIN_SHOWS {
                 c.loss = (c.loss + CRACK_LOSS).max(shows).min(1.0);

@@ -1793,7 +1793,9 @@ impl Population {
                             .map_or(0.0, |g| {
                                 f64::from(g.section_cm[0].min(g.section_cm[1])) * 10.0
                             });
+                        let before = c.loss;
                         c.loss = charred_loss(c.loss, size_mm, char);
+                        c.charred = (c.charred + (c.loss - before).max(0.0)).min(c.loss);
                     }
                     Some(GroupKind::Infill) if out => {
                         c.loss = (c.loss + p.infill_loss as f32).min(1.0);

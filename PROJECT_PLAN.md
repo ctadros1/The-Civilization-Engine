@@ -12851,6 +12851,13 @@ and M6a gives rivers a daily flow.
        *Checked 2026-11-21: open* (ADR-0025's "Revisit when", writing arrives, holds, and §9's
        "Written findings" slices leave reach beyond the household open, deciding against only a
        written finding in the review's forecast).
+       *Checked again 2026-11-21, not built: decided against* (§9, "Written findings, slice 3",
+       2026-11-18: of the three ways past the household, reading aloud was built as the best
+       grounded; "keeping by the forum would invent an office's archive the engine has no holder
+       for, and copying a finding has no source beyond the copying of technique records, which is
+       for kin living apart"). The saved record could name a polity as its holder without a
+       format change; what is missing is an office to keep and read it, a design for the owner
+       (an ADR-0025 amendment, or an archive kept by an office of a later milestone).
     14. *A boat or cart a way would bring only later, passing then* (backlog D, ninth item, "Not
         yet"): the heir would have to be kept beside the vehicle, a saved field. **Needs the
         owner's decision** (a save-format change).

@@ -927,6 +927,11 @@ impl Population {
                 if !s.whole() {
                     continue;
                 }
+                // Whether its deposit already turned a home away (told once a blockage begins).
+                let was_blocked = s
+                    .connections
+                    .iter()
+                    .any(|c| c.day >= 0 && c.cause == SewerCause::Blocked);
                 let capacity = f64::from(s.capacity_kg_day);
                 let holds = f64::from(def.block_kg_m) * f64::from(s.length_m);
                 let room = if holds > 0.0 {
@@ -991,6 +996,15 @@ impl Population {
                         c.unserved[k] = c.unserved[k].saturating_add(1);
                     }
                     (c.day, c.kg, c.cause) = (day, kg, cause);
+                }
+                // A blockage begun today is told (backlog D, fifth item's "Not yet").
+                let blocked = self.polities[pi].sewers[si]
+                    .connections
+                    .iter()
+                    .filter(|c| c.day == day && c.cause == SewerCause::Blocked)
+                    .count();
+                if !was_blocked && blocked > 0 {
+                    self.tell_sewer_blocked(ctx, (pi, si), blocked);
                 }
                 // A share stays as deposit, mass only (ADR-0044 §5).
                 let deposited = entered * f64::from(def.deposit_share).clamp(0.0, 1.0);
@@ -1203,6 +1217,65 @@ impl Population {
             .count()
     }
 
+    /// The chronicle's word that what settled in sewer `si` of polity `pi` first turned `homes`
+    /// homes' drains away today (backlog D, fifth item's "Not yet"), placed at its outfall.
+    fn tell_sewer_blocked(&mut self, ctx: &Ctx, (pi, si): (usize, usize), homes: usize) {
+        let settlement = self.polities[pi].settlement;
+        let village = self.village_name(ctx, Some(settlement));
+        let place = self.polities[pi].sewers[si]
+            .cells
+            .last()
+            .map(|&c| crate::population::cell_centre(ctx.map, c as usize));
+        let sentence = format!(
+            "{village}'s sewer is choked with what has settled in it: {homes} home{} whose drains \
+             it no longer takes back up.",
+            if homes == 1 { "" } else { "s" }
+        );
+        self.chronicle_push(
+            ctx.now,
+            ChronicleKind::Sewer,
+            Vec::new(),
+            Some(settlement),
+            place,
+            f64::from(SewerStep::Blocked as u8),
+            sentence,
+        );
+    }
+
+    /// The chronicle's word that polity `pi`'s gathering asked its people to mend sewer `si`
+    /// (backlog D, fifth item's "Not yet"): to reline it where it fell in (`reline`), and to clear
+    /// the `clear_kg` settled in it.
+    fn tell_sewer_mend_asked(
+        &mut self,
+        ctx: &Ctx,
+        (pi, si): (usize, usize),
+        reline: bool,
+        clear_kg: f64,
+    ) {
+        let settlement = self.polities[pi].settlement;
+        let village = self.village_name(ctx, Some(settlement));
+        let place = self.polities[pi].sewers[si]
+            .cells
+            .last()
+            .map(|&c| crate::population::cell_centre(ctx.map, c as usize));
+        let what = match (reline, clear_kg > 0.0) {
+            (true, true) => format!(
+                "reline their sewer where it fell in and clear the {clear_kg:.0} kg settled in it"
+            ),
+            (true, false) => "reline their sewer where it fell in".to_owned(),
+            (false, _) => format!("clear the {clear_kg:.0} kg settled in their sewer"),
+        };
+        self.chronicle_push(
+            ctx.now,
+            ChronicleKind::Sewer,
+            Vec::new(),
+            Some(settlement),
+            place,
+            f64::from(SewerStep::MendAsked as u8),
+            format!("{village}'s gathering asked its people to {what}."),
+        );
+    }
+
     /// The chronicle's word that sewer `si` of polity `pi` fell in at its route cell `at`
     /// (ADR-0044 §5), worn through this month: how far above its outfall, and either how many
     /// homes whose drains enter above it now back up or that it was already broken below.
@@ -1401,6 +1474,7 @@ impl Population {
             }
         }
         for (si, reline, clear, hours) in asks {
+            self.tell_sewer_mend_asked(ctx, (pi, si), reline, clear);
             let p = &mut self.polities[pi];
             let s = &mut p.sewers[si];
             if reline {

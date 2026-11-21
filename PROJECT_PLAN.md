@@ -9152,7 +9152,8 @@ and M6a gives rivers a daily flow.
       (94 targets, 1,559 tests, none failing); the ten smoke seeds pass; fmt and clippy
       clean. No existing assertion moved. **Not yet:** a chronicle entry for a sewer laid whole
       (done 2026-11-03 with a gas main and a line of current, see backlog D, twelfth item), a
-      blockage told, mending a polity asks told when asked, a collapse as a stop for the skip or
+      blockage told and mending a polity asks told when asked (both done 2026-11-21, see backlog
+      D, thirtieth item), a collapse as a stop for the skip or
       an incident of its own, and a lived world where a sewer falls in.
     - *Backlog D, sixth item (2026-11-02): a passing place a gathering asked for told in the
       chronicle once it is cleared* (M8b slice CQ, third part's "Not yet": a chronicle entry when
@@ -11016,6 +11017,24 @@ and M6a gives rivers a daily flow.
       fail without the entry); the whole civ-sim suite (88 targets), the unit tests; smoke (all 10
       pass); fmt and clippy clean. **The notables' gate**, locally, against f1f5ee8: passes, 0 of
       40 runs changed, every difference, t and detects the same. **Not yet:** nothing.
+    - *Backlog D, thirtieth item (2026-11-21): a sewer's blockage and the mending asked told in the
+      chronicle* (§9, "A sewer's blockage and its asked mending told"; the fifth item's "Not
+      yet"). A sewer's collapse and its mending were told; its blockage and what its gathering
+      asked were not. **Built:** `SewerStep::Blocked` and `MendAsked` (appended, codes 2 and 3).
+      The day a sewer's deposit first turns homes away, from none the day before, it is told once
+      at its outfall ("Stonehollow's sewer is choked with what has settled in it: 1 home whose
+      drains it no longer takes back up."); more homes backing up while it stays blocked tell
+      nothing more. When the gathering's review asks its mending, that is told ("Stonehollow's
+      gathering asked its people to reline their sewer where it fell in.", "... to clear the
+      2,000 kg settled in their sewer.", or both). Only the polity's look for a food shortage reads
+      the chronicle, so nothing decides by it. No content, schema or wire change; saves stay 220.
+      **Tested:** sewers (22, two extended: the blockage's first day told once in its words, and
+      not again while it stays blocked; nothing told where mending is not worth asking; relining
+      asked told once, and clearing asked with its kilograms; both fail without the entries); the
+      whole civ-sim suite (88 targets), the unit tests; smoke (all 10 pass); fmt and clippy clean.
+      **The notables' gate**, locally, against 6baba28: passes, 0 of 40 runs changed, every
+      difference, t and detects the same. **Not yet:** a collapse as a stop for the skip or an
+      incident of its own (behaviour); a lived world where a sewer falls in.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
@@ -14306,5 +14325,6 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **NUDGE: preparing and sowing hired against the window, paid as reaping's custom (2026-11-21; the entry above; time-boxed):** the deadline is the window's workable days left at a peak's hours, the sheaves to thresh counted first; the wage is the custom's share of the field's expected crop over its remaining hours, not bid up. Design priors. Revisit if a long run shows sowing hired early in the window, or ground left unsown at its close with hands idle.
 - **Hired sowing paid only from grain to spare (2026-11-21; §8 21, twelfth; the coordinator's review of d5dd5b1):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A household hiring hands to prepare or sow offers and pays only the grain it holds beyond its keep, the food that sees it to its next harvest and its margin (`holding_of`, as the market keeps it back from sale). **Reason:** at the sowing the next harvest is months off, so the cap reaping used (all the grain held, refilled within days) let a household pay away the grain it eats; the keep already exists, so no rate is authored. The gate: 28 of 40 runs changed, all within tolerance; coast's offices back within what the runs can detect (74.6 % against 85 %).
 - **A well relined told (2026-11-21; backlog D, second item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-21). A well whose relining is finished is told in the chronicle as a covering is, naming who finished a polity's. **Reason:** the oldest gate-neutral "Not yet" in backlog D needing no Unreal and no owner's decision; a record no decision reads, so the gate is unmoved (0 of 40 runs changed).
+- **A sewer's blockage and its asked mending told (2026-11-21; backlog D, fifth item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A sewer's deposit first turning homes away is told once at its outfall, and the mending its gathering asks is told when asked. **Reason:** the next gate-neutral "Not yet" in backlog D's order; records no decision reads, so the gate is unmoved (0 of 40 runs changed).
 - **Flooding: water and walkability stay daily (2026-11-20; the owner's call; answers long run 67's and run 80's walking-grid question):** Decided by the owner (2026-11-20), relayed by the coordinator. The walking ground and its landmarks stay laid again for each day's flood depths. **Reason, the owner's words:** "Weekly walkability could leave flooded routes usable—or reopened routes blocked—for several days, changing travel, food access and survival." Option (a), the walking ground changing in coarser steps, is **declined**. Reducing or rebuilding the route structures incrementally, with today's water restrictions kept, is left for later (§8 22, third).
 - **"Moved" in the notables' gate means food moved by the polity (2026-11-20; the owner's acceptance criteria, relayed by the coordinator):** the notables' `moved` aggregate measures the polity's food collection and redistribution, not migration. In earlier entries, "moved" means food transfers. Its tolerance here is 95 %, recalibrated, against main's 25 %. From now on gate figures call it "food moved by the polity", and a change in behaviour is told apart from a changed acceptance criterion.

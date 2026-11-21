@@ -1345,6 +1345,28 @@ fn a_deposit_takes_the_sewers_room_and_the_last_connected_back_up_first() {
     assert_eq!(s.connections[2].days_unserved(SewerCause::Blocked), 1);
     assert_eq!(s.connections[2].days_unserved(SewerCause::Overloaded), 0);
     assert_eq!(s.connections[0].unserved, [0, 0, 0]);
+    // The blockage begun is told once (backlog D, fifth item's "Not yet").
+    let village = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|x| x.id == sim.people().polities[0].settlement)
+        .map(|x| x.name.clone())
+        .expect("the settlement");
+    let blocked = |sim: &Sim| -> Vec<String> {
+        sewer_entries(sim)
+            .iter()
+            .filter(|e| e.number == f64::from(SewerStep::Blocked as u8))
+            .map(|e| e.name.clone())
+            .collect()
+    };
+    assert_eq!(
+        blocked(&sim),
+        vec![format!(
+            "{village}'s sewer is choked with what has settled in it: 1 home whose drains it no \
+             longer takes back up."
+        )]
+    );
     // At the full deposit it is blocked: nobody is served, and nothing more deposits.
     let holds = f64::from(def.block_kg_m) * f64::from(s.length_m);
     sim.people_mut_for_tests().polities[0].sewers[0].deposit_kg = holds;
@@ -1352,6 +1374,8 @@ fn a_deposit_takes_the_sewers_room_and_the_last_connected_back_up_first() {
     let s = sim.people().polities[0].sewers[0].clone();
     assert!(s.connections.iter().all(|c| c.cause == SewerCause::Blocked));
     assert_eq!((s.entered_kg, s.deposit_kg), (0.0, holds));
+    // Still blocked, more homes backing up: not told again.
+    assert_eq!(blocked(&sim).len(), 1);
     assert_eq!(
         s.connections
             .iter()
@@ -1721,11 +1745,27 @@ fn mending_is_asked_under_the_law_that_laid_the_sewer_and_not_after_it_ended() {
     let site = |sim: &Sim| sim.people().polities[0].way_site_of(law).expect("its site");
     let review =
         |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.sewer_reviews_for_tests(ctx, 0));
+    // What the gathering asked, as the chronicle tells it (backlog D, fifth item's "Not yet").
+    let asked = |sim: &Sim| -> Vec<String> {
+        sewer_entries(sim)
+            .iter()
+            .filter(|e| e.number == f64::from(SewerStep::MendAsked as u8))
+            .map(|e| e.name.clone())
+            .collect()
+    };
+    let village = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|x| x.id == sim.people().polities[0].settlement)
+        .map(|x| x.name.clone())
+        .expect("the settlement");
     // Nothing asks its homes to carry their heaps and nobody died: mending is not worth it.
     let labour0 = site(&sim).labour_h;
     review(&mut sim);
     let s = sim.people().polities[0].sewers[0].clone();
     assert!(!s.reline && s.clear_kg == 0.0, "not worth it");
+    assert!(asked(&sim).is_empty(), "nothing asked, nothing told");
     assert_eq!(site(&sim).labour_h, labour0);
     // A round's fee for calls at its homes, as carrying would cost them: the polity weighs the
     // collapse as it weighed laying, and asks relining as common work.
@@ -1759,6 +1799,12 @@ fn mending_is_asked_under_the_law_that_laid_the_sewer_and_not_after_it_ended() {
     let s = sim.people().polities[0].sewers[0].clone();
     assert!(s.reline, "relining asked");
     assert_eq!(s.clear_kg, 0.0, "nothing blocked: no clearing");
+    assert_eq!(
+        asked(&sim),
+        vec![format!(
+            "{village}'s gathering asked its people to reline their sewer where it fell in."
+        )]
+    );
     let metres = cell_metres(&sim, b);
     assert!(
         (site(&sim).labour_h - labour0 - metres * f64::from(def.lay_h_m)).abs() < 1e-3,
@@ -1770,6 +1816,7 @@ fn mending_is_asked_under_the_law_that_laid_the_sewer_and_not_after_it_ended() {
     review(&mut sim);
     sim.people_mut_for_tests().polities[0].rounds.clear();
     assert_eq!(site(&sim).labour_h, labour1);
+    assert_eq!(asked(&sim).len(), 1, "told once");
     // Relined, and blocked by its deposit: clearing is asked, at 10 hours a tonne.
     {
         let s = &mut sim.people_mut_for_tests().polities[0].sewers[0];
@@ -1791,6 +1838,13 @@ fn mending_is_asked_under_the_law_that_laid_the_sewer_and_not_after_it_ended() {
     let s = sim.people().polities[0].sewers[0].clone();
     assert!((s.clear_kg - full).abs() < 1e-9, "{} of {full}", s.clear_kg);
     assert!(!s.reline);
+    assert_eq!(
+        asked(&sim).last().cloned(),
+        Some(format!(
+            "{village}'s gathering asked its people to clear the {full:.0} kg settled in their \
+             sewer."
+        ))
+    );
     assert!(
         (site(&sim).labour_h - labour1 - full / 1000.0 * f64::from(def.clear_h_t)).abs() < 1e-6
     );

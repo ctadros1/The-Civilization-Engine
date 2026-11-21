@@ -29,7 +29,8 @@ fn claim_key(c: &Claim) -> u64 {
         | ClaimKind::Candidacy
         | ClaimKind::Defaulted
         | ClaimKind::Repaid
-        | ClaimKind::GuarantorPaid => c.subject.map_or(0, PermanentId::get),
+        | ClaimKind::GuarantorPaid
+        | ClaimKind::GuarantorFailed => c.subject.map_or(0, PermanentId::get),
         _ => c.settlement.get(),
     };
     let event = c.event.map_or(0, |e| u64::from(e).rotate_left(8));
@@ -101,13 +102,13 @@ impl Population {
         self.debt_word(ctx, ClaimKind::Defaulted, loan, elder, day);
     }
 
-    /// Word of claim `loan` in the credit book on `day`, of kind `kind` (a default, a repayment
-    /// or a guarantor's payment; backlog D): `elder` is the elder of the household whose word it
-    /// was. The creditor's people hold it at first hand, as they saw it; it concerns `elder`'s
-    /// settlement (else the creditor's), where it is told as news. A claim of the common store is
-    /// held at first hand by the store's keeper of the day, who carries its loans (ADR-0027 §4)
-    /// and sees what comes into it and what does not, and who learns of it as one who heard it
-    /// would; a store with no keeper has nobody to see it, and it is not told.
+    /// Word of claim `loan` in the credit book on `day`, of kind `kind` (a default, a repayment,
+    /// a guarantor's payment or its failing to pay; backlog D): `elder` is the elder of the
+    /// household whose word it was. The creditor's people hold it at first hand, as they saw it;
+    /// it concerns `elder`'s settlement (else the creditor's), where it is told as news. A claim of
+    /// the common store is held at first hand by the store's keeper of the day, who carries its
+    /// loans (ADR-0027 §4) and sees what comes into it and what does not, and who learns of it as
+    /// one who heard it would; a store with no keeper has nobody to see it, and it is not told.
     pub(super) fn debt_word(
         &mut self,
         ctx: &Ctx,
@@ -172,10 +173,10 @@ impl Population {
             .is_some_and(|c| self.polities.iter().any(|p| p.id == c.creditor))
     }
 
-    /// What hearing claim `claim` for the first time teaches `listener`: of a default, they think
-    /// the worse of the elder of the household that owed; of a debt repaid, or a guarantor's
-    /// promise kept, the better of the elder whose word was kept; unless that is their own
-    /// household (nobody learns of their own household's word from hearsay, as of a taking). A
+    /// What hearing claim `claim` for the first time teaches `listener`: of a default, or a
+    /// guarantor called on that could pay nothing, they think the worse of the elder of the
+    /// household whose word failed; of a debt repaid, or a guarantor's promise kept, the better
+    /// of the elder whose word was kept; unless that is their own household (nobody learns of their own household's word from hearsay, as of a taking). A
     /// debt to the common store teaches by acts of its own (backlog D).
     pub(super) fn learn_of_claim(&mut self, ctx: &Ctx, listener: PermanentId, claim: u32) {
         let Some((act, elder)) = self.word.claim(claim).and_then(|c| {
@@ -183,7 +184,7 @@ impl Population {
             let act = match c.kind {
                 ClaimKind::Defaulted if store => Act::DefaultedStore,
                 ClaimKind::Repaid if store => Act::RepaidStore,
-                ClaimKind::Defaulted => Act::DefaultedOthers,
+                ClaimKind::Defaulted | ClaimKind::GuarantorFailed => Act::DefaultedOthers,
                 ClaimKind::Repaid | ClaimKind::GuarantorPaid => Act::RepaidOthers,
                 _ => return None,
             };

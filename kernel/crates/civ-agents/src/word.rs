@@ -69,11 +69,17 @@ pub enum ClaimKind {
     /// it could when called on, on a day (backlog D): `subject` is the elder of the guarantor's
     /// household, `event` the loan it stood for in the credit book. Told as a repayment is.
     GuarantorPaid = 15,
+    /// A household that stood guarantor for a loan another household failed could pay the lender
+    /// nothing when called on, on a day (backlog D, the tenth item's "Not yet"): `subject` is the
+    /// elder of the guarantor's household, `event` the loan it stood for in the credit book. Told
+    /// as a default is: the guarantor's word failed as the debtor's did. A guarantor that paid
+    /// anything, in full or in part, is told by [`ClaimKind::GuarantorPaid`] instead.
+    GuarantorFailed = 16,
 }
 
 impl ClaimKind {
     /// Every kind, in code order.
-    pub const ALL: [ClaimKind; 16] = [
+    pub const ALL: [ClaimKind; 17] = [
         ClaimKind::Gathering,
         ClaimKind::Grievance,
         ClaimKind::Petition,
@@ -90,6 +96,7 @@ impl ClaimKind {
         ClaimKind::Defaulted,
         ClaimKind::Repaid,
         ClaimKind::GuarantorPaid,
+        ClaimKind::GuarantorFailed,
     ];
 
     /// Whether claims of this kind are news while they are held (a household's sickness, a
@@ -105,6 +112,7 @@ impl ClaimKind {
                 | ClaimKind::Defaulted
                 | ClaimKind::Repaid
                 | ClaimKind::GuarantorPaid
+                | ClaimKind::GuarantorFailed
         )
     }
 
@@ -113,7 +121,10 @@ impl ClaimKind {
     pub fn of_a_debt(self) -> bool {
         matches!(
             self,
-            ClaimKind::Defaulted | ClaimKind::Repaid | ClaimKind::GuarantorPaid
+            ClaimKind::Defaulted
+                | ClaimKind::Repaid
+                | ClaimKind::GuarantorPaid
+                | ClaimKind::GuarantorFailed
         )
     }
 
@@ -469,7 +480,8 @@ impl Word {
             | ClaimKind::BandSeen
             | ClaimKind::Defaulted
             | ClaimKind::Repaid
-            | ClaimKind::GuarantorPaid => c.day + news_days < today,
+            | ClaimKind::GuarantorPaid
+            | ClaimKind::GuarantorFailed => c.day + news_days < today,
             ClaimKind::Sickness | ClaimKind::Suspicion => c.day + sickness_days < today,
             ClaimKind::Finding => c.day + finding_days < today,
         };
@@ -819,6 +831,20 @@ mod tests {
 
     fn id(n: u64) -> PermanentId {
         PermanentId::from_raw(n).expect("nonzero")
+    }
+
+    #[test]
+    fn claim_kinds_keep_their_save_codes_and_the_guarantor_failing_is_appended() {
+        for (k, kind) in ClaimKind::ALL.iter().enumerate() {
+            assert_eq!(usize::from(kind.code()), k);
+            assert_eq!(ClaimKind::from_code(kind.code()), Some(*kind));
+        }
+        assert_eq!(ClaimKind::GuarantorPaid.code(), 15);
+        assert_eq!(ClaimKind::GuarantorFailed.code(), 16);
+        assert_eq!(ClaimKind::from_code(17), None);
+        // Word of a debt, told as news, like the default it follows.
+        let k = ClaimKind::GuarantorFailed;
+        assert!(k.of_a_debt() && k.held_news());
     }
 
     #[test]

@@ -514,6 +514,33 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
                 loan.by_guarantor
             )
         }
+        // A guarantor called on that could pay nothing (backlog D): who, for whom.
+        ClaimKind::GuarantorFailed => {
+            let on = day_words(SimTime::from_minutes(c.day * DAY));
+            let loan = c
+                .event
+                .and_then(|id| pop.order.credit.claims.iter().find(|x| x.id == id));
+            let who = c.subject.map_or_else(|| "someone".to_owned(), name_of);
+            let Some(loan) = loan else {
+                return format!(
+                    "{who}'s household could pay nothing of what it stood guarantor for, on {on}"
+                );
+            };
+            let good = good_name(sim, loan.good);
+            let creditor = super::people::household_name(sim, loan.creditor);
+            let debtor = super::people::household_name(sim, loan.debtor);
+            let guarantor = match loan.pledge {
+                Some(civ_agents::credit::Pledge::Guarantor(g)) => {
+                    super::people::household_name(sim, g)
+                }
+                _ => format!("{who}'s household"),
+            };
+            let owed = loan.owed;
+            format!(
+                "{guarantor}, called on as guarantor, could pay {creditor} nothing of what \
+                 {debtor} owed it ({owed:.0} kg of {good}), on {on}"
+            )
+        }
         ClaimKind::Sickness => {
             let from = day_words(SimTime::from_minutes(c.day * DAY));
             match c.subject {
@@ -978,7 +1005,10 @@ pub fn news_lines<'a>(
             ClaimKind::Suspicion => c.subject != Some(p.id),
             ClaimKind::Fire | ClaimKind::Raid | ClaimKind::BandSeen => true,
             // Another household's debt kept or failed (backlog D).
-            ClaimKind::Defaulted | ClaimKind::Repaid | ClaimKind::GuarantorPaid => c
+            ClaimKind::Defaulted
+            | ClaimKind::Repaid
+            | ClaimKind::GuarantorPaid
+            | ClaimKind::GuarantorFailed => c
                 .subject
                 .and_then(|e| pop.person(e))
                 .is_none_or(|e| e.household != p.household),
@@ -1125,7 +1155,8 @@ fn whisper_words(sim: &Sim, i: &Influence, p: PermanentId) -> String {
         | ClaimKind::BandSeen
         | ClaimKind::Defaulted
         | ClaimKind::Repaid
-        | ClaimKind::GuarantorPaid => None,
+        | ClaimKind::GuarantorPaid
+        | ClaimKind::GuarantorFailed => None,
         ClaimKind::Grievance => {
             let against = c.grievance.map(|g| g.0);
             let m = pop.factions.membership(p).copied();

@@ -1749,6 +1749,159 @@ fn word_of_a_guarantor_called_on_goes_about_and_so_does_the_debtor_repaying_it()
     );
 }
 
+/// A loan lent with a guarantor whose people have kept company with the lender's, lent and then
+/// failed with the borrower's food gone and the guarantor's food set to `guarantor_kg` of grain
+/// first (and, `owed`, the debt raised to that): the scene, the loan as it failed, its index, the
+/// guarantor and the day it failed.
+fn guarantor_called_on(
+    guarantor_kg: f64,
+    owed: Option<f32>,
+) -> (Scene, Claim, usize, PermanentId, i64) {
+    use civ_agents::ties::Act;
+    let mut sc = village();
+    let cp = credit(&mut sc.sim);
+    cp.p_max = 0.05;
+    cp.field_recovery = 0.0;
+    cp.guarantor_regard = -1.0;
+    cp.pay_base = 50.0;
+    cp.max_extensions = 0;
+    let guarantor = sc
+        .sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .filter(|h| !h.members.is_empty() && h.id != sc.borrower && h.id != sc.lender)
+        .map(|h| h.id)
+        .min()
+        .expect("a third household");
+    feed(&mut sc.sim, guarantor, 3000.0);
+    let (tp, today) = (sc.sim.rules().people.ties.clone(), sc.sim.now().day_index());
+    let (from, to) = (
+        members_of(&sc.sim, sc.lender),
+        members_of(&sc.sim, guarantor),
+    );
+    let pop = sc.sim.people_mut_for_tests();
+    for &x in &from {
+        for &y in &to {
+            pop.ties.record(x, y, Act::Hearth, 400.0, 0.0, today, &tp);
+        }
+    }
+    weigh(&mut sc.sim);
+    let (i, c) = loan_of(&sc.sim, sc.borrower);
+    let Some(Pledge::Guarantor(g)) = c.pledge else {
+        panic!("lent with a guarantor: {c:?}");
+    };
+    if let Some(owed) = owed {
+        sc.sim.people_mut_for_tests().order.credit.claims[i].owed = owed;
+    }
+    feed(&mut sc.sim, sc.borrower, 0.0);
+    feed(&mut sc.sim, g, guarantor_kg);
+    let grace = i64::from(sc.sim.rules().people.credit.grace_days);
+    let failed_on = c.due + grace + 1;
+    repay(&mut sc.sim, failed_on);
+    let c = loans(&sc.sim)[i].clone();
+    (sc, c, i, g, failed_on)
+}
+
+#[test]
+fn word_of_a_guarantor_called_on_that_could_pay_nothing_goes_about_as_a_default() {
+    // Backlog D, the tenth item's "Not yet": a guarantor called on that can spare nothing failed
+    // its word as the debtor did. The lender's people note it of the guarantor's elder and hold
+    // it at first hand; one who hears it thinks the worse of that elder; the guarantor's own
+    // people do not tell it. A guarantor that paid anything, in full or in part, is told as
+    // having paid, never as failing.
+    use civ_agents::ties::{Act, Domain};
+    use civ_agents::word::ClaimKind;
+    let tp = village().sim.rules().people.ties.clone();
+    let (mut sc, c, _, g, failed_on) = guarantor_called_on(0.0, None);
+    assert_eq!(c.by_guarantor, 0.0, "it could pay nothing: {c:?}");
+    assert_eq!(c.taken, Some(failed_on), "called on");
+    assert_eq!(claims_of(&sc.sim, ClaimKind::Defaulted).len(), 1);
+    assert!(claims_of(&sc.sim, ClaimKind::GuarantorPaid).is_empty());
+    let said = claims_of(&sc.sim, ClaimKind::GuarantorFailed);
+    assert_eq!(said.len(), 1, "{said:?}");
+    let claim = said[0];
+    assert_eq!((claim.event, claim.day), (Some(c.id), failed_on));
+    let elder = claim.subject.expect("names the guarantor's elder");
+    assert!(members_of(&sc.sim, g).contains(&elder));
+    assert_eq!(
+        Some(claim.settlement),
+        sc.sim.people().household(g).and_then(|x| x.settlement)
+    );
+    let lenders = members_of(&sc.sim, c.creditor);
+    for &m in &lenders {
+        assert!(sc.sim.people().word.has_heard(m, claim.id));
+    }
+    for &m in &members_of(&sc.sim, g) {
+        assert!(!sc.sim.people().word.has_heard(m, claim.id));
+    }
+    // The lender's people noted it of the guarantor's elder, as of a debtor that defaulted.
+    let day = sc.sim.now().day_index();
+    for &m in &lenders {
+        let tie = sc
+            .sim
+            .people()
+            .ties
+            .tie(m, elder, day, &tp)
+            .expect("a tie to the guarantor's elder");
+        assert!(
+            tie.bad[Domain::Word.index()] > 0.0,
+            "the guarantor's word failed: {tie:?}"
+        );
+    }
+    let words = civ_sim::frames::word::claim_words(&sc.sim, &claim);
+    assert!(
+        words.contains(", called on as guarantor, could pay ")
+            && words.contains(" nothing of what ")
+            && words.contains(" owed it ("),
+        "{words}"
+    );
+    // One of a fourth household, told it, thinks the worse of the guarantor's elder.
+    let others = people_but(&sc.sim, &[sc.borrower, sc.lender, c.creditor, g]);
+    let x = *others.first().expect("one of a fourth household");
+    let regard_before = sc.sim.people().ties.regard(x, elder, day, &tp);
+    hearth(&mut sc.sim, lenders[0], x);
+    assert!(sc.sim.people().word.has_heard(x, claim.id));
+    assert_eq!(
+        sc.sim
+            .people()
+            .ties
+            .tie(x, elder, day, &tp)
+            .and_then(|t| t.reason)
+            .map(|r| r.act),
+        Some(Act::DefaultedOthers)
+    );
+    assert!(sc.sim.people().ties.regard(x, elder, day, &tp) < regard_before);
+    // The guarantor's own people do not tell it.
+    let y = others.get(1).copied().expect("another of other households");
+    let own = members_of(&sc.sim, g)[0];
+    sc.sim.with_ctx_for_tests(|pop, ctx| {
+        pop.share_word_for_tests(ctx, lenders[0], own);
+        pop.share_word_for_tests(ctx, own, y)
+    });
+    assert!(sc.sim.people().word.has_heard(own, claim.id));
+    assert!(!sc.sim.people().word.has_heard(y, claim.id));
+    saves_exactly(&mut sc.sim);
+    // A guarantor that could pay in full, or only in part, is told as having paid.
+    for owed in [None, Some(1.0e6)] {
+        let (sc, c, _, _, _) = guarantor_called_on(3000.0, owed);
+        assert!(c.by_guarantor > 0.0, "{owed:?}: {c:?}");
+        if owed.is_some() {
+            assert!(c.left() > 0.0, "paid in part: {c:?}");
+        }
+        assert_eq!(
+            claims_of(&sc.sim, ClaimKind::GuarantorPaid).len(),
+            1,
+            "{owed:?}"
+        );
+        assert!(
+            claims_of(&sc.sim, ClaimKind::GuarantorFailed).is_empty(),
+            "{owed:?}: not told as failing"
+        );
+    }
+}
+
 #[test]
 fn a_default_given_time_by_a_finding_and_then_repaid_is_told_as_repaid() {
     // Backlog D: a loan a finding under debts heard gives time is open again; repaid in full by

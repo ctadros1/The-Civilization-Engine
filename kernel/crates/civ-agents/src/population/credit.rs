@@ -901,8 +901,8 @@ impl Population {
 
     /// Loan `i` failed today (refused, or unpaid when grace ran out): the creditor's household
     /// notes it of the debtor's elder, and word of it goes about ([`Self::default_word`]); and the
-    /// creditor takes the pledge: the guarantor is called on now, and word of what it pays goes
-    /// about too; a field is taken when it lies between crops ([`Self::pledged_fields`]).
+    /// creditor takes the pledge: the guarantor is called on now, and word of what it pays, or
+    /// that it could pay nothing, goes about too; a field is taken when it lies between crops ([`Self::pledged_fields`]).
     fn loan_failed(&mut self, ctx: &Ctx, i: usize, day: i64) {
         let (now, params) = (ctx.now, ctx.params);
         let c = self.order.credit.claims[i].clone();
@@ -934,6 +934,19 @@ impl Population {
         let pay = c.left().min(self.can_give(ctx, g, good));
         self.order.credit.claims[i].taken = Some(day);
         if !self.pay_loan(ctx, g, c.creditor, good, pay) {
+            // It could pay nothing: its word failed as the debtor's did. The creditor's household
+            // notes it of the guarantor's elder, and word of it goes about (backlog D, the tenth
+            // item's "Not yet").
+            if let Some(b) = self.elder_of(g, now, params) {
+                let members = self
+                    .household(c.creditor)
+                    .map(|x| x.members.clone())
+                    .unwrap_or_default();
+                for m in members {
+                    self.note_tie(ctx, m, b, Act::Defaulted, 1.0, 0.0);
+                }
+                self.debt_word(ctx, ClaimKind::GuarantorFailed, c.id, b, day);
+            }
             return;
         }
         let claim = &mut self.order.credit.claims[i];

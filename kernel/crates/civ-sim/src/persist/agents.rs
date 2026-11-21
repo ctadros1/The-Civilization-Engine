@@ -1398,8 +1398,8 @@ pub(super) fn decode<R: Read + Seek>(
                     .is_some_and(|id| people.order.cases.iter().any(|x| x.id == id)),
                 Schema::V126,
             )),
-            // A default, a repayment or a guarantor's payment names a claim in the credit book
-            // (schema 220, backlog D).
+            // Word of a debt kept or failed (a default, a repayment, a guarantor's payment or its
+            // failing to pay) names a claim in the credit book (schema 220, backlog D).
             k if k.of_a_debt() => Some((
                 c.event
                     .is_some_and(|id| people.order.credit.claims.iter().any(|x| x.id == id)),

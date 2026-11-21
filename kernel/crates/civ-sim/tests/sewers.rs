@@ -1345,11 +1345,26 @@ fn a_deposit_takes_the_sewers_room_and_the_last_connected_back_up_first() {
     assert_eq!(s.connections[2].days_unserved(SewerCause::Blocked), 1);
     assert_eq!(s.connections[2].days_unserved(SewerCause::Overloaded), 0);
     assert_eq!(s.connections[0].unserved, [0, 0, 0]);
+    // The blockage is told once, the day it began (backlog D fifth item's "Not yet").
+    let blocked_told = |sim: &Sim| -> Vec<String> {
+        sewer_entries(sim)
+            .into_iter()
+            .filter(|e| e.number == f64::from(civ_agents::history::SewerStep::Blocked as u8))
+            .map(|e| e.name)
+            .collect()
+    };
+    let told = blocked_told(&sim);
+    assert_eq!(told.len(), 1, "{told:?}");
+    assert!(
+        told[0].contains("1 home connected to it backed up"),
+        "{told:?}"
+    );
     // At the full deposit it is blocked: nobody is served, and nothing more deposits.
     let holds = f64::from(def.block_kg_m) * f64::from(s.length_m);
     sim.people_mut_for_tests().polities[0].sewers[0].deposit_kg = holds;
     sim.advance_minutes(DAY).expect("lives");
     let s = sim.people().polities[0].sewers[0].clone();
+    assert_eq!(blocked_told(&sim).len(), 1, "still blocked: not told again");
     assert!(s.connections.iter().all(|c| c.cause == SewerCause::Blocked));
     assert_eq!((s.entered_kg, s.deposit_kg), (0.0, holds));
     assert_eq!(
@@ -1764,6 +1779,20 @@ fn mending_is_asked_under_the_law_that_laid_the_sewer_and_not_after_it_ended() {
         (site(&sim).labour_h - labour0 - metres * f64::from(def.lay_h_m)).abs() < 1e-3,
         "laying's hours a metre of the collapse, an equal share of each household"
     );
+    // The asking is told in the chronicle (backlog C's "Not yet").
+    let asked = |sim: &Sim| -> Vec<String> {
+        sewer_entries(sim)
+            .into_iter()
+            .filter(|e| e.number == f64::from(civ_agents::history::SewerStep::MendingAsked as u8))
+            .map(|e| e.name)
+            .collect()
+    };
+    let told = asked(&sim);
+    assert_eq!(told.len(), 1, "{told:?}");
+    assert!(
+        told[0].contains("asked its households to reline the") && told[0].contains("hours"),
+        "{told:?}"
+    );
     // Asked once: weighed again, nothing more is asked.
     let labour1 = site(&sim).labour_h;
     fee_round(&mut sim);
@@ -1794,6 +1823,9 @@ fn mending_is_asked_under_the_law_that_laid_the_sewer_and_not_after_it_ended() {
     assert!(
         (site(&sim).labour_h - labour1 - full / 1000.0 * f64::from(def.clear_h_t)).abs() < 1e-6
     );
+    let told = asked(&sim);
+    assert_eq!(told.len(), 2, "asked again only for the clearing: {told:?}");
+    assert!(told[1].contains("t of silt from it"), "{told:?}");
     let words = civ_sim::frames::government::services_words(&sim, &sim.people().polities[0]);
     assert!(
         words.iter().any(|w| w.contains("of its silt cleared")),

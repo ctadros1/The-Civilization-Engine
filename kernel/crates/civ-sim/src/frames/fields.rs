@@ -5,7 +5,7 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-use civ_land::{CropParams, Field, FieldStage, Party};
+use civ_land::{CropParams, Field, FieldStage, FieldTask, Party};
 use civ_schema::flatbuffers::FlatBufferBuilder;
 use civ_schema::wire;
 
@@ -151,8 +151,22 @@ fn stage_words(f: &Field, crop: &CropParams, day: i64) -> String {
     }
 }
 
-/// A `Response` with every field, oldest first.
-pub fn fields_response(sim: &Sim) -> Vec<u8> {
+/// The wire's word for the field work offered for hire (wire 1.115).
+fn hire_task(t: FieldTask) -> wire::HiredTask {
+    match t {
+        FieldTask::Reap => wire::HiredTask::Reap,
+        FieldTask::Thresh => wire::HiredTask::Thresh,
+        FieldTask::Prepare => wire::HiredTask::Prepare,
+        FieldTask::Sow => wire::HiredTask::Sow,
+        _ => wire::HiredTask::None,
+    }
+}
+
+/// A `Response` with every field, oldest first, each with the field work its household would
+/// hire for it now, if any (wire 1.115; read only, see [`Sim::field_hire_offers`]).
+pub fn fields_response(sim: &mut Sim) -> Vec<u8> {
+    let hires = sim.field_hire_offers();
+    let sim = &*sim;
     let mut fbb = FlatBufferBuilder::new();
     let day = sim.now().day_index();
     let crops = &sim.rules.catalog.crops;
@@ -173,6 +187,10 @@ pub fn fields_response(sim: &Sim) -> Vec<u8> {
                 .or(f.holder.settlement())
                 .map_or(0, |s| s.get());
             let r = f.rect;
+            let hire = hires
+                .iter()
+                .find(|(h, o)| *h == f.household && o.field == f.id)
+                .map(|(_, o)| o);
             wire::FieldInfo::create(
                 &mut fbb,
                 &wire::FieldInfoArgs {
@@ -207,6 +225,10 @@ pub fn fields_response(sim: &Sim) -> Vec<u8> {
                         -1.0
                     },
                     soil_water: (f64::from(f.water_mm) / soil_mm) as f32,
+                    hire_task: hire.map_or(wire::HiredTask::None, |o| hire_task(o.task)),
+                    hire_hours: hire.map_or(0.0, |o| o.hours as f32),
+                    hire_kg_per_hour: hire.map_or(0.0, |o| o.kg_per_hour as f32),
+                    hire_good: hire.map_or(-1, |o| i32::try_from(o.good).unwrap_or(-1)),
                 },
             )
         })

@@ -3076,3 +3076,79 @@ fn the_person_frame_names_the_field_work_done_for_hire() {
     set_act(&mut sim, farm);
     assert_eq!(read(&sim).0, wire::HiredTask::None);
 }
+
+/// The observer's field-hire offers (wire 1.115, backlog E's observer states): the fields frame
+/// carries, on the field it is for, the field work its household would hire now, as someone
+/// weighing work for hire would find it offered (`ReapOffer`, read through its test hook): its
+/// task, hours and pay for an hour in the crop's grain; every other field carries none. Reading
+/// it changes nothing.
+#[test]
+fn the_fields_frame_carries_the_field_work_offered_for_hire() {
+    use civ_schema::{flatbuffers, wire};
+    let (mut sim, employer, _, fields, _) = short_of_hands_at_the_harvest(400.0);
+    let rules = sim.rules().clone();
+    let crop = rules.catalog.crops[rules.people.farm.crop].clone();
+    let (task, hours, kg_per_hour) = sim
+        .with_ctx_for_tests(|pop, ctx| pop.field_hire_for_tests(ctx, employer))
+        .expect("it offers reaping");
+    assert_eq!(task, civ_land::FieldTask::Reap);
+    let offers = sim.field_hire_offers();
+    let (_, offer) = offers
+        .iter()
+        .find(|(h, _)| *h == employer)
+        .copied()
+        .expect("the household's offer is read");
+    assert_eq!(
+        (offer.task, offer.hours, offer.kg_per_hour, offer.good),
+        (task, hours, kg_per_hour, crop.good)
+    );
+    assert!(fields.contains(&offer.field), "for one of its own fields");
+    let payload = civ_sim::frames::fields::fields_response(&mut sim);
+    let response = flatbuffers::root::<wire::Response>(&payload).expect("a response");
+    let list = response
+        .body_as_fields()
+        .expect("fields")
+        .fields()
+        .expect("a list");
+    let mut seen = 0;
+    for f in list.iter() {
+        let offered = offers
+            .iter()
+            .find(|(h, o)| h.get() == f.household() && o.field.get() == f.id());
+        match offered {
+            Some((_, o)) => {
+                seen += 1;
+                let want = match o.task {
+                    civ_land::FieldTask::Reap => wire::HiredTask::Reap,
+                    civ_land::FieldTask::Thresh => wire::HiredTask::Thresh,
+                    civ_land::FieldTask::Prepare => wire::HiredTask::Prepare,
+                    civ_land::FieldTask::Sow => wire::HiredTask::Sow,
+                    other => panic!("{other:?} is not offered for hire"),
+                };
+                assert_eq!(f.hire_task(), want);
+                assert_eq!(f.hire_hours(), o.hours as f32);
+                assert_eq!(f.hire_kg_per_hour(), o.kg_per_hour as f32);
+                assert_eq!(f.hire_good(), o.good as i32);
+            }
+            None => {
+                assert_eq!(f.hire_task(), wire::HiredTask::None, "field {}", f.id());
+                assert_eq!((f.hire_hours(), f.hire_kg_per_hour()), (0.0, 0.0));
+                assert_eq!(f.hire_good(), -1);
+            }
+        }
+    }
+    assert_eq!(seen, offers.len(), "each offer on its field, once");
+    assert!(
+        list.iter().any(|f| f.id() == offer.field.get()
+            && f.hire_task() == wire::HiredTask::Reap
+            && f.hire_hours() == hours as f32
+            && f.hire_kg_per_hour() == kg_per_hour as f32),
+        "the reaping offered, on the field it is for"
+    );
+    // Read only: the offer and the frame read again as they were.
+    assert_eq!(
+        sim.with_ctx_for_tests(|pop, ctx| pop.field_hire_for_tests(ctx, employer)),
+        Some((task, hours, kg_per_hour))
+    );
+    assert_eq!(civ_sim::frames::fields::fields_response(&mut sim), payload);
+}

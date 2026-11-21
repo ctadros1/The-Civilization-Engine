@@ -22914,6 +22914,10 @@ impl<'a> FieldInfo<'a> {
   pub const VT_LEASE_SHARE: ::flatbuffers::VOffsetT = 42;
   pub const VT_WATER_HAD: ::flatbuffers::VOffsetT = 44;
   pub const VT_SOIL_WATER: ::flatbuffers::VOffsetT = 46;
+  pub const VT_HIRE_TASK: ::flatbuffers::VOffsetT = 48;
+  pub const VT_HIRE_HOURS: ::flatbuffers::VOffsetT = 50;
+  pub const VT_HIRE_KG_PER_HOUR: ::flatbuffers::VOffsetT = 52;
+  pub const VT_HIRE_GOOD: ::flatbuffers::VOffsetT = 54;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -22932,6 +22936,9 @@ impl<'a> FieldInfo<'a> {
     builder.add_settlement(args.settlement);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    builder.add_hire_good(args.hire_good);
+    builder.add_hire_kg_per_hour(args.hire_kg_per_hour);
+    builder.add_hire_hours(args.hire_hours);
     builder.add_soil_water(args.soil_water);
     builder.add_water_had(args.water_had);
     builder.add_lease_share(args.lease_share);
@@ -22943,6 +22950,7 @@ impl<'a> FieldInfo<'a> {
     if let Some(x) = args.size { builder.add_size(x); }
     if let Some(x) = args.min { builder.add_min(x); }
     builder.add_crop(args.crop);
+    builder.add_hire_task(args.hire_task);
     builder.add_ripe(args.ripe);
     builder.add_woodland(args.woodland);
     builder.add_new_ground(args.new_ground);
@@ -23105,6 +23113,34 @@ impl<'a> FieldInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(FieldInfo::VT_SOIL_WATER, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn hire_task(&self) -> HiredTask {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<HiredTask>(FieldInfo::VT_HIRE_TASK, Some(HiredTask::None)).unwrap()}
+  }
+  #[inline]
+  pub fn hire_hours(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FieldInfo::VT_HIRE_HOURS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn hire_kg_per_hour(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FieldInfo::VT_HIRE_KG_PER_HOUR, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn hire_good(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(FieldInfo::VT_HIRE_GOOD, Some(-1)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FieldInfo<'_> {
@@ -23135,6 +23171,10 @@ impl ::flatbuffers::Verifiable for FieldInfo<'_> {
      .visit_field::<f32>("lease_share", Self::VT_LEASE_SHARE, false)?
      .visit_field::<f32>("water_had", Self::VT_WATER_HAD, false)?
      .visit_field::<f32>("soil_water", Self::VT_SOIL_WATER, false)?
+     .visit_field::<HiredTask>("hire_task", Self::VT_HIRE_TASK, false)?
+     .visit_field::<f32>("hire_hours", Self::VT_HIRE_HOURS, false)?
+     .visit_field::<f32>("hire_kg_per_hour", Self::VT_HIRE_KG_PER_HOUR, false)?
+     .visit_field::<i32>("hire_good", Self::VT_HIRE_GOOD, false)?
      .finish();
     Ok(())
   }
@@ -23162,6 +23202,10 @@ pub struct FieldInfoArgs<'a> {
     pub lease_share: f32,
     pub water_had: f32,
     pub soil_water: f32,
+    pub hire_task: HiredTask,
+    pub hire_hours: f32,
+    pub hire_kg_per_hour: f32,
+    pub hire_good: i32,
 }
 impl<'a> Default for FieldInfoArgs<'a> {
   #[inline]
@@ -23189,6 +23233,10 @@ impl<'a> Default for FieldInfoArgs<'a> {
       lease_share: 0.0,
       water_had: -1.0,
       soil_water: 0.0,
+      hire_task: HiredTask::None,
+      hire_hours: 0.0,
+      hire_kg_per_hour: 0.0,
+      hire_good: -1,
     }
   }
 }
@@ -23287,6 +23335,22 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FieldInfoBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f32>(FieldInfo::VT_SOIL_WATER, soil_water, 0.0);
   }
   #[inline]
+  pub fn add_hire_task(&mut self, hire_task: HiredTask) {
+    self.fbb_.push_slot::<HiredTask>(FieldInfo::VT_HIRE_TASK, hire_task, HiredTask::None);
+  }
+  #[inline]
+  pub fn add_hire_hours(&mut self, hire_hours: f32) {
+    self.fbb_.push_slot::<f32>(FieldInfo::VT_HIRE_HOURS, hire_hours, 0.0);
+  }
+  #[inline]
+  pub fn add_hire_kg_per_hour(&mut self, hire_kg_per_hour: f32) {
+    self.fbb_.push_slot::<f32>(FieldInfo::VT_HIRE_KG_PER_HOUR, hire_kg_per_hour, 0.0);
+  }
+  #[inline]
+  pub fn add_hire_good(&mut self, hire_good: i32) {
+    self.fbb_.push_slot::<i32>(FieldInfo::VT_HIRE_GOOD, hire_good, -1);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FieldInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FieldInfoBuilder {
@@ -23326,6 +23390,10 @@ impl ::core::fmt::Debug for FieldInfo<'_> {
       ds.field("lease_share", &self.lease_share());
       ds.field("water_had", &self.water_had());
       ds.field("soil_water", &self.soil_water());
+      ds.field("hire_task", &self.hire_task());
+      ds.field("hire_hours", &self.hire_hours());
+      ds.field("hire_kg_per_hour", &self.hire_kg_per_hour());
+      ds.field("hire_good", &self.hire_good());
       ds.finish()
   }
 }

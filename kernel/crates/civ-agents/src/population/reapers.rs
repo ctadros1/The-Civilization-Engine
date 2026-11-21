@@ -37,6 +37,22 @@ pub(super) struct ReapOffer {
     pub good: usize,
 }
 
+/// Field work a household would hire now, as the observer is shown it (wire 1.115): what
+/// [`Population::field_hire`] reads of the offer someone weighing it would weigh.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FieldHire {
+    /// The work: reaping, threshing, or preparing and sowing (`Sow`).
+    pub task: FieldTask,
+    /// The field it is for.
+    pub field: PermanentId,
+    /// Hours of a capable adult's work wanted.
+    pub hours: f64,
+    /// Pay for an hour, kilograms of `good`.
+    pub kg_per_hour: f64,
+    /// The good paid: the crop's grain.
+    pub good: usize,
+}
+
 /// Whether someone `age` years old could earn the harvest wage (§8 17, fourth, slice 2; research
 /// 08-22 §1: the bylaws barred from gleaning anyone who could earn a penny a day): of an age to
 /// work for hire, as the content's work for hire allows.
@@ -92,6 +108,18 @@ impl Population {
     pub fn reap_offer_for_tests(&self, ctx: &Ctx, employer: PermanentId) -> Option<(f64, f64)> {
         self.reap_offer(ctx, employer)
             .map(|o| (o.hours, o.kg_per_hour))
+    }
+
+    /// What household `employer` would hire of field work now, if anything: the offer someone
+    /// weighing work for hire would weigh ([`Self::reap_offer`]), read only, for the observer.
+    pub fn field_hire(&self, ctx: &Ctx, employer: PermanentId) -> Option<FieldHire> {
+        self.reap_offer(ctx, employer).map(|o| FieldHire {
+            task: o.task,
+            field: o.field,
+            hours: o.hours,
+            kg_per_hour: o.kg_per_hour,
+            good: o.good,
+        })
     }
 
     /// Person `person` works `minutes` for hire on `field`, as a session out for hire ends:

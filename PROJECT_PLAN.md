@@ -11093,8 +11093,25 @@ and M6a gives rivers a daily flow.
       e2e (31 pass, the 16 demo specs skipped without `TCE_DEMO`, as always); the whole civ-sim
       suite (88 targets), the unit tests; smoke (all 10 pass); fmt, clippy and the schema check
       clean. **The notables' gate**, locally, against 2f02804: passes, 0 of 40 runs changed, every
-      difference, t and detects the same. **Not yet:** offers and wages on the wire (a table of
-      its own, if wanted).
+      difference, t and detects the same. **Not yet:** offers and wages on the wire (a table of its
+      own, if wanted) (done 2026-11-21, see the next entry: wire 1.115).
+    - *Backlog E, observer states (2026-11-21; wire 1.115): the field work offered for hire, its
+      hours and its wage, on the wire* (§9, "The field-hire offer on the wire"; §8 23, fourth).
+      **Built:** `FieldInfo` gains `hire_task` (the `HiredTask` enum), `hire_hours`,
+      `hire_kg_per_hour` and `hire_good` (ids 22-25, appended), set on the field the offer is for
+      from what its household would hire now, read as someone weighing work for hire would find it
+      (`Population::field_hire`, a read-only accessor over `reap_offer`; `Sim::field_hire_offers`
+      lends it a context by shared reference only), none elsewhere; wire 1.115, the web envelope's
+      minor following. The map's readout over a field adds "hiring 14 h of reaping at 0.63 kg of
+      emmer an hour" (and threshing, preparing ground, preparing and sowing), and nothing when none
+      is offered or from an older kernel (absent reads None, 0, -1). No wage or ledger export; no
+      save, content or simulation change. **Tested:** people (44, one new: the frame's offer on its field equals the
+      reaping `ReapOffer` reads through its test hook, task, hours, pay and good, every other field
+      none, and a second read alike); web unit tests (227, one new for the readout's words, one for
+      an older kernel's field, the fields decode extended); web build; e2e (31 pass, the 16 demo
+      specs skipped without `TCE_DEMO`); civ-sim's unit tests, firms, roundtrip and settlements;
+      civ-schema and civ-host; smoke (all 10 pass); fmt, clippy and the schema check clean. No
+      notables gate: nothing the simulation does changed. **Not yet:** nothing.
     - *Backlog D, tenth item (2026-11-21): a guarantor who could pay nothing told* (§9, "A
       guarantor who could pay nothing, told"; the tenth item's "Not yet"). A guarantor called on
       that paid anything was told (`GuarantorPaid`); one that could spare nothing was marked
@@ -12706,7 +12723,8 @@ and M6a gives rivers a daily flow.
        now.**
     4. *The field-hire offer and its wage on the wire* (§7, "observer states … wire 1.114", "Not
        yet"): the task is shown; what is offered, for how many hours and at what wage is not. A
-       new wire table and a web panel line; no simulation change. Gate-neutral. **Buildable now.**
+       new wire table and a web panel line; no simulation change. Gate-neutral. **Done**
+       (2026-11-21, wire 1.115: four fields appended to `FieldInfo`, not a table; §7's entry).
     5. *A lived-world probe of the 2026-11-21 behaviour slices* (the "a lived world where …"
        lines of the backlog D entries; the fourteenth coverage pass): how often a guarantor pays
        nothing, an imposed debt is met, a passing place is cleared again under a new law, or a
@@ -14615,5 +14633,6 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **A passing place cleared again under a new law (2026-11-21; backlog D, the fourteenth item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A polity's site for a passing place may name a cell where a way runs only when every way there is a passing place of the polity's, grown over, that no `build_way` law of it in force keeps; its site then asks the clearing again it wants, at clearing's own rate, and the new law's work is that way, not a new one. Hours given are credited to the law in force naming the way before an ended one. **Reason:** the 2026-11-03 entry keeps a passing place by the law that cleared it, so one whose law ended had nobody to ask for it, while the site's rule (no way runs there) was written before a passing place could grow over; this reuses the keeping's own reckoning (what clearing again wants) and the first clearing's asking, and names no outcome: it is cleared again only where a gathering passes a new law for it. The gate: 0 of 40 runs changed, none of them reaching the case.
 - **A motor cart to an heir far off (2026-11-21; backlog D, the ninth item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A made motor cart passes to an heir in another settlement only where it stands within a fetch's walk and the heir holds the fuel its drive home burns, by the twenty-fifth item's drive rule (one function, `drive_home`, for moving and fetching), as a boat or cart passes only where a way would bring it today; it is fetched by walking to it and driving it home, its fuel weighed at the household's own cost as a motor cart's trip to market is, and burned as the drive sets out, only while held. Its road line does not go with it: a line passes with its cart only within its settlement, the twentieth item's rule, now its own condition, and the line left behind still says whose it had been. **Reason:** the ninth item kept a motor cart back only because nothing drove one home; the drive rule existed, and an heir that holds no fuel for it could not bring it, so it stays as before. No new state: the gate shows 0 of 40 runs changed, none of them holding a motor cart.
 - **The fourteenth coverage pass (2026-11-21; §8 21):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. Today's four behaviour slices, which the gate did not reach, were pinned by scenes at their edges. One fault was found and fixed: passing motor carts to an heir far off now reckons the fuel of their drives home across them, as moving does, so an heir with fuel for one drive takes one. **Reason** for the fix: the twenty-fifth item's rule is that a household without a trip's fuel cannot take it, and the second cart's drive was fuel the heir did not hold beyond the first's. The gate: 0 of 40 runs changed, none of them holding a motor cart.
+- **The field-hire offer on the wire (2026-11-21; backlog E, observer states; §8 23, fourth; wire 1.115):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. What a household would hire of field work now (its task, hours and pay for an hour in the crop's grain) goes on the field it is for, as four fields appended to `FieldInfo`, read from `reap_offer` as someone weighing work for hire reads it, not stored. **Reason:** the offer names one field and the observer already reads the household's fields from the fields frame, refreshed each day; four appended scalars are backward-compatible and smaller than a new table or a household frame, which the wire does not have. Building the offer's context needs the land lent mutably, so the fields query takes the world mutably and only reads; no wages from the ledger and no simulation change, so wire and web only and the gate is unmoved.
 - **Flooding: water and walkability stay daily (2026-11-20; the owner's call; answers long run 67's and run 80's walking-grid question):** Decided by the owner (2026-11-20), relayed by the coordinator. The walking ground and its landmarks stay laid again for each day's flood depths. **Reason, the owner's words:** "Weekly walkability could leave flooded routes usable—or reopened routes blocked—for several days, changing travel, food access and survival." Option (a), the walking ground changing in coarser steps, is **declined**. Reducing or rebuilding the route structures incrementally, with today's water restrictions kept, is left for later (§8 22, third).
 - **"Moved" in the notables' gate means food moved by the polity (2026-11-20; the owner's acceptance criteria, relayed by the coordinator):** the notables' `moved` aggregate measures the polity's food collection and redistribution, not migration. In earlier entries, "moved" means food transfers. Its tolerance here is 95 %, recalibrated, against main's 25 %. From now on gate figures call it "food moved by the polity", and a change in behaviour is told apart from a changed acceptance criterion.

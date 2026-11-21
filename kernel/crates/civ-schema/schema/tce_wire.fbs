@@ -1389,6 +1389,15 @@ table FieldInfo {
   // holds.
   water_had: float = -1 (id: 20);
   soil_water: float (id: 21);
+  // Wire 1.115 (backlog E, observer states): the field work the household that works it would
+  // hire now for this field, as someone weighing work for hire would find it offered: the work
+  // (None when it offers none for this field; Sow is preparing and sowing), the hours of a
+  // capable adult's work wanted, and the pay for an hour, kilograms of `hire_good` (the crop's
+  // grain; -1 for none).
+  hire_task: HiredTask (id: 22);
+  hire_hours: float (id: 23);
+  hire_kg_per_hour: float (id: 24);
+  hire_good: int = -1 (id: 25);
 }
 
 table Fields {

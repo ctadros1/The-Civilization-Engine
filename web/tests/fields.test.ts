@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { FIELD_LEGEND, fieldAt, fieldKey, fieldLook, tenureText } from "../src/fields.js";
-import type { FieldInfo } from "../src/net/messages.js";
+import { FIELD_LEGEND, fieldAt, fieldKey, fieldLook, hireText, tenureText } from "../src/fields.js";
+import type { FieldInfo, GoodInfo } from "../src/net/messages.js";
 
 function field(over: Partial<FieldInfo> = {}): FieldInfo {
   return {
@@ -29,6 +29,10 @@ function field(over: Partial<FieldInfo> = {}): FieldInfo {
     leaseShare: 0,
     waterHad: -1,
     soilWater: 0,
+    hireTask: 0,
+    hireHours: 0,
+    hireKgPerHour: 0,
+    hireGood: -1,
     ...over,
   };
 }
@@ -85,5 +89,28 @@ describe("who holds a field", () => {
   it("says when nobody works it", () => {
     expect(tenureText(field({ household: 9, holder: 5 }), living)).toBe("its tenant is gone");
     expect(tenureText(field({ household: 9, holder: 9 }), living)).toBe("nobody holds it now");
+  });
+});
+
+describe("field work offered for hire (wire 1.115)", () => {
+  const goods = [{ name: "Emmer" }, { name: "Seed" }] as GoodInfo[];
+  it("says the work, the hours wanted and the pay for an hour", () => {
+    const reap = field({ hireTask: 1, hireHours: 14.2, hireKgPerHour: 0.625, hireGood: 0 });
+    expect(hireText(reap, goods)).toBe("hiring 14 h of reaping at 0.63 kg of emmer an hour");
+    expect(hireText(field({ hireTask: 2, hireHours: 3.25, hireKgPerHour: 0.5, hireGood: 0 }), goods)).toBe(
+      "hiring 3.3 h of threshing at 0.50 kg of emmer an hour",
+    );
+    expect(hireText(field({ hireTask: 3, hireHours: 2, hireKgPerHour: 0.4, hireGood: 0 }), goods)).toBe(
+      "hiring 2.0 h of preparing ground at 0.40 kg of emmer an hour",
+    );
+    expect(hireText(field({ hireTask: 4, hireHours: 2, hireKgPerHour: 0.4, hireGood: 9 }), goods)).toBe(
+      "hiring 2.0 h of preparing and sowing at 0.40 kg of grain an hour",
+    );
+  });
+
+  it("says nothing when none is offered, or from an older kernel", () => {
+    expect(hireText(field(), goods)).toBe("");
+    expect(hireText(field({ hireTask: 1, hireHours: 0, hireKgPerHour: 0.5, hireGood: 0 }), goods)).toBe("");
+    expect(hireText(field({ hireTask: 7, hireHours: 5, hireKgPerHour: 0.5, hireGood: 0 }), goods)).toBe("");
   });
 });

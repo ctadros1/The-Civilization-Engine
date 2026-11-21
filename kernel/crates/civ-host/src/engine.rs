@@ -537,9 +537,10 @@ impl Engine {
                     Reply::Response(frames::people::chronicle_response(&w.sim, after_seq, limit))
                 }
             },
-            Request::GetFields => match &self.world {
+            Request::GetFields => match &mut self.world {
                 None => no_world(),
-                Some(w) => Reply::Response(frames::fields::fields_response(&w.sim)),
+                // Mutable only to lend the land to the offers' read (wire 1.115); nothing changes.
+                Some(w) => Reply::Response(frames::fields::fields_response(&mut w.sim)),
             },
             Request::GetBuildings => match &self.world {
                 None => no_world(),

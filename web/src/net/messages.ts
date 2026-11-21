@@ -465,6 +465,14 @@ export interface FieldInfo {
    * needed any), and its root zone's water as a share of what the soil holds. */
   waterHad: number;
   soilWater: number;
+  /** Wire 1.115: the field work the household that works it would hire now for this field (0
+   * none, 1 reaping, 2 threshing, 3 preparing ground, 4 preparing and sowing), the hours of a
+   * capable adult's work wanted, and the pay for an hour in kilograms of `hireGood` (an index into
+   * Welcome.goods; -1 for none). None, 0 and -1 from an older kernel. */
+  hireTask: number;
+  hireHours: number;
+  hireKgPerHour: number;
+  hireGood: number;
 }
 
 /** Ground worn by walking in one tile of cells (M1 slice F), as last surveyed. */
@@ -3927,6 +3935,10 @@ function fields(f: W.Fields): { rev: number; fields: FieldInfo[] } {
       leaseShare: x.leaseShare(),
       waterHad: x.waterHad(),
       soilWater: x.soilWater(),
+      hireTask: x.hireTask(),
+      hireHours: x.hireHours(),
+      hireKgPerHour: x.hireKgPerHour(),
+      hireGood: x.hireGood(),
     });
   }
   return { rev: Number(f.rev()), fields: out };

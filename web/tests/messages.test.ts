@@ -847,6 +847,19 @@ describe("decoders", () => {
     });
   });
 
+  it("decodes a field from a kernel before wire 1.115 as offering no hire", () => {
+    const b = new flatbuffers.Builder(64);
+    W.FieldInfo.startFieldInfo(b);
+    W.FieldInfo.addId(b, 5n);
+    const field = W.FieldInfo.endFieldInfo(b);
+    const list = W.Fields.createFieldsVector(b, [field]);
+    const fields = W.Fields.createFields(b, 1n, list);
+    const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Fields, fields)));
+    if (body.kind !== "fields") throw new Error(body.kind);
+    const f = body.fields[0]!;
+    expect([f.hireTask, f.hireHours, f.hireKgPerHour, f.hireGood]).toEqual([0, 0, 0, -1]);
+  });
+
   it("builds a fields query and decodes the fields", () => {
     const query = W.Query.getRootAsQuery(bb(M.getFields()));
     expect(query.bodyType()).toBe(W.QueryBody.GetFields);
@@ -870,6 +883,10 @@ describe("decoders", () => {
     W.FieldInfo.addLeaseShare(b, 0.25);
     W.FieldInfo.addWaterHad(b, 0.75);
     W.FieldInfo.addSoilWater(b, 0.5);
+    W.FieldInfo.addHireTask(b, W.HiredTask.Reap);
+    W.FieldInfo.addHireHours(b, 12.5);
+    W.FieldInfo.addHireKgPerHour(b, 0.75);
+    W.FieldInfo.addHireGood(b, 2);
     const field = W.FieldInfo.endFieldInfo(b);
     const list = W.Fields.createFieldsVector(b, [field]);
     const fields = W.Fields.createFields(b, 99n, list);
@@ -905,6 +922,11 @@ describe("decoders", () => {
           // Wire 1.24: the water its crop has had, and its root zone's.
           waterHad: 0.75,
           soilWater: 0.5,
+          // Wire 1.115: the reaping its household would hire for it now.
+          hireTask: 1,
+          hireHours: 12.5,
+          hireKgPerHour: 0.75,
+          hireGood: 2,
         },
       ],
     });

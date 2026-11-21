@@ -1348,3 +1348,105 @@ fn a_household_that_could_not_make_a_cart_takes_up_a_made_one_nobody_holds_but_n
     assert!(sim.land().carts.problems().is_empty());
     saves_and_goes_on_alike(&mut sim, DAY);
 }
+
+/// The fifteenth coverage pass (§8 21; taking up by a household that could not make one,
+/// 9254e51): a household that knows the work and holds the timber but no axe cannot make a cart,
+/// so it weighs its errands by a sound one nobody holds at its door, takes it up, and keeps its
+/// timber; and a motor cart nobody holds is weighed by no household that could not make one, and
+/// taken up by none.
+#[test]
+fn a_household_lacking_only_the_tool_takes_up_a_made_cart_and_none_takes_an_unheld_motor_cart() {
+    let mut sim = village(1);
+    let cart_v = sim
+        .rules()
+        .catalog
+        .vehicle_index("core:vehicle/handcart")
+        .expect("a handcart");
+    let motor_v = sim
+        .rules()
+        .catalog
+        .vehicle_index("core:vehicle/road_engine")
+        .expect("a road engine");
+    let catalog = sim.rules().catalog.clone();
+    let def = &catalog.vehicles[cart_v];
+    let (timber, axe) = (def.good, def.tool.expect("a tool"));
+    let map = sim.map().clone();
+    let door = |home: (f32, f32)| civ_agents::population::cell_of(&map, home) as u32;
+    let households: Vec<(civ_core::PermanentId, (f32, f32))> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| (x.id, x.home))
+        .collect();
+    let ((f, f_home), (g, g_home)) = (households[0], households[1]);
+    // `f` knows the wheel and axle and holds timber enough, but no axe.
+    let enough = def.material_kg * 2.0;
+    let member = sim.people().household(f).expect("household").members[0];
+    // Already known, or told now by the observer's tool.
+    let _ = sim.introduce_technique(member, "core:technique/wheel_and_axle", false);
+    {
+        let pop = sim.people_mut_for_tests();
+        let x = pop
+            .households
+            .iter_mut()
+            .map(|(_, h)| h)
+            .find(|h| h.id == f)
+            .expect("household");
+        x.stores[timber] = enough;
+        x.stores[axe] = 0.0;
+        for (t, d) in catalog.goods.iter().enumerate() {
+            if d.tool.as_ref().is_some_and(|x| x.serves == Some(axe)) {
+                x.stores[t] = 0.0;
+            }
+        }
+    }
+    let gone = sim.allocate_id_for_tests();
+    let (sound, motor) = (sim.allocate_id_for_tests(), sim.allocate_id_for_tests());
+    {
+        let land = sim.land_mut_for_tests();
+        land.carts
+            .list
+            .push(vehicle(sound, cart_v, gone, door(f_home)));
+        land.carts
+            .list
+            .push(vehicle(motor, motor_v, gone, door(g_home)));
+        land.carts.changed();
+    }
+    let could = |sim: &mut Sim, x| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.vehicles_it_could_have_for_tests(ctx, x))
+            .0
+    };
+    assert_eq!(
+        could(&mut sim, f),
+        Some(cart_v),
+        "the cart nobody holds, lacking the axe"
+    );
+    // `g`, at whose door the motor cart stands, weighs by none.
+    sim.people_mut_for_tests()
+        .households
+        .iter_mut()
+        .map(|(_, h)| h)
+        .find(|h| h.id == g)
+        .expect("household")
+        .stores[timber] = 0.0;
+    assert_eq!(could(&mut sim, g), None, "not the motor cart");
+    sim.with_ctx_for_tests(|pop, ctx| {
+        pop.begin_vehicle_for_tests(ctx, f, cart_v, door(f_home), 30.0);
+        // Worth making, so the bar is passed: still not taken.
+        pop.begin_vehicle_for_tests(ctx, g, motor_v, door(g_home), 300.0);
+    });
+    let owner = |sim: &Sim, id| {
+        sim.land()
+            .carts
+            .list
+            .iter()
+            .find(|x| x.id == id)
+            .map(|x| x.owner)
+            .expect("there")
+    };
+    assert_eq!(owner(&sim, sound), f, "`f` took up the sound cart");
+    let held = sim.people().household(f).expect("household").stores[timber];
+    assert!((held - enough).abs() < 1e-6, "and kept its timber: {held}");
+    assert_eq!(owner(&sim, motor), gone, "the motor cart stays nobody's");
+    assert!(sim.land().carts.problems().is_empty());
+}

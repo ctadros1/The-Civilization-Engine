@@ -1761,3 +1761,257 @@ fn a_hand_of_a_neighbouring_settlement_reaps_for_hire_within_the_works_walk() {
         "beyond the work's walk: {found:?}"
     );
 }
+
+/// A two-settlement world lived until its households hold fields (§8 23, first's scenes): the
+/// world, the household with the most fields of the crop (`a`'s), the other settlement `b` and
+/// `a`'s hearth, the crop's index, and a hand of `b`, its food gone; the employer holding 400 kg
+/// of grain and its crop sown out of season given a timely yield.
+#[allow(clippy::type_complexity)]
+fn neighbours_scene() -> (
+    Sim,
+    PermanentId,
+    (PermanentId, (f32, f32)),
+    (f32, f32),
+    usize,
+    PermanentId,
+) {
+    let mut sim = Sim::create_for_tests(
+        &NewWorld {
+            name: "Neighbours".to_owned(),
+            seed: 3,
+            preset_id: "core:worldgen/river_valley".to_owned(),
+            size_cells: 768,
+            band_size: 30,
+            neighbours: vec![30],
+            neighbours_known: true,
+            regime_id: String::new(),
+        },
+        content(),
+        [7; 16],
+    )
+    .expect("generates");
+    for _ in 0..200 {
+        if sim.land().fields.len() >= 8 {
+            break;
+        }
+        sim.advance_minutes(24 * 60).expect("advances");
+    }
+    let rules = sim.rules().clone();
+    let c = rules.people.farm.crop;
+    let good = rules.catalog.crops[c].good;
+    drop(rules);
+    sim.rules_mut_for_tests().expect("rules").catalog.crops[c].late_sowing_loss_per_day = 0.0;
+    let mut count: std::collections::BTreeMap<PermanentId, usize> = Default::default();
+    for f in sim
+        .land()
+        .fields
+        .iter()
+        .filter(|f| usize::from(f.crop) == c)
+    {
+        *count.entry(f.household).or_default() += 1;
+    }
+    let employer = count
+        .iter()
+        .filter(|(h, _)| {
+            sim.people()
+                .household(**h)
+                .is_some_and(|x| x.settlement.is_some())
+        })
+        .max_by_key(|(h, n)| (**n, std::cmp::Reverse(**h)))
+        .map(|(h, _)| *h)
+        .expect("a household with fields");
+    let home_of = sim
+        .people()
+        .household(employer)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let (a, b) = {
+        let s = &sim.land().settlements;
+        let a = s.iter().find(|x| x.id == home_of).expect("`a`");
+        let b = s.iter().find(|x| x.id != home_of).expect("`b`");
+        (a.hearth_m, (b.id, b.hearth_m))
+    };
+    let hand = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .filter(|x| x.settlement == Some(b.0) && x.members.len() >= 2)
+        .map(|x| x.id)
+        .min()
+        .expect("a household of `b`");
+    let food: Vec<usize> = sim
+        .rules()
+        .catalog
+        .goods
+        .iter()
+        .enumerate()
+        .filter(|(_, g)| g.kcal_per_kg > 0.0)
+        .map(|(i, _)| i)
+        .collect();
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == hand {
+            for &g in &food {
+                x.stores[g] = 0.0;
+            }
+        } else if x.id == employer {
+            x.stores[good] = 400.0;
+        }
+    }
+    (sim, employer, b, a, c, hand)
+}
+
+/// Household `h`'s fields of crop `c` ripe past the grace, `stood` days, the one ripe longest
+/// (a day more) set at `at`: that field.
+fn ripe_at(sim: &mut Sim, h: PermanentId, c: usize, stood: i64, at: (f32, f32)) -> PermanentId {
+    let grow = i64::from(sim.rules().catalog.crops[c].grow_days);
+    let day = sim.now().day_index();
+    let mut first = None;
+    for f in sim.land_mut_for_tests().fields.iter_mut() {
+        if f.household == h && usize::from(f.crop) == c {
+            f.stage = civ_land::FieldStage::Sown;
+            f.work_h = 0.0;
+            f.sheaves_kg = 0.0;
+            f.tended_h = 1.0e4;
+            f.sown_day = day - grow - stood;
+            if first.is_none() {
+                f.sown_day -= 1;
+                f.rect.x = (at.0 * 100.0) as i32 - f.rect.w / 2;
+                f.rect.y = (at.1 * 100.0) as i32 - f.rect.h / 2;
+                first = Some(f.id);
+            }
+        }
+    }
+    sim.people_mut_for_tests().forget_views();
+    first.expect("a field")
+}
+
+/// The fifteenth coverage pass (§8 21; reapers within a walk, 14607bc): along the way from the
+/// hand's settlement toward the employer's, the neighbour's reaping is found exactly while its
+/// walk is within the work's 30 minutes, never beyond it, and never missed for the straight line
+/// a walk is reckoned over; the hand's own settlement offers nothing here.
+#[test]
+fn a_neighbours_reaping_is_found_exactly_while_its_walk_is_within_the_works_limit() {
+    let (mut sim, employer, b, a_hearth, c, hand) = neighbours_scene();
+    // The hand's own settlement offers no field work.
+    let own: Vec<PermanentId> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .filter(|x| x.settlement == Some(b.0) && x.id != hand)
+        .map(|x| x.id)
+        .collect();
+    for h in own {
+        assert!(
+            sim.with_ctx_for_tests(|pop, ctx| pop.field_hire_for_tests(ctx, h))
+                .is_none(),
+            "nothing offered at home"
+        );
+    }
+    let toward = |m: f32| {
+        let (dx, dy) = (a_hearth.0 - b.1.0, a_hearth.1 - b.1.1);
+        let d = dx.hypot(dy).max(1.0);
+        (b.1.0 + dx / d * m, b.1.1 + dy / d * m)
+    };
+    let (mut within, mut beyond) = (0, 0);
+    let mut m = 200.0;
+    while m <= 3_400.0 {
+        let field = ripe_at(&mut sim, employer, c, 13, toward(m));
+        let at = sim
+            .land()
+            .fields
+            .iter()
+            .find(|f| f.id == field)
+            .map(|f| f.rect.centre_m())
+            .expect("the field");
+        let walk = sim.with_ctx_for_tests(|pop, ctx| pop.hire_walk_for_tests(ctx, hand, at));
+        let found = sim
+            .with_ctx_for_tests(|pop, ctx| pop.best_job_for_tests(ctx, hand))
+            .is_some_and(|(firm, f, _)| firm == employer && f == Some(field));
+        match walk {
+            Some(w) if w <= 30.0 => {
+                within += 1;
+                assert!(found, "{m} m out, a walk of {w:.1} min: not found");
+            }
+            _ => {
+                beyond += 1;
+                assert!(!found, "{m} m out, a walk of {walk:?} min: found");
+            }
+        }
+        m += 200.0;
+    }
+    assert!(
+        within > 0 && beyond > 0,
+        "both sides of the limit: {within} and {beyond}"
+    );
+}
+
+/// Coverage: the best-paid reaping a neighbour offers just beyond the walk does not hide a
+/// lesser one within it; and two offers alike in pay and walk are chosen between by the lower
+/// household id, the same each time.
+#[test]
+fn a_neighbours_best_offer_beyond_the_walk_hides_no_nearer_one_and_ties_go_by_id() {
+    let (mut sim, employer, b, a_hearth, c, hand) = neighbours_scene();
+    let toward = |m: f32| {
+        let (dx, dy) = (a_hearth.0 - b.1.0, a_hearth.1 - b.1.1);
+        let d = dx.hypot(dy).max(1.0);
+        (b.1.0 + dx / d * m, b.1.1 + dy / d * m)
+    };
+    // A second household of the employer's settlement with fields, its crop ripe 13 days: near.
+    let home_of = sim.people().household(employer).and_then(|x| x.settlement);
+    let second = sim
+        .land()
+        .fields
+        .iter()
+        .filter(|f| usize::from(f.crop) == c && f.household != employer)
+        .map(|f| f.household)
+        .filter(|&h| sim.people().household(h).and_then(|x| x.settlement) == home_of)
+        .min()
+        .expect("a second household of `a` with fields");
+    let grain = sim.rules().catalog.crops[c].good;
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == second {
+            x.stores[grain] = 400.0;
+        }
+    }
+    let near = ripe_at(&mut sim, second, c, 13, toward(400.0));
+    // The employer's, ripe 25 days, bids all an hour brings: worth more, but beyond the walk.
+    ripe_at(&mut sim, employer, c, 25, toward(-6_000.0));
+    let job = sim.with_ctx_for_tests(|pop, ctx| pop.best_job_for_tests(ctx, hand));
+    assert!(
+        job.is_some_and(|(firm, f, _)| firm == second && f == Some(near)),
+        "the near one, the far one hiding nothing: {job:?}"
+    );
+    // Both near and alike: the employer's field made the same as the second's, at its place.
+    let twin = sim
+        .land()
+        .fields
+        .iter()
+        .find(|f| f.id == near)
+        .cloned()
+        .expect("the near field");
+    let mine = ripe_at(&mut sim, employer, c, 13, toward(400.0));
+    for f in sim.land_mut_for_tests().fields.iter_mut() {
+        if f.id == mine {
+            let (id, household, holder) = (f.id, f.household, f.holder);
+            *f = civ_land::Field {
+                id,
+                household,
+                holder,
+                ..twin.clone()
+            };
+        }
+    }
+    // Alike in what each holds besides: the same grain, the same fields ripe.
+    sim.people_mut_for_tests().forget_views();
+    let a = sim.with_ctx_for_tests(|pop, ctx| pop.best_job_for_tests(ctx, hand));
+    let again = sim.with_ctx_for_tests(|pop, ctx| pop.best_job_for_tests(ctx, hand));
+    assert_eq!(a, again, "the same each time");
+    let (firm, _, _) = a.expect("work found");
+    assert_eq!(
+        firm,
+        employer.min(second),
+        "the lower id of two alike: {a:?}"
+    );
+}

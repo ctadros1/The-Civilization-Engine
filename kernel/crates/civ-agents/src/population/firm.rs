@@ -1215,6 +1215,24 @@ impl Population {
             .map(|j| (j.firm, j.field, j.walk_min))
     }
 
+    /// The walk, minutes, from household `household`'s home field to the place at `at`, as
+    /// [`Self::best_job`] reckons a job's walk: for tests.
+    #[doc(hidden)]
+    pub fn hire_walk_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        household: PermanentId,
+        at: (f32, f32),
+    ) -> Option<f64> {
+        let hh = self.household(household)?.clone();
+        let (key, _) = self.walking_field_of(ctx, (hh.id, hh.settlement, hh.home));
+        self.homes
+            .get(&key)?
+            .reach
+            .seconds_to(cell_of(ctx.map, at))
+            .map(|s| f64::from(s) / 60.0)
+    }
+
     /// Someone takes `minutes` of the work workshop `id` is hiring for.
     pub(super) fn take_work(&mut self, id: PermanentId, minutes: f64) {
         if let Some(w) = self.firm_mut(id).and_then(|f| f.wage.as_mut()) {

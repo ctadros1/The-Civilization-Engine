@@ -961,7 +961,14 @@ impl Population {
                 let stores = stores_now(x, ctx.now, ctx.params, &ctx.catalog.goods);
                 self.could_make(ctx, x, &stores, vehicle)
             });
-            if let Some(v) = self.nobodys_vehicle(ctx, household, vehicle, saves_h_year, !can) {
+            // Not a motor cart, by one that could not make it: its fuel is weighed by other
+            // rules, as the weighing of its errands has it.
+            let taken = if !can && def.engine.is_some() {
+                None
+            } else {
+                self.nobodys_vehicle(ctx, household, vehicle, saves_h_year, !can)
+            };
+            if let Some(v) = taken {
                 let list = if cart {
                     &mut ctx.land.carts
                 } else {

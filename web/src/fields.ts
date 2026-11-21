@@ -3,7 +3,7 @@
 // without a renderer.
 
 import { formatPercent, formatSimMinute } from "./format.js";
-import type { FieldInfo } from "./net/messages.js";
+import type { FieldInfo, GoodInfo } from "./net/messages.js";
 
 /** A field's look: fill colour and opacity. */
 export interface FieldLook {
@@ -65,4 +65,24 @@ export function tenureText(f: FieldInfo, living: ReadonlySet<number>): string {
   return f.holder === f.household
     ? "held by the household that works it"
     : "worked for the household that holds it";
+}
+
+/** Wire 1.115: the field work offered for hire, by the field's hire task. */
+const HIRE_WORK: Record<number, string> = {
+  1: "reaping",
+  2: "threshing",
+  3: "preparing ground",
+  4: "preparing and sowing",
+};
+
+/**
+ * The field work its household would hire now for a field, in words (wire 1.115): "hiring 14 h
+ * of reaping at 0.62 kg of emmer an hour"; empty when it offers none, or from an older kernel.
+ */
+export function hireText(f: FieldInfo, goods: readonly GoodInfo[]): string {
+  const work = HIRE_WORK[f.hireTask];
+  if (!work || f.hireHours <= 0) return "";
+  const good = (goods[f.hireGood]?.name ?? "grain").toLowerCase();
+  const hours = f.hireHours < 10 ? f.hireHours.toFixed(1) : Math.round(f.hireHours).toString();
+  return `hiring ${hours} h of ${work} at ${f.hireKgPerHour.toFixed(2)} kg of ${good} an hour`;
 }

@@ -116,7 +116,7 @@ mod places;
 mod polity;
 mod privileges;
 mod reapers;
-pub use reapers::HARVEST_BID_PER_DAY;
+pub use reapers::{FieldHire, HARVEST_BID_PER_DAY};
 mod register;
 mod relations;
 mod residence;

@@ -1505,6 +1505,43 @@ impl Sim {
         self.dirty = true;
     }
 
+    /// What each household working a field would hire of field work now
+    /// ([`Population::field_hire`]), by household, oldest id first: for the observer's fields
+    /// (wire 1.115). Read only: the context is only lent by shared reference, so nothing changes,
+    /// nothing is scheduled and the world is not marked dirty. It takes `&mut self` only because
+    /// a context holds the land and the id counter mutably.
+    pub fn field_hire_offers(&mut self) -> Vec<(civ_core::PermanentId, civ_agents::FieldHire)> {
+        let mut households: Vec<civ_core::PermanentId> =
+            self.land.fields.iter().map(|f| f.household).collect();
+        households.sort_unstable();
+        households.dedup();
+        if households.is_empty() {
+            return Vec::new();
+        }
+        let now = self.now();
+        let approx = self.approximations_now();
+        let mut pending = Vec::new();
+        let ctx = Ctx {
+            now,
+            seed: self.meta.seed,
+            map: &self.map,
+            nav: &self.nav,
+            land: &mut self.land,
+            land_params: &self.rules.land,
+            params: &self.rules.people,
+            catalog: &self.rules.catalog,
+            regime: &self.regime,
+            ids: &mut self.ids,
+            schedule: &mut pending,
+            approx,
+        };
+        let people = &self.people;
+        households
+            .into_iter()
+            .filter_map(|h| people.field_hire(&ctx, h).map(|o| (h, o)))
+            .collect()
+    }
+
     /// Runs `f` on the people with a context for now, as a day's events would (for a test that
     /// calls a population's test hook; what it schedules is scheduled).
     #[doc(hidden)]

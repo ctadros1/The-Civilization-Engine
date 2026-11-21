@@ -8,7 +8,7 @@ import { buildingWords } from "./buildings.js";
 import { depositWords } from "./deposits.js";
 import { formatDistance, simDate } from "./format.js";
 import { MapView, type PointerInfo } from "./map/view.js";
-import { tenureText } from "./fields.js";
+import { hireText, tenureText } from "./fields.js";
 import { pathWords } from "./paths.js";
 import { HostClient, HostError } from "./net/client.js";
 import * as M from "./net/messages.js";
@@ -1361,8 +1361,10 @@ map.onPointer = (info: PointerInfo | null) => {
     return;
   }
   const height = info.elevationM === null ? "" : ` · ${Math.round(info.elevationM)} m`;
+  // Wire 1.115: the field work its household would hire for it now, if any.
+  const hire = info.field ? hireText(info.field, store.state.welcome?.goods ?? []) : "";
   const field = info.field
-    ? ` · field: ${info.field.status}; ${tenureText(info.field, livingHouseholds())}`
+    ? ` · field: ${info.field.status}; ${tenureText(info.field, livingHouseholds())}${hire ? `; ${hire}` : ""}`
     : "";
   const path = info.path && !info.building ? ` · ${pathWords(info.path)}` : "";
   const building = info.building ? ` · ${buildingWords(info.building)}` : "";

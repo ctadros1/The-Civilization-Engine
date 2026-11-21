@@ -13670,7 +13670,11 @@ struct FieldInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_LEASE_UNTIL_MINUTE = 40,
     VT_LEASE_SHARE = 42,
     VT_WATER_HAD = 44,
-    VT_SOIL_WATER = 46
+    VT_SOIL_WATER = 46,
+    VT_HIRE_TASK = 48,
+    VT_HIRE_HOURS = 50,
+    VT_HIRE_KG_PER_HOUR = 52,
+    VT_HIRE_GOOD = 54
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -13738,6 +13742,18 @@ struct FieldInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   float soil_water() const {
     return GetField<float>(VT_SOIL_WATER, 0.0f);
   }
+  tce::wire::HiredTask hire_task() const {
+    return static_cast<tce::wire::HiredTask>(GetField<uint8_t>(VT_HIRE_TASK, 0));
+  }
+  float hire_hours() const {
+    return GetField<float>(VT_HIRE_HOURS, 0.0f);
+  }
+  float hire_kg_per_hour() const {
+    return GetField<float>(VT_HIRE_KG_PER_HOUR, 0.0f);
+  }
+  int32_t hire_good() const {
+    return GetField<int32_t>(VT_HIRE_GOOD, -1);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -13764,6 +13780,10 @@ struct FieldInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<float>(verifier, VT_LEASE_SHARE, 4) &&
            VerifyField<float>(verifier, VT_WATER_HAD, 4) &&
            VerifyField<float>(verifier, VT_SOIL_WATER, 4) &&
+           VerifyField<uint8_t>(verifier, VT_HIRE_TASK, 1) &&
+           VerifyField<float>(verifier, VT_HIRE_HOURS, 4) &&
+           VerifyField<float>(verifier, VT_HIRE_KG_PER_HOUR, 4) &&
+           VerifyField<int32_t>(verifier, VT_HIRE_GOOD, 4) &&
            verifier.EndTable();
   }
 };
@@ -13838,6 +13858,18 @@ struct FieldInfoBuilder {
   void add_soil_water(float soil_water) {
     fbb_.AddElement<float>(FieldInfo::VT_SOIL_WATER, soil_water, 0.0f);
   }
+  void add_hire_task(tce::wire::HiredTask hire_task) {
+    fbb_.AddElement<uint8_t>(FieldInfo::VT_HIRE_TASK, static_cast<uint8_t>(hire_task), 0);
+  }
+  void add_hire_hours(float hire_hours) {
+    fbb_.AddElement<float>(FieldInfo::VT_HIRE_HOURS, hire_hours, 0.0f);
+  }
+  void add_hire_kg_per_hour(float hire_kg_per_hour) {
+    fbb_.AddElement<float>(FieldInfo::VT_HIRE_KG_PER_HOUR, hire_kg_per_hour, 0.0f);
+  }
+  void add_hire_good(int32_t hire_good) {
+    fbb_.AddElement<int32_t>(FieldInfo::VT_HIRE_GOOD, hire_good, -1);
+  }
   explicit FieldInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -13872,7 +13904,11 @@ inline ::flatbuffers::Offset<FieldInfo> CreateFieldInfo(
     int64_t lease_until_minute = -1LL,
     float lease_share = 0.0f,
     float water_had = -1.0f,
-    float soil_water = 0.0f) {
+    float soil_water = 0.0f,
+    tce::wire::HiredTask hire_task = tce::wire::HiredTask::None,
+    float hire_hours = 0.0f,
+    float hire_kg_per_hour = 0.0f,
+    int32_t hire_good = -1) {
   FieldInfoBuilder builder_(_fbb);
   builder_.add_lease_until_minute(lease_until_minute);
   builder_.add_holder_settlement(holder_settlement);
@@ -13881,6 +13917,9 @@ inline ::flatbuffers::Offset<FieldInfo> CreateFieldInfo(
   builder_.add_settlement(settlement);
   builder_.add_household(household);
   builder_.add_id(id);
+  builder_.add_hire_good(hire_good);
+  builder_.add_hire_kg_per_hour(hire_kg_per_hour);
+  builder_.add_hire_hours(hire_hours);
   builder_.add_soil_water(soil_water);
   builder_.add_water_had(water_had);
   builder_.add_lease_share(lease_share);
@@ -13892,6 +13931,7 @@ inline ::flatbuffers::Offset<FieldInfo> CreateFieldInfo(
   builder_.add_size(size);
   builder_.add_min(min);
   builder_.add_crop(crop);
+  builder_.add_hire_task(hire_task);
   builder_.add_ripe(ripe);
   builder_.add_woodland(woodland);
   builder_.add_new_ground(new_ground);
@@ -13927,7 +13967,11 @@ inline ::flatbuffers::Offset<FieldInfo> CreateFieldInfoDirect(
     int64_t lease_until_minute = -1LL,
     float lease_share = 0.0f,
     float water_had = -1.0f,
-    float soil_water = 0.0f) {
+    float soil_water = 0.0f,
+    tce::wire::HiredTask hire_task = tce::wire::HiredTask::None,
+    float hire_hours = 0.0f,
+    float hire_kg_per_hour = 0.0f,
+    int32_t hire_good = -1) {
   auto status__ = status ? _fbb.CreateString(status) : 0;
   return tce::wire::CreateFieldInfo(
       _fbb,
@@ -13952,7 +13996,11 @@ inline ::flatbuffers::Offset<FieldInfo> CreateFieldInfoDirect(
       lease_until_minute,
       lease_share,
       water_had,
-      soil_water);
+      soil_water,
+      hire_task,
+      hire_hours,
+      hire_kg_per_hour,
+      hire_good);
 }
 
 struct Fields FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

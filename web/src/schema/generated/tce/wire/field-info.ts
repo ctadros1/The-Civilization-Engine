@@ -5,6 +5,7 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { FieldStage } from '../../tce/wire/field-stage.js';
+import { HiredTask } from '../../tce/wire/hired-task.js';
 import { Vec2 } from '../../tce/wire/vec2.js';
 
 
@@ -138,8 +139,28 @@ soilWater():number {
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
+hireTask():HiredTask {
+  const offset = this.bb!.__offset(this.bb_pos, 48);
+  return offset ? this.bb!.readUint8(this.bb_pos + offset) : HiredTask.None;
+}
+
+hireHours():number {
+  const offset = this.bb!.__offset(this.bb_pos, 50);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+hireKgPerHour():number {
+  const offset = this.bb!.__offset(this.bb_pos, 52);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+hireGood():number {
+  const offset = this.bb!.__offset(this.bb_pos, 54);
+  return offset ? this.bb!.readInt32(this.bb_pos + offset) : -1;
+}
+
 static startFieldInfo(builder:flatbuffers.Builder) {
-  builder.startObject(22);
+  builder.startObject(26);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -228,6 +249,22 @@ static addWaterHad(builder:flatbuffers.Builder, waterHad:number) {
 
 static addSoilWater(builder:flatbuffers.Builder, soilWater:number) {
   builder.addFieldFloat32(21, soilWater, 0.0);
+}
+
+static addHireTask(builder:flatbuffers.Builder, hireTask:HiredTask) {
+  builder.addFieldInt8(22, hireTask, HiredTask.None);
+}
+
+static addHireHours(builder:flatbuffers.Builder, hireHours:number) {
+  builder.addFieldFloat32(23, hireHours, 0.0);
+}
+
+static addHireKgPerHour(builder:flatbuffers.Builder, hireKgPerHour:number) {
+  builder.addFieldFloat32(24, hireKgPerHour, 0.0);
+}
+
+static addHireGood(builder:flatbuffers.Builder, hireGood:number) {
+  builder.addFieldInt32(25, hireGood, -1);
 }
 
 static endFieldInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

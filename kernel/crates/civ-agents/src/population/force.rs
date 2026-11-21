@@ -189,6 +189,12 @@ impl Population {
                 o.paid_kcal += kcal as f32;
                 if o.left_kcal() <= 1.0 {
                     o.standing = Standing::Met;
+                    if o.kind == Owed::Debt {
+                        crate::d21(
+                            ctx.now.day_index(),
+                            format_args!("debt_met_forced loan {}", o.incident),
+                        );
+                    }
                 }
             }
         }

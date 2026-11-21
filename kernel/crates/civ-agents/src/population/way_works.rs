@@ -417,9 +417,14 @@ impl Population {
         let mut best: Option<PublicWay> = None;
         for (cell, saves) in by_cell {
             // One grown over asks only its clearing again.
-            let labour_h = self
-                .lapsed_passing_place(ctx, pi, cell)
-                .map_or(labour_h, |(_, h)| h);
+            let lapsed = self.lapsed_passing_place(ctx, pi, cell);
+            if let Some((way, h)) = lapsed {
+                crate::d21(
+                    day,
+                    format_args!("passing_lapsed_offered way {way} cell {cell} again_h {h:.1}"),
+                );
+            }
+            let labour_h = lapsed.map_or(labour_h, |(_, h)| h);
             let p = PublicWay {
                 cell,
                 labour_h,
@@ -509,6 +514,10 @@ impl Population {
         // A passing place of its own grown over since its law ended is the work: cleared again,
         // not laid anew (backlog D, fourteenth item).
         if let Some((id, _)) = self.lapsed_passing_place(ctx, pi, site.cell) {
+            crate::d21(
+                ctx.now.day_index(),
+                format_args!("passing_new_law_laid law {law} way {id}"),
+            );
             if let Some(s) = self.polities[pi].ways.iter_mut().find(|s| s.0 == law) {
                 s.1.work = Some(id);
             }
@@ -1063,6 +1072,13 @@ impl Population {
         household: PermanentId,
         cell: u32,
     ) {
+        crate::d21(
+            ctx.now.day_index(),
+            format_args!(
+                "passing_cleared_again polity {} cell {cell}",
+                self.polities[pi].id
+            ),
+        );
         let (settlement, village, at, from_hearth) = self.passing_place_where(ctx, pi, cell);
         let elder = self.elder_of(household, ctx.now, ctx.params);
         let by = elder.map_or_else(String::new, |e| {
@@ -1161,6 +1177,12 @@ impl Population {
                 })
                 .sum();
             let given = polity.way_given_all(*law);
+            if wanted > 0.0 {
+                crate::d21(
+                    ctx.now.day_index(),
+                    format_args!("passing_grown_over law {law} in_force true wanted_h {wanted:.1}"),
+                );
+            }
             if wanted <= 0.0 || given + wanted <= site.labour_h + 1e-2 {
                 continue;
             }

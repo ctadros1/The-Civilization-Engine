@@ -214,6 +214,10 @@ impl Population {
         }
         let duration = (total_s / 60.0).ceil().max(1.0);
         if let Some((f, kg)) = drive {
+            crate::d21(
+                now.day_index(),
+                format_args!("motor_drive_fetch cart {cart} household {household} fuel_kg {kg:.3}"),
+            );
             self.burn_engine_fuel(&ctx.catalog.goods, household, f, kg);
         }
         let Some(p) = self.people.get_mut(h) else {
@@ -969,6 +973,22 @@ impl Population {
                 self.nobodys_vehicle(ctx, household, vehicle, saves_h_year, !can)
             };
             if let Some(v) = taken {
+                let made = if cart {
+                    &ctx.land.carts
+                } else {
+                    &ctx.land.boats
+                }
+                .list
+                .iter()
+                .find(|b| b.id == v)
+                .is_some_and(|b| b.made());
+                crate::d21(
+                    day,
+                    format_args!(
+                        "takeup {} vehicle {vehicle} household {household} can_make {can} made {made}",
+                        if cart { "cart" } else { "boat" },
+                    ),
+                );
                 let list = if cart {
                     &mut ctx.land.carts
                 } else {
@@ -1354,6 +1374,18 @@ impl Population {
             };
             let spent = fuel_left.iter().find(|x| x.0 == f).map_or(0.0, |x| x.1);
             let goes = held(f) - spent + 1e-9 >= kg;
+            crate::d21(
+                ctx.now.day_index(),
+                format_args!(
+                    "{} cart {} heir {to} fuel_kg {kg:.3}",
+                    if goes {
+                        "motor_far_pass"
+                    } else {
+                        "motor_far_stay_nofuel"
+                    },
+                    c.id
+                ),
+            );
             if goes {
                 match fuel_left.iter_mut().find(|x| x.0 == f) {
                     Some(x) => x.1 += kg,

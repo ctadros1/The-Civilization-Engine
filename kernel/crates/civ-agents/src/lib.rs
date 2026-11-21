@@ -27,6 +27,15 @@
 #![forbid(unsafe_code)]
 
 pub mod agreements;
+
+/// Diagnostic (claude/d21-diag, not for landing): one line for an event of the 2026-11-21
+/// behaviour slices, printed only while `TCE_D21_DIAG` is set (plan §8 23, fifth item).
+#[doc(hidden)]
+pub fn d21(day: i64, what: std::fmt::Arguments<'_>) {
+    if std::env::var_os("TCE_D21_DIAG").is_some() {
+        eprintln!("D21DIAG day {day} {what}");
+    }
+}
 pub mod bridge;
 pub mod build;
 pub mod caution;

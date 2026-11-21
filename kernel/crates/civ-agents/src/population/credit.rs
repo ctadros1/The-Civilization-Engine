@@ -838,6 +838,7 @@ impl Population {
     /// kept, and is not told so (the caller pays it only when the debtor paid it).
     pub(super) fn imposed_debt_paid(&mut self, ctx: &Ctx, id: u32) {
         let (now, params) = (ctx.now, ctx.params);
+        crate::d21(now.day_index(), format_args!("debt_met_paid loan {id}"));
         let Some(c) = self.order.credit.claims.iter().find(|c| c.id == id) else {
             return;
         };
@@ -898,6 +899,10 @@ impl Population {
                 )
             }
             crate::polity::DebtRemedy::Imposed => {
+                crate::d21(
+                    day,
+                    format_args!("debt_imposed loan {id} left_kg {:.3}", c.left()),
+                );
                 let kcal = c.left()
                     * goods
                         .get(usize::from(c.good))
@@ -955,6 +960,14 @@ impl Population {
         };
         let good = usize::from(c.good);
         let pay = c.left().min(self.can_give(ctx, g, good));
+        crate::d21(
+            day,
+            format_args!(
+                "guarantor_called loan {} paid_kg {pay:.3} left_kg {:.3}",
+                c.id,
+                c.left()
+            ),
+        );
         self.order.credit.claims[i].taken = Some(day);
         if !self.pay_loan(ctx, g, c.creditor, good, pay) {
             // It could pay nothing: its word failed as the debtor's did. The creditor's household

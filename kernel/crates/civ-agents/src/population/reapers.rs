@@ -442,6 +442,19 @@ impl Population {
         let Some(crop) = ctx.catalog.crops.get(usize::from(ctx.land.fields[fi].crop)) else {
             return;
         };
+        let (here, there) = (
+            self.household(worker).and_then(|x| x.settlement),
+            self.household(employer).and_then(|x| x.settlement),
+        );
+        if here != there {
+            crate::d21(
+                day,
+                format_args!(
+                    "hire_session far true task {:?} worker {worker} employer {employer}",
+                    ctx.land.fields[fi].task(crop, day)
+                ),
+            );
+        }
         // Sheaves waiting are threshed for hire at the household's home (§8 21, twelfth).
         if ctx.land.fields[fi].stage == FieldStage::Reaped && ctx.land.fields[fi].sheaves_kg > 0.0 {
             self.hired_threshing(ctx, h, field, minutes);

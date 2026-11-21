@@ -1413,6 +1413,9 @@ impl Population {
                 self.restitution_note(ctx, k, place);
             } else if day >= ob.due {
                 self.order.obligations[k].standing = Standing::Defaulted;
+                if ob.kind == Owed::Debt {
+                    crate::d21(day, format_args!("debt_defaulted loan {}", ob.incident));
+                }
                 self.restitution_note(ctx, k, place);
                 if ob.kind == Owed::Demanded {
                     let left = self.order.obligations[k].left_kcal();

@@ -130,6 +130,13 @@ pub struct Comparison {
     /// The tolerance the spread with the tier would set ([`CALIBRATION_SIGMAS`] standard errors of
     /// a difference of two means of [`RUNS`] runs, as a share of the scale).
     pub calibrated: f64,
+    /// Welch's t of the difference: the difference of the means over the standard error both
+    /// sides' spreads give (none when calibrating, or when neither side varies). Read, not
+    /// graded (backlog E: a test of both runs' spreads holds its power as politics changes).
+    pub t: Option<f64>,
+    /// The least difference, as a share of the scale, that [`CALIBRATION_SIGMAS`] of those
+    /// standard errors would tell from none: what the runs can detect. Read, not graded.
+    pub detectable: Option<f64>,
     /// Whether it is within its tolerance (always, when calibrating).
     pub pass: bool,
 }
@@ -327,6 +334,15 @@ fn compare(
     let calibrated = CALIBRATION_SIGMAS * with.1 * (2.0 / RUNS as f64).sqrt() / scale;
     let without = every_adult.map(spread);
     let difference = without.map(|w| (w.0 - with.0) / scale);
+    // The standard error of the difference from both sides' spreads and run counts.
+    let se = every_adult.zip(without).map(|(xs, w)| {
+        let (n1, n2) = (tier.len().max(1) as f64, xs.len().max(1) as f64);
+        (with.1.powi(2) / n1 + w.1.powi(2) / n2).sqrt()
+    });
+    let t = without
+        .zip(se)
+        .and_then(|(w, se)| (se > 0.0).then(|| (w.0 - with.0) / se));
+    let detectable = se.map(|se| CALIBRATION_SIGMAS * se / scale);
     Comparison {
         fixture,
         aggregate: agg.name,
@@ -335,6 +351,8 @@ fn compare(
         difference,
         tolerance: agg.tolerance,
         calibrated,
+        t,
+        detectable,
         pass: difference.is_none_or(|d| d.abs() <= agg.tolerance),
     }
 }
@@ -466,8 +484,15 @@ pub fn print(report: &Report) {
         println!();
         println!("fixture {}: {preset} seed {seed}", f + 1);
         println!(
-            "  {:<10} {:>18} {:>18} {:>10} {:>10} {:>10}",
-            "aggregate", "with the tier", "every adult", "difference", "tolerance", "calibrated"
+            "  {:<10} {:>18} {:>18} {:>10} {:>10} {:>10} {:>7} {:>9}",
+            "aggregate",
+            "with the tier",
+            "every adult",
+            "difference",
+            "tolerance",
+            "calibrated",
+            "t",
+            "detects"
         );
         for c in report.comparisons.iter().filter(|c| c.fixture == f) {
             let without = c
@@ -476,14 +501,20 @@ pub fn print(report: &Report) {
             let diff = c
                 .difference
                 .map_or("-".to_owned(), |d| format!("{:+.1} %", 100.0 * d));
+            let t = c.t.map_or("-".to_owned(), |t| format!("{t:+.2}"));
+            let detects = c
+                .detectable
+                .map_or("-".to_owned(), |d| format!("{:.1}%", 100.0 * d));
             println!(
-                "  {:<10} {:>18} {:>18} {:>10} {:>9.1}% {:>9.1}%{}",
+                "  {:<10} {:>18} {:>18} {:>10} {:>9.1}% {:>9.1}% {:>7} {:>9}{}",
                 c.aggregate,
                 format!("{:.3} ± {:.3}", c.tier.0, c.tier.1),
                 without,
                 diff,
                 100.0 * c.tolerance,
                 100.0 * c.calibrated,
+                t,
+                detects,
                 if c.pass { "" } else { "  OUT OF TOLERANCE" }
             );
         }
@@ -524,5 +555,26 @@ mod tests {
         };
         let c = compare(0, &tight, &[4.0; 5], Some(&[8.0; 5]));
         assert!(!c.pass);
+    }
+
+    #[test]
+    fn both_sides_spreads_give_t_and_what_the_runs_detect() {
+        // Proposals 10 ± 2 with the tier and 14 ± 2 without, five runs a side: the difference is
+        // 4 over a standard error of 2·√(2/5), t ≈ 3.16; three of those errors are 37.9 % of the
+        // mean of 10. Neither is graded: the tolerance alone decides.
+        let proposals = &AGGREGATES[0];
+        let with = [8.0, 9.0, 10.0, 11.0, 12.0];
+        let without = [12.0, 13.0, 14.0, 15.0, 16.0];
+        let c = compare(0, proposals, &with, Some(&without));
+        let sd = spread(&with).1;
+        let se = (2.0 * sd * sd / 5.0).sqrt();
+        assert!((c.t.expect("a t") - 4.0 / se).abs() < 1e-12);
+        assert!((c.detectable.expect("detects") - 3.0 * se / 10.0).abs() < 1e-12);
+        assert_eq!(c.pass, 0.4 <= proposals.tolerance);
+        // No spread on either side: no t; calibrating: neither.
+        let c = compare(0, proposals, &[4.0; 5], Some(&[8.0; 5]));
+        assert!(c.t.is_none() && c.detectable == Some(0.0));
+        let c = compare(0, proposals, &with, None);
+        assert!(c.t.is_none() && c.detectable.is_none());
     }
 }

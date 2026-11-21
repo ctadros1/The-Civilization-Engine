@@ -1779,6 +1779,154 @@ fn a_household_whose_crop_has_stood_ripe_bids_the_harvest_wage_up() {
     );
 }
 
+/// Hired threshing (§8 21, twelfth; research 08-10 §1.3; 08-02 §3.2): a field whose sheaves
+/// wait cannot be prepared or sown until they are threshed, so in the window for preparing
+/// ground, a household whose sheaves and sowing need more hours than its members give over the
+/// window's workable days left (here its last week) hires threshers, paying them out of the grain they thresh; a
+/// neighbour whose fields are sown and whose food is gone threshes for it, and the observer says
+/// it is threshing for wages. Before, threshing was never hired, and the field stood unsown.
+#[test]
+fn a_household_whose_sheaves_wait_into_the_sowing_hires_threshers() {
+    let mut sim = new_world(3, 0);
+    let rules = sim.rules().clone();
+    let crop = rules.catalog.crops[rules.people.farm.crop].clone();
+    let hire = rules
+        .catalog
+        .index_of("core:activity/hired_work")
+        .expect("working for hire is an activity");
+    // Live day by day until the window for preparing ground is open, its last week.
+    let left = |day: i64| {
+        i64::from(crop.sow_until_day) - day.rem_euclid(civ_core::time::DAYS_PER_YEAR) + 1
+    };
+    for _ in 0..400 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        let day = sim.now().day_index();
+        if crop.can_prepare(day) && (3..=8).contains(&left(day)) {
+            break;
+        }
+    }
+    let day = sim.now().day_index();
+    assert!(
+        crop.can_prepare(day),
+        "the window for preparing ground is open"
+    );
+    let employer = sim
+        .land()
+        .fields
+        .iter()
+        .filter(|f| usize::from(f.crop) == rules.people.farm.crop)
+        .map(|f| f.household)
+        .min()
+        .expect("a household with a field");
+    let settlement = sim
+        .people()
+        .household(employer)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let food: Vec<usize> = rules
+        .catalog
+        .goods
+        .iter()
+        .enumerate()
+        .filter(|(_, g)| g.kcal_per_kg > 0.0)
+        .map(|(i, _)| i)
+        .collect();
+    let mut neighbours = Vec::new();
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id != employer && x.settlement == Some(settlement) {
+            for &g in &food {
+                if let Some(kg) = x.stores.get_mut(g) {
+                    *kg = 0.0;
+                }
+            }
+            neighbours.push(x.id);
+        }
+    }
+    // Its fields hold 4,000 kg of sheaves (400 hours' threshing); the neighbours' are sown.
+    let fields: Vec<PermanentId> = {
+        let land = sim.land_mut_for_tests();
+        let own: Vec<usize> = (0..land.fields.len())
+            .filter(|&i| land.fields[i].household == employer)
+            .collect();
+        for &i in &own {
+            let f = &mut land.fields[i];
+            f.stage = civ_land::FieldStage::Reaped;
+            f.sheaves_kg = 4000.0 / own.len() as f32;
+            f.work_h = 0.0;
+        }
+        for f in land.fields.iter_mut() {
+            if neighbours.contains(&f.household) {
+                f.stage = civ_land::FieldStage::Sown;
+                f.sown_day = day;
+                f.work_h = 0.0;
+                f.sheaves_kg = 0.0;
+            }
+        }
+        own.iter().map(|&i| land.fields[i].id).collect()
+    };
+    assert!(!neighbours.is_empty(), "the household has neighbours");
+    sim.people_mut_for_tests().forget_views();
+    let offer = sim.with_ctx_for_tests(|pop, ctx| pop.field_hire_for_tests(ctx, employer));
+    let (task, hours, kg_per_hour) = offer.expect("it offers threshing");
+    assert_eq!(task, civ_land::FieldTask::Thresh);
+    assert!(hours >= 0.5, "{hours} hours offered");
+    let share = kg_per_hour * crop.thresh_h_per_kg;
+    assert!(
+        (share - rules.people.firm.wage_share).abs() < 1e-9,
+        "the custom's share of what an hour threshes: {share}"
+    );
+    let sheaves = |sim: &Sim| -> f64 {
+        sim.land()
+            .fields
+            .iter()
+            .filter(|f| fields.contains(&f.id))
+            .map(|f| f64::from(f.sheaves_kg))
+            .sum()
+    };
+    let grain = crop.good;
+    let wages = sim.people().transfers.get(civ_agents::Channel::Wage, grain);
+    let mut told: Option<String> = None;
+    let mut hired = false;
+    for _ in 0..3 * 24 {
+        sim.advance_minutes(60).expect("advances");
+        if told.is_none() {
+            told = sim
+                .people()
+                .people
+                .iter()
+                .find(|(_, p)| {
+                    usize::from(p.act.def) == hire
+                        && matches!(p.act.target, civ_agents::person::Target::Field(f)
+                            if fields.contains(&f))
+                })
+                .map(|(_, p)| civ_sim::frames::people::doing(&sim, p));
+        }
+        hired = sim
+            .people()
+            .people
+            .iter()
+            .filter(|(_, p)| neighbours.contains(&p.household))
+            .any(|(_, p)| {
+                p.receipts.iter().any(|r| {
+                    usize::from(r.chosen.def) == hire
+                        && matches!(r.chosen.target, civ_agents::person::Target::Field(f)
+                            if fields.contains(&f))
+                })
+            });
+        if hired && sim.people().transfers.get(civ_agents::Channel::Wage, grain) > wages {
+            break;
+        }
+    }
+    assert!(hired, "a neighbour set out to thresh for hire");
+    assert!(sheaves(&sim) < 4000.0 - 1e-6, "sheaves were threshed");
+    assert!(
+        sim.people().transfers.get(civ_agents::Channel::Wage, grain) > wages,
+        "the threshers were paid in grain"
+    );
+    let told = told.expect("a thresher was seen out for hire");
+    assert!(told.contains("threshing for wages"), "{told}");
+}
+
 /// Fuel weighed with hunger (§8 18, sixth; research 08-23 §4, §6): a household short of both
 /// fuel and food it can eat as it is, whose grain waits on a fire, weighs firewood by the meals it
 /// makes possible, not only by the hours of gathering it saves. A grown woman alone, able to

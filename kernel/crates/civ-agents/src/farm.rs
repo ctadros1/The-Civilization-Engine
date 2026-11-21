@@ -212,7 +212,7 @@ pub fn seed_to_keep(plan_ha: f64, crop: &CropParams, half_life_days: f64, day: i
 }
 
 /// Days from `day` to the last day of the crop's sowing window, counting both (0 once past).
-fn sowing_days_left(crop: &CropParams, day: i64) -> f64 {
+pub(crate) fn sowing_days_left(crop: &CropParams, day: i64) -> f64 {
     let doy = day.rem_euclid(civ_core::time::DAYS_PER_YEAR);
     (i64::from(crop.sow_until_day) - doy + 1).max(0) as f64
 }
@@ -232,7 +232,7 @@ fn window_days(crop: &CropParams) -> f64 {
 }
 
 /// Hours a field still needs before it is sown (0 once sown).
-fn to_sow_h(f: &Field, crop: &CropParams) -> f64 {
+pub(crate) fn to_sow_h(f: &Field, crop: &CropParams) -> f64 {
     let left = (f.stage_work_h(crop) - f64::from(f.work_h)).max(0.0);
     match f.stage {
         FieldStage::Fallow => left + crop.sow_h_per_ha * f.area_ha(),

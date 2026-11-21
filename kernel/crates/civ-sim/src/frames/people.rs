@@ -1154,10 +1154,17 @@ pub fn household_name(sim: &Sim, id: PermanentId) -> String {
 pub fn doing(sim: &Sim, p: &Person) -> String {
     let def = sim.rules.catalog.activities.get(usize::from(p.act.def));
     // Work for hire on a field is reaping another household's crop (§8 17, fourth; §8 18,
-    // fourth): said as such, not as a workshop's hand.
+    // fourth), or threshing its sheaves (§8 21, twelfth): said as such, not as a workshop's hand.
     let what = match (def, p.act.target) {
-        (Some(d), Target::Field(_)) if d.behavior == civ_agents::Behavior::Hire => {
-            "reaping for wages"
+        (Some(d), Target::Field(f)) if d.behavior == civ_agents::Behavior::Hire => {
+            let sheaves = sim.land.fields.iter().any(|x| {
+                x.id == f && x.stage == civ_land::FieldStage::Reaped && x.sheaves_kg > 0.0
+            });
+            if sheaves {
+                "threshing for wages"
+            } else {
+                "reaping for wages"
+            }
         }
         _ => def.map_or("busy", |d| d.doing.as_str()),
     };

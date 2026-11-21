@@ -8643,8 +8643,7 @@ and M6a gives rivers a daily flow.
       Sedgewick, who know nothing of smelting (the record does not count what they hold). And no
       taught household held iron or copper beyond what it keeps but Stonefield's wanter after year
       6, whom nobody could reach.
-      **Not yet:** why Sedgehollow dug less copper than in the sixth run; the record's words for a
-      body no walk reaches. Nothing nudged.
+      **Not yet:** why Sedgehollow dug less copper than in the sixth run. Nothing nudged.
     - *Sewers and settling (2026-10-31, backlog D; [ADR-0041](decisions/0041-sewers-and-treatment.md)).*
       A polity lays a sewer by a `lay_sewer` law (`PolicyKind` appended; it answers
       `source_suspected` and `heaps_near` on `lay_current`'s machinery: forecast, way site, common
@@ -10919,6 +10918,29 @@ and M6a gives rivers a daily flow.
       against 85 %, food moved by the polity +71.4 % to +29.9 %). **Not yet:** hire for sowing and
       threshing; pay owed until threshing for a household with no grain (grain comes in only at
       threshing, and an obligation would bring hearings); reapers from other settlements.
+    - *Hired field work, threshing (2026-11-21): sheaves threshed for hire before the sowing* (§9,
+      "Hired threshing"; §8 21, twelfth, its second slice). Threshing has no deadline of its own
+      and sheaves do not spoil, but a field whose sheaves wait cannot be prepared or sown. **Built:**
+      in the window for preparing ground, a household whose fields need more threshing, preparing
+      and sowing than its members give at a peak's hours over the workable days left of the window
+      offers the threshing short, less what hired threshers already set out to give; the wage is
+      the custom's share (`firm.wage_share`) of the grain an hour threshes, paid out of the grain
+      once threshed, no more than it holds. A neighbour weighs it in `best_job` as a reaping hire
+      is weighed, goes to the household's home, threshes at the best threshing its own household
+      has the tools for, and is paid through the ledger's `wage` channel; the observer says
+      "threshing for wages". The harvest margins stay reaping's alone. Reaping's offer is as
+      before (its hours already set out now counted by a shared helper, the same sum). **Tested:**
+      people (38, one new: in the window's last week, a household with 4,000 kg of sheaves offers
+      threshing at the custom's share of 10 kg an hour, a neighbour whose fields are sown and food
+      gone threshes for it, the sheaves fall and it is paid in grain; it fails without the offer);
+      the whole civ-sim suite (88 targets), the unit tests; smoke (all 10 pass); fmt and clippy
+      clean. **The notables' gate**, locally, against 3116d91: passes, 25 of 40 runs changed, a
+      behaviour change and no acceptance criterion changed (fixture 1 proposals +50.0 % to +53.8 %
+      against 105 %, enacted +25.0 % to +28.2 % against 55 %, offices +0.0 %, food moved by the
+      polity −3.9 % to −3.5 % against 95 %; fixture 2 proposals +29.6 % to +36.0 %, enacted
+      +37.1 % to +36.5 %, offices −7.1 % to +7.1 % against 85 %, food moved by the polity +29.9 %
+      to +34.1 %). **Not yet:** hire for sowing; pay owed until threshing; reapers from other
+      settlements.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
@@ -12318,6 +12340,7 @@ and M6a gives rivers a daily flow.
     12. *Hired field work's leftovers* (question 20, thirteenth). Economy, gated, each its own
         slice.
        *First slice built 2026-11-20* (§7, "the wage bid up while hours go untaken").
+       *Second slice built 2026-11-21* (§7, "threshing").
     13. *Word of barren ground between settlements* (question 20, fourteenth). Gated.
     14. *Deliberation's term leftovers* (question 20, fifteenth). Gated.
     15. *Writing's leftovers* (question 20, sixteenth). Larger, an ADR-0025 slice.
@@ -14190,5 +14213,7 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **A want weighed over years, deferred: needs an ADR (2026-11-20; §8 21, eleventh; M11d's fourteenth part's "Not yet"):** Decided by the coordinator under standing owner authority (2026-11-20). **What the code does today:** a household's tool wants are on or off (`make::tool_wants_for`: wanted once work it knows needs the tool; only a lamp is weighed by its hours), and gathering toward a tool scores `w_tools` times `toward(kg)`, which is useful over useful plus half of the lesser of the need and a load, so a full load counts about two thirds whatever the shortfall: a trip of ore toward a dynamo's 2,080 kg pulls as one toward a hoe does, and making the tool counts its need capped at one. "Weighs its shortfall by the day" is that flat pull losing to leisure, not a short horizon. **The grounding:** research 04-07 §1.6, a long-run discount rate r = 0.05 a year (0-0.20, a design prior) and present bias β = 0.9 for effort (0.8-1.0; Augenblick et al. 2015, 0.888); 08-03 has none. **The narrow form sketched:** only for a tool whose remaining material shortfall needs more than a set number of carried loads (a season's trips), a trip would score the greater of today's pull and its share of the shortfall times the tool's discounted life value, β times the sum of e^(−r·y) over its life in years (from `life_h` and its hours of use a year), in units of one tool's `w_tools`; everyday tools unchanged. **The ADR's open questions:** whether a tool's yearly value comes from its life alone or from what it brings (a dynamo's current sold under ADR-0033 and ADR-0036, an instrument's telegrams); and whether the rule extends to wells, buildings and stores, which value their futures otherwise (a store by `store_horizon_days`, ADR-0009). **Reason** it is deferred: valuing a durable over its discounted life is a new decision principle (ADR-0003's utility-based choice; ADR-0006 §1's tools as requirements counted by life), it would set the precedent for wells, buildings and stores, and this milestone's ADR budget is spent with ADR-0046 still with the owner.
 - **The harvest wage bid up (2026-11-20; §8 21, twelfth, first slice; research 08-10 §5.6):** Decided by Claude under standing owner authority (2026-11-20). A household short of hands bids its harvest wage's share up 5 % for each day its crop has stood ripe while its hours go untaken, never past what an hour brings. **Reason:** 08-10 §5.6 has employers review wages every 14-30 days, faster for urgent seasonal tasks, so as not to prevent harvest bidding; the bid is read from the field, so nothing is kept. Chosen as the slice touching deliberation least. The gate: 40 of 40 runs changed, all within tolerance; fixture 2's enacted fell from +49.2 % to +37.1 % against 55 %.
 - **NUDGE: the harvest wage's bid, 5 % a day ripe (2026-11-20; the entry above; time-boxed):** `HARVEST_BID_PER_DAY` = 0.05, the top of 08-10 §5.6's 1-5 % a review, reviewed daily at the harvest. A design prior. Revisit if a long run's harvest margins show reapers' pay near all an hour brings, or households hiring no more than before.
+- **Hired threshing (2026-11-21; §8 21, twelfth, second slice; research 08-10 §1.3, 08-02 §3.2):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A household hires threshers when its sheaves and sowing need more hours than its own hands give over the workable days left of the window for preparing ground, paying the custom's share of the grain an hour threshes out of that grain. **Reason:** threshing has no deadline of its own, but unthreshed sheaves keep a field from being prepared and sown, so the sowing window is threshing's deadline; paying from what is threshed means a household need hold no grain to hire. The gate: 25 of 40 runs changed, all within tolerance; fixture 2's enacted at +36.5 % against 55 %.
+- **NUDGE: threshing hired against the sowing window (2026-11-21; the entry above; time-boxed):** the deadline is the window's workable days left at a peak's hours, as reaping's grace is a quarter of the crop lost; the wage is the reaping custom's share. Design priors. Revisit if a long run shows households hiring threshers early in the window, or sheaves still waiting when it closes.
 - **Flooding: water and walkability stay daily (2026-11-20; the owner's call; answers long run 67's and run 80's walking-grid question):** Decided by the owner (2026-11-20), relayed by the coordinator. The walking ground and its landmarks stay laid again for each day's flood depths. **Reason, the owner's words:** "Weekly walkability could leave flooded routes usable—or reopened routes blocked—for several days, changing travel, food access and survival." Option (a), the walking ground changing in coarser steps, is **declined**. Reducing or rebuilding the route structures incrementally, with today's water restrictions kept, is left for later (§8 22, third).
 - **"Moved" in the notables' gate means food moved by the polity (2026-11-20; the owner's acceptance criteria, relayed by the coordinator):** the notables' `moved` aggregate measures the polity's food collection and redistribution, not migration. In earlier entries, "moved" means food transfers. Its tolerance here is 95 %, recalibrated, against main's 25 %. From now on gate figures call it "food moved by the polity", and a change in behaviour is told apart from a changed acceptance criterion.

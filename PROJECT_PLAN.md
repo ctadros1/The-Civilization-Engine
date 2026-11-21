@@ -8530,7 +8530,7 @@ and M6a gives rivers a daily flow.
       load on fresh ground stays the logged NUDGE. **Not yet:** the demo world measured again
       (Thorndale's and Stonefield's person-hours of looking, and whether Thorndale's wanter goes on
       from its emptied patch); ground looked over on errands, word of barren ground between
-      settlements, and deadwood (about 14 years to renew) under the new memory.
+      settlements (decided against by ADR-0043 §3 ("barren ground is a settlement's own knowledge"), until an amendment, the owner's), and deadwood (about 14 years to renew) under the new memory.
     - *M11d, thirteenth part (2026-11-01): what land not yet worked is expected to give, landed,
       and every scene it moved understood* (backlog A). The tenth part's reverted fix, again, in
       its principled form: **what is expected of a block not yet worked is what the harvest would
@@ -10079,7 +10079,12 @@ and M6a gives rivers a daily flow.
       determinism targets; the civ-agents unit tests (309); smoke; fmt and clippy clean. **The
       notables' gate**, locally: gate-neutral (all 40 runs identical to the last fix's; fixture
       1's proposals +51.9 % and fixture 2's +52.7 % against 105 %). **Not yet:** a council's
-      seats' term in the amendment forecast; a renewable hearer's chance of being named again.
+      seats' term in the amendment forecast (not built 2026-11-21: the core's seats run 360 days
+      and an amendment weighs the decisions of `vote_memory_days`, 365, so the first term already
+      covers all but 5 of them; worth building only if content offers terms well inside that
+      memory; §8 23, second); a renewable hearer's chance of being named again (decided against,
+      see §9, "A hearer for a term is forecast to serve its term, then lapse" (2026-11-18): a
+      renewal needs a new law, so it is not forecast).
     - *ADR-0025's "Writing arrives", slice 1 (2026-11-18): a forum's finding written down, kept
       past the word of it* (§9, "Written findings, slice 1"; §8 16, fourth). Findings lived only
       as word (`ClaimKind::Finding`), let go after `remember_days` (730), so precedent reached no
@@ -10550,7 +10555,7 @@ and M6a gives rivers a daily flow.
       looking); the whole civ-sim suite (88 targets) and the civ-agents unit tests; smoke, with
       the same figures; fmt and clippy clean. **The notables' gate**, locally, against 7e9a5c8:
       passes, 0 of 40 runs changed (as before). **Not yet:** word of barren ground between
-      settlements (a claim of its own, a slice of the word); deadwood (14 years to renew)
+      settlements (a claim of its own, a slice of the word; decided against by ADR-0043 §3 ("barren ground is a settlement's own knowledge"), until an amendment, the owner's); deadwood (14 years to renew)
       remembered by what is left, as stocks that only fall are, not built: it renews, and its
       fading over the renewal time stands until a lived world shows it misleading.
     - *Fuel fetched from other settlements (2026-11-19): the home-settlement limit lifted* (§9,
@@ -11005,7 +11010,8 @@ and M6a gives rivers a daily flow.
       fixture 2 proposals +36.0 % to +38.4 %, t +1.54 to +1.59, 70.3 % to 72.4 %; enacted +36.5 %
       to +38.3 %, t +2.08 to +2.30, 52.8 % to 50.0 %; offices +7.1 % to +18.2 %, t +0.29 to +0.57,
       74.6 % to 95.3 %; food moved by the polity +34.1 % to +43.7 %, t +1.36 to +1.43, 75.0 % to
-      91.9 %). **Not yet:** pay owed until threshing; reapers from other settlements.
+      91.9 %). **Not yet:** pay owed until threshing; reapers from other settlements (done
+      2026-11-21, within a walk, see "Reapers from other settlements").
       **Fixed the same day** (the coordinator's review of d5dd5b1; §9, "Hired sowing paid only
       from grain to spare"): the offer and the pay were capped at all the grain the household held,
       harmless at the reaping, whose harvest refills it within days, but at the sowing it could
@@ -11245,6 +11251,30 @@ and M6a gives rivers a daily flow.
       t +2.97, detects 54.3 %; enacted +28.2 %, +1.63, 51.9 %; offices +0.0 %, +0.00, 44.7 %; food
       moved by the polity −4.6 %, −0.32, 42.3 %; fixture 2 +16.1 %, +0.71, 67.7 %; +24.6 %, +1.45,
       50.9 %; +7.1 %, +0.29, 74.6 %; +20.0 %, +0.89, 67.8 %). **Not yet:** nothing.
+    - *Reapers from other settlements (2026-11-21)* (§9, "Reapers from other settlements";
+      §8 23, first; "Hired field work, preparing and sowing", "Not yet"). A household short of
+      hands hired only its own settlement's people. **Built:** the paid work a household's
+      people weigh (`best_job`) now takes in the reaping, threshing or sowing another settlement's
+      households offer where one of their fields lies within the hired work's walk of home
+      (`max_walk_minutes`, 30 minutes: a neighbouring village's hands, not a gang come from
+      afar), and such an offer counts only while its walk is within that limit, so a far one
+      never hides a near one. Its own settlement's offers are weighed as before. No content,
+      schema, save or wire change. Settlements' hearths lie 3 to 6 km apart in the generated
+      worlds (a probe over twelve seeds of each preset, not kept), so only the nearest pairs'
+      edge fields come within such a walk. **Tested:** transit (12, one new: a household short of
+      hands, its ripe field 400 m from the other settlement's hearth, is the paid work a hand of
+      that settlement finds, within 30 minutes; the field set beyond the walk, it is not; it fails
+      without the change, no work found); people (43); the whole civ-sim suite (88 targets), the
+      unit tests; smoke (all 10 pass); fmt, clippy and the schema check clean. In the chain run,
+      three scenes that save or make a temporary directory (transit's motor cart, values' two)
+      failed for the disk filling while another session built beside it, and passed run again.
+      **The notables' gate**, locally, against d20bd1b: passes, 0 of 40 runs changed, every
+      difference, t and detects the same (fixture 1 proposals +53.8 %, t +2.97, detects 54.3 %;
+      enacted +28.2 %, +1.63, 51.9 %; offices +0.0 %, +0.00, 44.7 %; food moved by the polity
+      −4.6 %, −0.32, 42.3 %; fixture 2 +16.1 %, +0.71, 67.7 %; +24.6 %, +1.45, 50.9 %; +7.1 %,
+      +0.29, 74.6 %; +20.0 %, +0.89, 67.8 %): none of the forty runs has a household short of
+      hands near another settlement. **Not yet:** seasonal hands from afar (a journey and a stay
+      away: a mechanism, the owner's); a lived world where a neighbouring village's hands reap.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
@@ -12713,14 +12743,26 @@ and M6a gives rivers a daily flow.
        price-convergence red, so the condition holds. A household short of hands at the reaping
        hires only its own settlement's people; a neighbouring settlement's idle hands within a
        session's walk could take the work. Economy, gated. **Buildable now.**
+       *Built 2026-11-21* (§7, "Reapers from other settlements"): within the hired work's walk; gate 0 of 40.
     2. *Deliberation's term leftovers* (question 21, fourteenth; question 20, fifteenth, less
        its bar from the next lot, built): a council's seats' term in the amendment forecast, and a
        renewable hearer's chance of being named again. Deliberation, gated (the notables' gate
        measures it). **Buildable now.**
+       *Checked 2026-11-21, not built:* the renewable hearer's half is decided against (§9, "A
+       hearer for a term is forecast to serve its term, then lapse": a renewal needs a new law);
+       the seats' term half would weigh under 1.4 % of a council's forecast with the core's
+       content (seats of 360 days against an amendment's memory of 365), so it waits for content
+       with shorter terms.
     3. *Word of barren ground between settlements* (question 21, thirteenth; ADR-0043's "Not
        yet"): ground looked over and found barren is a settlement's own memory; a claim of its
        own in the word would carry it to neighbours, as a deposit's word does. Gated. **Buildable
        now.**
+       *Checked 2026-11-21, not built: needs an ADR amendment (the owner's).* ADR-0043 §3 decided
+       it: "Word of mouth between settlements is not added: a find already becomes known by
+       walking past it, and barren ground is a settlement's own knowledge"; none of its "Revisit
+       when" conditions holds (geology; a demo of settlements that never look again; organised
+       prospecting). §9's "Ground looked over on errands" (2026-11-19) listed it as left without
+       citing the ADR.
     4. *The field-hire offer and its wage on the wire* (§7, "observer states … wire 1.114", "Not
        yet"): the task is shown; what is offered, for how many hours and at what wage is not. A
        new wire table and a web panel line; no simulation change. Gate-neutral. **Done**
@@ -14634,5 +14676,6 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **A motor cart to an heir far off (2026-11-21; backlog D, the ninth item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A made motor cart passes to an heir in another settlement only where it stands within a fetch's walk and the heir holds the fuel its drive home burns, by the twenty-fifth item's drive rule (one function, `drive_home`, for moving and fetching), as a boat or cart passes only where a way would bring it today; it is fetched by walking to it and driving it home, its fuel weighed at the household's own cost as a motor cart's trip to market is, and burned as the drive sets out, only while held. Its road line does not go with it: a line passes with its cart only within its settlement, the twentieth item's rule, now its own condition, and the line left behind still says whose it had been. **Reason:** the ninth item kept a motor cart back only because nothing drove one home; the drive rule existed, and an heir that holds no fuel for it could not bring it, so it stays as before. No new state: the gate shows 0 of 40 runs changed, none of them holding a motor cart.
 - **The fourteenth coverage pass (2026-11-21; §8 21):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. Today's four behaviour slices, which the gate did not reach, were pinned by scenes at their edges. One fault was found and fixed: passing motor carts to an heir far off now reckons the fuel of their drives home across them, as moving does, so an heir with fuel for one drive takes one. **Reason** for the fix: the twenty-fifth item's rule is that a household without a trip's fuel cannot take it, and the second cart's drive was fuel the heir did not hold beyond the first's. The gate: 0 of 40 runs changed, none of them holding a motor cart.
 - **The field-hire offer on the wire (2026-11-21; backlog E, observer states; §8 23, fourth; wire 1.115):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. What a household would hire of field work now (its task, hours and pay for an hour in the crop's grain) goes on the field it is for, as four fields appended to `FieldInfo`, read from `reap_offer` as someone weighing work for hire reads it, not stored. **Reason:** the offer names one field and the observer already reads the household's fields from the fields frame, refreshed each day; four appended scalars are backward-compatible and smaller than a new table or a household frame, which the wire does not have. Building the offer's context needs the land lent mutably, so the fields query takes the world mutably and only reads; no wages from the ledger and no simulation change, so wire and web only and the gate is unmoved.
+- **Reapers from other settlements (2026-11-21; §8 23, first):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A household's people weigh the field work another settlement's households offer where one of those households' fields lies within the hired work's own walk of home (the content's `max_walk_minutes`), and only while its walk is within that walk; no knowledge of the offer is asked beyond its being within a walk, as for a neighbour's. **Reason:** hired field work's leftovers named reapers from other settlements, gated on a long run measuring the three hiring slices, which long run 93 did; the hiring rule is reused whole, and the walk is the content's, so nothing is authored. Seasonal hands come from afar historically, but that is a journey and a stay away from home, a mechanism left for the owner. The gate: 0 of 40 runs changed.
 - **Flooding: water and walkability stay daily (2026-11-20; the owner's call; answers long run 67's and run 80's walking-grid question):** Decided by the owner (2026-11-20), relayed by the coordinator. The walking ground and its landmarks stay laid again for each day's flood depths. **Reason, the owner's words:** "Weekly walkability could leave flooded routes usable—or reopened routes blocked—for several days, changing travel, food access and survival." Option (a), the walking ground changing in coarser steps, is **declined**. Reducing or rebuilding the route structures incrementally, with today's water restrictions kept, is left for later (§8 22, third).
 - **"Moved" in the notables' gate means food moved by the polity (2026-11-20; the owner's acceptance criteria, relayed by the coordinator):** the notables' `moved` aggregate measures the polity's food collection and redistribution, not migration. In earlier entries, "moved" means food transfers. Its tolerance here is 95 %, recalibrated, against main's 25 %. From now on gate figures call it "food moved by the polity", and a change in behaviour is told apart from a changed acceptance criterion.

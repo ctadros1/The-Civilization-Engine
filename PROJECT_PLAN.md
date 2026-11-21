@@ -12772,26 +12772,48 @@ and M6a gives rivers a daily flow.
        nothing, an imposed debt is met, a passing place is cleared again under a new law, or a
        motor cart reaches an heir far off, on the demo worlds over decades. Report-only,
        gate-neutral. **Buildable now.**
+       *Checked 2026-11-21: open* (no decision; it needs long runs, the nodes busy for hours).
     6. *A former keeper telling the store's loan it saw made* (backlog D, sixteenth item, "Not
        yet"). Word, gated, small. **Buildable now.**
+       *Checked 2026-11-21: decided against* (§9, "Word of a loan from the common store",
+       2026-11-03: its first holder is the keeper of the day, who alone sees what comes into the
+       store and what does not; a former keeper saw the loan made, not its repayment or default).
     7. *A household that could not make a boat or cart taking up one nobody is left to take*
        (backlog D, eleventh item, "Not yet"). Gated, small. **Buildable now.**
+       *Checked 2026-11-21: open* (§9, "A boat or cart nobody is left to take", 2026-11-03, builds
+       the taking up into the making's weighing and leaves this out without deciding it).
     8. *The hours of bringing a moving household's boats and carts* (backlog D, twenty-fifth item,
        "Not yet"): moving counts no hours for its goods either. Gated, small. **Buildable now.**
+       *Checked 2026-11-21: decided against* (§9, "A household that moves takes its boats and
+       carts", 2026-11-18: "No hours counted for bringing them", since moving counts none for its
+       goods either; the move is one step).
     9. *A hearer paid for hearing* (backlog D, thirteenth item, "Not yet"). Deliberation, gated,
        medium. **Buildable now.**
+       *Checked 2026-11-21: needs an ADR amendment* (ADR-0025 §3: "Its hearers are unpaid, as the
+       watch is"; §6 leaves office pay and fees unbuilt; its "Revisit when" asks that office pay or
+       fees exist, and none does: the watch and the store's keeper are unpaid too).
     10. *Pay owed until threshing* (§7, "Hired field work, preparing and sowing", "Not yet"):
         wages owed in grain not yet threshed, as a claim in the credit book (no new saved kind if
         it is one). Economy, gated, medium. **Buildable now**, if the credit book carries it;
         otherwise the owner's (a saved kind).
+       *Checked 2026-11-21: open* (no decision; threshing for hire already pays from what is
+       threshed, so this is reaping's case, a household with no grain left).
     11. *Tips' and sewers' smaller deferrals* (question 21, sixteenth): compaction and burning
         tips, a sewer rate, inspection as a law's term, a store's tank spreading its sludge. Each
         small, of low value until a lived world keeps them for years. **Buildable now.**
+       *Checked 2026-11-21: needs an ADR amendment* (deferred by ADR-0038 §6, "covering,
+       compaction and burning tips", and ADR-0044 §7, "inspection; a sewer rate paid by connected
+       homes (it would need a channel)"; their revisit conditions, such as a demo showing sewers
+       failing unseen for years, do not hold).
     12. *Research gaps:* fish's fuel figure on an open hearth (research 08-24 §7, kept
         unmeasured); a casing's stiffness and strength (backlog D, first item). Gate-neutral.
         **Buildable now.**
+       *Checked 2026-11-21: open* (research gaps; no decision).
     13. *Writing's leftovers* (question 21, fifteenth): a finding kept by the forum or the polity,
         and copies. Larger, an ADR-0025 slice. **Buildable now**, as a slice of that ADR.
+       *Checked 2026-11-21: open* (ADR-0025's "Revisit when", writing arrives, holds, and §9's
+       "Written findings" slices leave reach beyond the household open, deciding against only a
+       written finding in the review's forecast).
     14. *A boat or cart a way would bring only later, passing then* (backlog D, ninth item, "Not
         yet"): the heir would have to be kept beside the vehicle, a saved field. **Needs the
         owner's decision** (a save-format change).

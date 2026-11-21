@@ -3336,6 +3336,121 @@ fn a_passing_place_the_gathering_asked_for_grows_over_unkept_and_its_clearing_ag
 }
 
 #[test]
+fn a_passing_place_grown_over_after_its_law_ended_is_cleared_again_under_a_new_one() {
+    // Backlog D, the fourteenth item's "Not yet": a passing place whose law has ended grows over
+    // and nobody keeps it, but its carts still wait there. A new law's site may name it: the
+    // clearing again it wants, not a new passing place, and its work clears the way that stands.
+    use civ_agents::polity::{LawStatus, Outcome, PolicyKind};
+    let (mut sim, buyer, other, pi, law, way, middle, _) = cleared_public_passing_place();
+    let settlement = sim.people().polities[pi].settlement;
+    grow_over(&mut sim);
+    {
+        let pop = sim.people_mut_for_tests();
+        let l = pop.polities[pi]
+            .laws
+            .iter_mut()
+            .find(|l| l.id == law)
+            .expect("the law");
+        l.status = LawStatus::Superseded;
+    }
+    let s = first_segment(&sim, way);
+    assert!(s.grown_over(), "{s:?}");
+    let again_h = f64::from(s.built_m - s.usable_m)
+        * f64::from(sim.map().cell_size_m)
+        * sim.rules().land.way_works.clear_h_m2;
+    // Where they could clear one together: the grown-over place, at what clearing it again takes.
+    let (cell, labour_h, saves) = sim
+        .with_ctx_for_tests(|pop, ctx| pop.public_way_for_tests(ctx, settlement))
+        .expect("the grown-over passing place to clear together again");
+    assert_eq!(cell, middle);
+    assert!((labour_h - again_h).abs() < 1e-6, "{labour_h} {again_h}");
+    assert!(saves.iter().any(|s| s.0 == buyer), "{saves:?}");
+    // A new law proposed for it and passed lays out nothing new: its work is the way that stands.
+    let ways_before = sim.land().ways.list.len();
+    sim.people_mut_for_tests().every_adult_deliberates = true;
+    let mut proposed = None;
+    for _ in 0..12 {
+        {
+            let pop = sim.people_mut_for_tests();
+            pop.polities[pi].gathering = None;
+            for l in &mut pop.polities[pi].laws {
+                if l.status == LawStatus::Proposed {
+                    l.status = LawStatus::Rejected;
+                }
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+        match sim.people().polities[pi].agenda().cloned() {
+            Some(l) if l.kind == PolicyKind::BuildWay => {
+                proposed = Some(l.id);
+                break;
+            }
+            Some(_) => continue,
+            None => break,
+        }
+    }
+    let new_law = proposed.expect("a new law for the passing place proposed");
+    assert_ne!(new_law, law);
+    let site = sim.people().polities[pi]
+        .way_site_of(new_law)
+        .expect("its site");
+    assert_eq!(site.cell, middle);
+    assert!((site.labour_h - again_h).abs() < 1e-6, "{site:?}");
+    {
+        let pop = sim.people_mut_for_tests();
+        pop.every_adult_deliberates = false;
+        let p = &mut pop.polities[pi];
+        p.gathering = None;
+        let l = p
+            .laws
+            .iter_mut()
+            .find(|l| l.id == new_law)
+            .expect("the law");
+        l.status = LawStatus::InForce;
+        l.outcome = Some(Outcome::Passed);
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.begin_public_way_for_tests(ctx, pi, new_law));
+    assert_eq!(
+        sim.people().polities[pi]
+            .way_site_of(new_law)
+            .and_then(|s| s.work),
+        Some(way)
+    );
+    assert_eq!(
+        sim.land().ways.list.len(),
+        ways_before,
+        "nothing new laid out"
+    );
+    // Its households clear it again under the new law, told as cleared again.
+    let told = way_entries(&sim).len();
+    sim.with_ctx_for_tests(|pop, ctx| pop.way_work_for_tests(ctx, buyer, way, 0.5 * again_h));
+    sim.with_ctx_for_tests(|pop, ctx| pop.way_work_for_tests(ctx, other, way, again_h));
+    let s = first_segment(&sim, way);
+    assert!(
+        !s.grown_over() && (s.usable_m - s.built_m).abs() < 1e-3,
+        "{s:?}"
+    );
+    assert!(
+        (sim.people().polities[pi].way_given_all(new_law) - again_h).abs() < 1e-3,
+        "the hours given to the new law"
+    );
+    let entries = way_entries(&sim);
+    assert_eq!(entries.len(), told + 1, "{entries:?}");
+    assert_eq!(
+        entries.last().map(|e| e.number),
+        Some(f64::from(
+            civ_agents::WayStep::PassingPlaceClearedAgain as u8
+        ))
+    );
+    // Under the new law in force, nothing more is offered there.
+    assert!(
+        sim.with_ctx_for_tests(|pop, ctx| pop.public_way_for_tests(ctx, settlement))
+            .is_none_or(|(c, _, _)| c != middle)
+    );
+    saves_and_goes_on_alike(&mut sim, 60);
+}
+
+#[test]
 fn a_households_own_passing_place_grown_over_is_cleared_again_by_its_people_where_its_carts_wait() {
     let (mut sim, buyer, _seller, handcart, middle) = carts_wait_scene(20);
     sim.with_ctx_for_tests(|pop, ctx| pop.review_way_work_for_tests(ctx, buyer));

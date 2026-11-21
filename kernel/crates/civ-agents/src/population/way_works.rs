@@ -382,7 +382,8 @@ impl Population {
         {
             return None;
         }
-        let polity = self.polities.get(self.polity_of(settlement)?)?.id;
+        let pi = self.polity_of(settlement)?;
+        let polity = self.polities.get(pi)?.id;
         if ctx.land.ways.list.iter().any(|w| {
             w.segments
                 .iter()
@@ -395,7 +396,12 @@ impl Population {
         let mut by_cell: BTreeMap<u32, Vec<(PermanentId, f64)>> = BTreeMap::new();
         for &h in households {
             for l in self.traffic.losses_held(h, day, half) {
-                if l.cause != traffic::Cause::Width || ctx.land.ways.at(l.cell).next().is_some() {
+                // Where a way runs, only a passing place of the polity's that no law in force
+                // keeps, grown over, may be cleared together again (backlog D, fourteenth item).
+                if l.cause != traffic::Cause::Width
+                    || (ctx.land.ways.at(l.cell).next().is_some()
+                        && self.lapsed_passing_place(ctx, pi, l.cell).is_none())
+                {
                     continue;
                 }
                 let spared = crate::uses::per_year(f64::from(l.hours), half) * PASSING_SPARES;
@@ -410,6 +416,10 @@ impl Population {
         let life = ctx.land_params.way_works.passing_life_years;
         let mut best: Option<PublicWay> = None;
         for (cell, saves) in by_cell {
+            // One grown over asks only its clearing again.
+            let labour_h = self
+                .lapsed_passing_place(ctx, pi, cell)
+                .map_or(labour_h, |(_, h)| h);
             let p = PublicWay {
                 cell,
                 labour_h,
@@ -426,6 +436,44 @@ impl Population {
             }
         }
         best
+    }
+
+    /// The passing place of polity `pi`'s at `cell` that no law of it in force keeps, grown over,
+    /// if every way there is one (backlog D, fourteenth item): its way, and the hours clearing it
+    /// again takes at clearing's own rate. Its law ended, nobody keeps it; a new law may clear it
+    /// again, as the law in force that cleared it would.
+    fn lapsed_passing_place(&self, ctx: &Ctx, pi: usize, cell: u32) -> Option<(PermanentId, f64)> {
+        let polity = self.polities.get(pi)?;
+        let works = ctx.land_params.way_works;
+        let cell_m = f64::from(ctx.map.cell_size_m);
+        let mut found = None;
+        for k in ctx.land.ways.at(cell) {
+            let w = ctx.land.ways.list.get(k)?;
+            let lapsed = w.track.is_none()
+                && !w.segments.is_empty()
+                && w.segments
+                    .iter()
+                    .all(|s| s.keeper == Keeper::Polity(polity.id) && s.grown_over())
+                && !polity.ways.iter().any(|(law, site)| {
+                    site.work == Some(w.id)
+                        && polity.laws.iter().any(|l| {
+                            l.id == *law
+                                && l.status == LawStatus::InForce
+                                && l.kind == PolicyKind::BuildWay
+                        })
+                });
+            if !lapsed || found.is_some() {
+                return None;
+            }
+            let again: f64 = w
+                .segments
+                .iter()
+                .map(|s| f64::from(s.built_m - s.usable_m) * cell_m * s.cells.len() as f64)
+                .sum::<f64>()
+                * works.clear_h_m2;
+            found = Some((w.id, again));
+        }
+        found
     }
 
     /// Where settlement `settlement`'s people could clear a passing place together now: for
@@ -455,7 +503,18 @@ impl Population {
         let Some(site) = self.polities[pi].way_site_of(law) else {
             return;
         };
-        if site.work.is_some() || ctx.land.ways.at(site.cell).next().is_some() {
+        if site.work.is_some() {
+            return;
+        }
+        // A passing place of its own grown over since its law ended is the work: cleared again,
+        // not laid anew (backlog D, fourteenth item).
+        if let Some((id, _)) = self.lapsed_passing_place(ctx, pi, site.cell) {
+            if let Some(s) = self.polities[pi].ways.iter_mut().find(|s| s.0 == law) {
+                s.1.work = Some(id);
+            }
+            return;
+        }
+        if ctx.land.ways.at(site.cell).next().is_some() {
             return;
         }
         let day = ctx.now.day_index();
@@ -887,11 +946,20 @@ impl Population {
         }
         if let Keeper::Polity(p) = keeper
             && let Some(pi) = self.polities.iter().position(|q| q.id == p)
-            && let Some(law) = self.polities[pi]
-                .ways
-                .iter()
-                .find(|s| s.1.work == Some(way))
-                .map(|s| s.0)
+            && let Some(law) = {
+                // The law in force that names it, before one ended: a passing place cleared again
+                // under a new law is named by both (backlog D, fourteenth item).
+                let p = &self.polities[pi];
+                let naming = || p.ways.iter().filter(|s| s.1.work == Some(way));
+                naming()
+                    .find(|s| {
+                        p.laws
+                            .iter()
+                            .any(|l| l.id == s.0 && l.status == LawStatus::InForce)
+                    })
+                    .or_else(|| naming().next())
+                    .map(|s| s.0)
+            }
             && took > 0.0
         {
             self.polities[pi].give_to_way(law, household, took as f32);

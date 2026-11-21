@@ -10986,6 +10986,23 @@ and M6a gives rivers a daily flow.
       to +38.3 %, t +2.08 to +2.30, 52.8 % to 50.0 %; offices +7.1 % to +18.2 %, t +0.29 to +0.57,
       74.6 % to 95.3 %; food moved by the polity +34.1 % to +43.7 %, t +1.36 to +1.43, 75.0 % to
       91.9 %). **Not yet:** pay owed until threshing; reapers from other settlements.
+      **Fixed the same day** (the coordinator's review of d5dd5b1; §9, "Hired sowing paid only
+      from grain to spare"): the offer and the pay were capped at all the grain the household held,
+      harmless at the reaping, whose harvest refills it within days, but at the sowing it could
+      spend the grain the household eats until a harvest months off. Both are now capped at the
+      grain it holds beyond its keep (`holding_of`'s food to see it to its next harvest and its
+      margin, the keep the market holds back from sale; no new rate). A new people scene, grain its
+      only food and only what it keeps, offers no sowing (on d5dd5b1 it offered 239.6 hours at
+      0.52 kg an hour). The notables' gate against d5dd5b1: passes, 28 of 40 runs changed, a
+      behaviour change and no acceptance criterion changed (difference, t and detects, before and
+      after: fixture 1 proposals +61.5 % to +53.8 %, t +2.29 to +2.97, 80.7 % to 54.3 %; enacted
+      +33.3 % to +28.2 %, t +1.37 to +1.63, 72.8 % to 51.9 %; offices +20.0 % to +0.0 %, t +0.80
+      to 0.00, 74.8 % to 44.7 %; food moved by the polity −5.0 % to −4.6 %, t −0.36 to −0.32,
+      41.5 % to 42.3 %; fixture 2 proposals +38.4 % to +17.2 %, t +1.59 to +0.75, 72.4 % to
+      68.7 %; enacted +38.3 % to +26.1 %, t +2.30 to +1.48, 50.0 % to 52.9 %; offices +18.2 % to
+      +7.1 %, t +0.57 to +0.29, 95.3 % to 74.6 %; food moved by the polity +43.7 % to +20.6 %,
+      t +1.43 to +0.91, 91.9 % to 67.7 %). Fixture 1's proposals, enacted and offices are back to
+      their figures before the slice.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
@@ -12387,6 +12404,9 @@ and M6a gives rivers a daily flow.
        *First slice built 2026-11-20* (§7, "the wage bid up while hours go untaken").
        *Second slice built 2026-11-21* (§7, "threshing").
        *Third slice built 2026-11-21* (§7, "preparing and sowing").
+       *Closed 2026-11-21 at three slices* (the coordinator's decision): left, in "preparing and
+       sowing"'s "Not yet", pay owed until threshing and reapers from other settlements, after a
+       long run has measured the three slices together.
     13. *Word of barren ground between settlements* (question 20, fourteenth). Gated.
     14. *Deliberation's term leftovers* (question 20, fifteenth). Gated.
     15. *Writing's leftovers* (question 20, sixteenth). Larger, an ADR-0025 slice.
@@ -14271,5 +14291,6 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **The notables' gate: t and the least detectable difference beside the tolerance (2026-11-21; 9245c51, the coordinator's; ADR-0014 §4):** Decided by the coordinator under standing owner authority (2026-11-21). **Reason:** backlog E's "a gate on a test of both runs' spreads would hold its power as politics changes", read before any change to acceptance criteria. On 3116d91 two aggregates show t above 2.3: valley proposals, t +2.63 (p ≈ 0.017), and coast enacted, t +2.38 (p ≈ 0.029), Welch with about 18 degrees of freedom. If all 8 comparisons were noise, two or more this small would turn up about 2 % of the time, though proposals and enacted are correlated. With the notables tier on, fewer laws are proposed (valley 4.0 against 6.0) and fewer enacted (coast 6.2 against 8.5) than when every adult takes part: more than chance, not shown, and the kind of difference the fixed 55-105 % tolerances cannot catch. The gate is unchanged; any change to its criterion is the owner's (§8 22, fifth).
 - **Hired preparing and sowing (2026-11-21; §8 21, twelfth, third slice; research 08-10 §1.3, 04-02 §1.3):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A household hires hands to prepare and sow when its fields, with the sheaves it must thresh first, need more hours than its own give over the workable days left of the window, paying the custom's share of what an hour of the field's work brings from the grain it holds. **Reason:** field work left over the hours available before the season closes is the farm's own urgency (04-02 §1.3), and a household short of hands at the sowing, as at the harvest, may hire from neighbours with time; paid from what it holds, since nothing is yet harvested. The gate: 32 of 40 runs changed, all within tolerance; the nearest, fixture 2's enacted at +38.3 % against 55 %, and fixture 2's offices at +18.2 % against 85 %.
 - **NUDGE: preparing and sowing hired against the window, paid as reaping's custom (2026-11-21; the entry above; time-boxed):** the deadline is the window's workable days left at a peak's hours, the sheaves to thresh counted first; the wage is the custom's share of the field's expected crop over its remaining hours, not bid up. Design priors. Revisit if a long run shows sowing hired early in the window, or ground left unsown at its close with hands idle.
+- **Hired sowing paid only from grain to spare (2026-11-21; §8 21, twelfth; the coordinator's review of d5dd5b1):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A household hiring hands to prepare or sow offers and pays only the grain it holds beyond its keep, the food that sees it to its next harvest and its margin (`holding_of`, as the market keeps it back from sale). **Reason:** at the sowing the next harvest is months off, so the cap reaping used (all the grain held, refilled within days) let a household pay away the grain it eats; the keep already exists, so no rate is authored. The gate: 28 of 40 runs changed, all within tolerance; coast's offices back within what the runs can detect (74.6 % against 85 %).
 - **Flooding: water and walkability stay daily (2026-11-20; the owner's call; answers long run 67's and run 80's walking-grid question):** Decided by the owner (2026-11-20), relayed by the coordinator. The walking ground and its landmarks stay laid again for each day's flood depths. **Reason, the owner's words:** "Weekly walkability could leave flooded routes usable—or reopened routes blocked—for several days, changing travel, food access and survival." Option (a), the walking ground changing in coarser steps, is **declined**. Reducing or rebuilding the route structures incrementally, with today's water restrictions kept, is left for later (§8 22, third).
 - **"Moved" in the notables' gate means food moved by the polity (2026-11-20; the owner's acceptance criteria, relayed by the coordinator):** the notables' `moved` aggregate measures the polity's food collection and redistribution, not migration. In earlier entries, "moved" means food transfers. Its tolerance here is 95 %, recalibrated, against main's 25 %. From now on gate figures call it "food moved by the polity", and a change in behaviour is told apart from a changed acceptance criterion.

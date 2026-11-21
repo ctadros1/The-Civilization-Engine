@@ -230,12 +230,11 @@ impl Population {
         if kg_per_hour <= 0.0 {
             return None;
         }
-        let held = stores_now(x, now, params, &ctx.catalog.goods)
-            .get(crop.good)
-            .copied()
-            .unwrap_or(0.0)
-            .max(0.0);
-        let hours = short.min(held / kg_per_hour);
+        // It pays only from the grain it can spare: what it holds beyond the food that sees it to
+        // its next harvest, as it would offer it for sale (the market's keep; the harvest is
+        // months off at the sowing, where reaping's is days).
+        let spare = self.spare_of(ctx, x, crop.good);
+        let hours = short.min(spare / kg_per_hour);
         (hours >= 0.5).then_some(ReapOffer {
             task: FieldTask::Sow,
             field,
@@ -244,6 +243,20 @@ impl Population {
             kg_per_hour,
             good: crop.good,
         })
+    }
+
+    /// What household `x` holds of good `g` beyond what it keeps ([`Self::holding_of`]): for food,
+    /// beyond what sees it to its next harvest and its margin, as it would spare it for sale.
+    fn spare_of(&self, ctx: &Ctx, x: &crate::person::Household, g: usize) -> f64 {
+        let stores = stores_now(x, ctx.now, ctx.params, &ctx.catalog.goods);
+        let held = stores.get(g).copied().unwrap_or(0.0).max(0.0);
+        let keep = self
+            .holding_of(ctx, x, &stores)
+            .keep
+            .get(g)
+            .copied()
+            .unwrap_or(0.0);
+        (held - keep).max(0.0)
     }
 
     /// The pay field `fi` offers for an hour of a capable adult's preparing or sowing on day
@@ -596,12 +609,10 @@ impl Population {
         else {
             return;
         };
+        // Paid from what it can spare beyond the food that sees it to its next harvest.
         let can = self
             .household(employer)
-            .map(|x| stores_now(x, now, params, goods))
-            .and_then(|s| s.get(good).copied())
-            .unwrap_or(0.0)
-            .max(0.0);
+            .map_or(0.0, |x| self.spare_of(ctx, x, good));
         if kg_per_hour <= 0.0 {
             return;
         }

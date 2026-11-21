@@ -1927,14 +1927,14 @@ fn a_household_whose_sheaves_wait_into_the_sowing_hires_threshers() {
     assert!(told.contains("threshing for wages"), "{told}");
 }
 
-/// Hired preparing and sowing (§8 21, twelfth, third slice; research 08-10 §1.3; 04-02 §1.3): in
-/// the window's last week, a household whose fallow fields need more preparing and sowing than its
-/// members give over the workable days left hires hands, paying the custom's share of what an hour
-/// of the field's work brings out of the grain it holds; a neighbour whose own fields are sown and
-/// whose food is gone prepares ground for it, and the observer says so. Before, only reaping and
-/// threshing were hired.
-#[test]
-fn a_household_short_of_hands_at_the_sowing_hires_them() {
+/// The hired sowing's scene (§8 21, twelfth, third slice): the window for preparing ground in its
+/// last week, a household whose fields lie fallow and broken, its stores set by `stores` (given
+/// the household and the grain's index), among neighbours whose fields are sown and whose food is
+/// gone. Gives the world, the household, its neighbours, its fields and the activity of working
+/// for hire.
+fn short_of_hands_at_the_sowing(
+    stores: impl Fn(&mut civ_agents::person::Household, usize),
+) -> (Sim, PermanentId, Vec<PermanentId>, Vec<PermanentId>, usize) {
     let mut sim = new_world(3, 0);
     let rules = sim.rules().clone();
     let crop = rules.catalog.crops[rules.people.farm.crop].clone();
@@ -1981,10 +1981,7 @@ fn a_household_short_of_hands_at_the_sowing_hires_them() {
     let mut neighbours = Vec::new();
     for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
         if x.id == employer {
-            // The grain to pay with.
-            if let Some(kg) = x.stores.get_mut(crop.good) {
-                *kg = 600.0;
-            }
+            stores(x, crop.good);
         } else if x.settlement == Some(settlement) {
             for &g in &food {
                 if let Some(kg) = x.stores.get_mut(g) {
@@ -2018,6 +2015,25 @@ fn a_household_short_of_hands_at_the_sowing_hires_them() {
     };
     assert!(!neighbours.is_empty(), "the household has neighbours");
     sim.people_mut_for_tests().forget_views();
+    (sim, employer, neighbours, fields, hire)
+}
+
+/// Hired preparing and sowing (§8 21, twelfth, third slice; research 08-10 §1.3; 04-02 §1.3): in
+/// the window's last week, a household whose fallow fields need more preparing and sowing than its
+/// members give over the workable days left hires hands, paying the custom's share of what an hour
+/// of the field's work brings out of the grain it holds; a neighbour whose own fields are sown and
+/// whose food is gone prepares ground for it, and the observer says so. Before, only reaping and
+/// threshing were hired.
+#[test]
+fn a_household_short_of_hands_at_the_sowing_hires_them() {
+    let (mut sim, employer, neighbours, fields, hire) = short_of_hands_at_the_sowing(|x, grain| {
+        // The grain to pay with.
+        if let Some(kg) = x.stores.get_mut(grain) {
+            *kg = 600.0;
+        }
+    });
+    let rules = sim.rules().clone();
+    let crop = rules.catalog.crops[rules.people.farm.crop].clone();
     let offer = sim.with_ctx_for_tests(|pop, ctx| pop.field_hire_for_tests(ctx, employer));
     let (task, hours, _) = offer.expect("it offers preparing and sowing");
     assert_eq!(task, civ_land::FieldTask::Sow);
@@ -2081,6 +2097,48 @@ fn a_household_short_of_hands_at_the_sowing_hires_them() {
     assert!(
         told.contains("preparing ground for wages") || told.contains("sowing for wages"),
         "{told}"
+    );
+}
+
+/// Hired sowing pays only from grain to spare (§8 21, twelfth, third slice; the coordinator's
+/// review of d5dd5b1): at the sowing the next harvest is months off, so a household short of hands
+/// pays its hands only from what it holds beyond the food that sees it to that harvest (the
+/// market's keep). One whose grain is its only food and only just feeds it offers no sowing.
+/// Before, it offered as much as all its grain would pay for.
+#[test]
+fn a_household_whose_grain_only_feeds_it_to_the_harvest_hires_no_sowing() {
+    let (mut sim, employer, _, _, _) = short_of_hands_at_the_sowing(|x, grain| {
+        if let Some(kg) = x.stores.get_mut(grain) {
+            *kg = 5000.0;
+        }
+    });
+    let rules = sim.rules().clone();
+    let crop = rules.catalog.crops[rules.people.farm.crop].clone();
+    let goods = rules.catalog.goods.clone();
+    // Grain its only food, as much of it as it keeps to see it to its harvest.
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == employer {
+            for (g, d) in goods.iter().enumerate() {
+                if d.purpose == civ_agents::params::GoodUse::Food
+                    && g != crop.good
+                    && !d.kept_back()
+                {
+                    x.stores[g] = 0.0;
+                }
+            }
+        }
+    }
+    let keep = sim.with_ctx_for_tests(|pop, ctx| pop.keep_for_tests(ctx, employer))[crop.good];
+    assert!(keep > 1.0, "it keeps grain for its harvest: {keep} kg");
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == employer {
+            x.stores[crop.good] = keep;
+        }
+    }
+    let offer = sim.with_ctx_for_tests(|pop, ctx| pop.field_hire_for_tests(ctx, employer));
+    assert!(
+        offer.is_none_or(|(task, _, _)| task != civ_land::FieldTask::Sow),
+        "with {keep} kg, all it keeps to eat until its harvest, it offers no sowing: {offer:?}"
     );
 }
 

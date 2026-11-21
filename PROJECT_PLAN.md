@@ -12873,6 +12873,17 @@ and M6a gives rivers a daily flow.
         unmeasured); a casing's stiffness and strength (backlog D, first item). Gate-neutral.
         **Buildable now.**
        *Checked 2026-11-21: open* (research gaps; no decision).
+       **Done** (2026-11-21, research only; no content or kernel change). *Fish* (research 08-24
+       §8): still no measure of fish boiled on an open fire. Fried on one, it took 1.84–5.82 kg of
+       wood a kilogram (Lake Malawi). Fish curries took 0.78–1.08 of beef curries' energy a
+       kilogram on gas and six electric cookers (Bangladesh), in half the time; on meat's 0.75
+       that puts fish at about 0.58–0.81. So the 0.6 holds as a prior, low by up to a third if
+       anything, and §7's time-based 0.4 does not hold; any change is left for a gated slice.
+       *A casing* (research 11-14 §7): BS 449:1959, AISC 360-16 and Eurocode 4 credit a cased
+       post with about 40–80 % more squash load and 1.5–4 times the buckling stiffness (BS 449
+       capping the load at twice the bare steel's), but only for a reinforced casing (wire
+       binding, or bars and ties). TCE's casing has no bar or wire, so "cover only" holds as
+       authored; a wired casing's share would be a gated slice under ADR-0037.
     13. *Writing's leftovers* (question 21, fifteenth): a finding kept by the forum or the polity,
         and copies. Larger, an ADR-0025 slice. **Buildable now**, as a slice of that ADR.
        *Checked 2026-11-21: open* (ADR-0025's "Revisit when", writing arrives, holds, and §9's

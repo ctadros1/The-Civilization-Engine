@@ -149,6 +149,30 @@ TCE's core content now charges a boiled dish its wood by the dry kilogram eaten 
 
 **For TCE:** groats and meat stand on measured ranges. Fish is a prior with no measure behind it, and the evidence of time is that it is on the high side.
 
+## 8. Fish, looked for again (2026-11-21)
+
+§7 left fish's 0.6 kg a kilogram as a prior with nothing measured behind it, and read cooking time as arguing for about 0.4. A second look (plan §8 23, twelfth; time-boxed) still found **no measure of fish boiled or stewed on an open fire**. It found two nearer ones.
+
+- **Fish fried on an open fire (Makawa, Kaunda and Kapute 2019, Lake Malawi).** Fresh fish deep-fried a kilogram at a time in 5 litres of oil at 190 °C, in a pan on an open fire of dry hardwood (*Pericopsis angolensis*), three trials each:
+  - *Copadichromis* (about 15 g a fish): **1.84 ± 0.29 kg** of wood a kilogram of fish;
+  - *Engraulicypris sardella* (*usipa*, about 5 g a fish): **5.82 ± 0.20 kg** a kilogram.
+  - The same fish smoked took 0.96–1.81 kg a kilogram in three kilns.
+  - The authors put frying's cost on the oil: kept boiling before and between batches, about 10 minutes at a time, to win back the heat each batch's steam takes.
+  - **For TCE:** frying is not boiling. It is the only fish cooked on an open fire that was measured, and it shows the hearth's cost can be far above the fish's own cooking time. TCE has no fried dish.
+- **Fish against meat in the same pots (Khan 2021, eCook Bangladesh).** Curries cooked in a laboratory with measured energy, one test each, the fish added to its gravy 10–12 minutes after the potatoes and water:
+  - **On a gas burner (LPG):** fish 310 g, 28 minutes, 1.22 kWh; chicken 410 g, 45 minutes, 1.83 kWh; beef 480 g, 58 minutes, 2.44 kWh.
+  - So per kilogram of the fish or meat, **fish took 0.78 of beef's energy** (3.9 kWh against 5.1) and 0.88 of chicken's, in half beef's time (*derived*).
+  - **On six electric cookers** (hotplate, induction, infrared, rice, curry and pressure cookers): fish took **0.89–1.08** of beef's energy a kilogram, in 25–47 minutes against beef's 41–82 (*derived*).
+  - Each pot holds about twice the fish's weight in water, and potatoes, onion and oil besides (Khan's tables). Bringing them to the boil costs the same whatever then simmers, which is why a quicker dish saves less than its time (*a reading*).
+
+**What it says about 0.6.**
+
+- The time reading of §7 does not hold. Per kilogram, the fish curries cost 0.78–1.08 of the beef curries, not the half or less that their times suggest.
+- On beef's measured 0.75 (§2, §7), that ratio gives fish **about 0.58–0.81 kg** of wood a kilogram (*derived*). TCE's 0.6 sits at the low end of it, and §7's 0.4 about a third below it.
+- **For TCE:** the 0.6 *holds* as a prior. If anything it is low, by up to a third. That difference is within what one curry each, cooked on gas and electricity in Dhaka, can tell. It is left for a gated slice and not changed here.
+
+**Thin throughout:** no figure is for fish boiled on an open fire. The ratios come from one laboratory's single tests, on gas and electricity, of Bengali curries, with a smaller fish batch than the beef's; the frying figures are three trials of one method. The 0.6 stays a design prior, now with a measured ratio to lean on rather than none.
+
 ## Sources
 
 - Adkins, E., Chen, J., Winiecki, J., Koinei, P. and Modi, V. (2010). Testing institutional biomass cookstoves in rural Kenyan schools for the Millennium Villages Project. *Energy for Sustainable Development*. doi:10.1016/j.esd.2010.07.002. Sauri, Siaya District, western Kenya. [PDF](https://qsel.columbia.edu/assets/uploads/blog/2013/06/Adkins-cookstove-Kenya-paper-Energy-for-S.D.-version-8.10.pdf) (read in full).
@@ -162,3 +186,5 @@ TCE's core content now charges a boiled dish its wood by the dry kilogram eaten 
 - Common beans and fuelwood in Rwanda (Michigan State University dissertation). [Record](https://d.lib.msu.edu/etd/22668) (*search summary*).
 - USDA FoodData Central: cereals, oats, regular and quick, unenriched, cooked with water, without salt (FDC 173905), and oats, dry (FDC 173904), as copied by [ReciPal](https://recipal.com/ingredients/1928-nutrition-facts-calories-protein-carbs-fat-cereals-oats-regular-and-quick-and-instant-unenriched-cooked-with-water-includes-boiling-and-microwaving-without-salt) (*search summary*, 2026-11-20).
 - SNV Ghana, controlled cooking tests of fish stoves (2014). [Report](https://www.crc.uri.edu/download/GH2014_ACT015_SNV.pdf) (*search summary*; its figures not read).
+- Makawa, Z., Kaunda, E. and Kapute, F. (2019). Wood utilization efficiency and acceptability of fried and smoked fish from Lake Malawi. *African Journal of Food, Agriculture, Nutrition and Development* 19(2): 14432–14457. doi:10.18697/ajfand.85.17205. [PDF](https://ajfand.net/Volume19/No2/Kapute17205doc.pdf) (read in full, 2026-11-21).
+- Khan, M. R. (2021). *eCook Bangladesh: Cooking Diary and Appliance Testing*. Modern Energy Cooking Services (MECS), United International University, Dhaka. [PDF](https://mecs.org.uk/wp-content/uploads/2021/03/Cooking-Diary-and-Appliance-Testing-Bangladesh.pdf) (Tables 8, 10 and 14 read, 2026-11-21).

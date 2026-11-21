@@ -1040,7 +1040,7 @@ impl Population {
             .filter(|a| a.behavior == Behavior::Hire)
             .map(|a| f64::from(a.max_walk_minutes))
             .fold(0.0, f64::max);
-        let walk_m = walk_min * 60.0 * ctx.params.nav.tobler_ms(0.0);
+        let walk_m = Self::hire_scan_m(ctx, walk_min);
         let mut nearby: Vec<PermanentId> = ctx
             .land
             .fields
@@ -1213,6 +1213,28 @@ impl Population {
         let reach = self.homes.get(&key).map(|f| &f.reach);
         self.best_job(ctx, &hh, &stores, reach, session_min)
             .map(|j| (j.firm, j.field, j.walk_min))
+    }
+
+    /// How far in a straight line from home the paid work a household weighs looks for another
+    /// settlement's fields, metres, for a walk of `walk_min` minutes ([`Self::best_job`]): at the
+    /// fastest pace walking allows (Tobler's top speed, on its best slope, a gentle descent), so
+    /// that no field a walk could reach in that time is left out; the walk itself decides.
+    fn hire_scan_m(ctx: &Ctx, walk_min: f64) -> f64 {
+        walk_min * 60.0 * ctx.params.nav.top_speed_ms()
+    }
+
+    /// The straight line [`Self::best_job`] looks for another settlement's fields within, metres,
+    /// for the hired work's walk: for tests.
+    #[doc(hidden)]
+    pub fn hire_scan_m_for_tests(&self, ctx: &Ctx) -> f64 {
+        let walk_min = ctx
+            .catalog
+            .activities
+            .iter()
+            .filter(|a| a.behavior == Behavior::Hire)
+            .map(|a| f64::from(a.max_walk_minutes))
+            .fold(0.0, f64::max);
+        Self::hire_scan_m(ctx, walk_min)
     }
 
     /// The walk, minutes, from household `household`'s home field to the place at `at`, as

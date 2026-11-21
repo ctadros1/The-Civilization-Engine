@@ -2015,3 +2015,22 @@ fn a_neighbours_best_offer_beyond_the_walk_hides_no_nearer_one_and_ties_go_by_id
         "the lower id of two alike: {a:?}"
     );
 }
+
+/// The scan for neighbours' fields (§8 23, first; the fifteenth pass's "Not yet") bounds the
+/// straight line from home by the fastest pace walking allows, Tobler's top speed on its best
+/// slope (a 5 % descent), for the work's walk: no field a walk could reach within it is cut
+/// because the level pace would not reach it. The walk itself still decides.
+#[test]
+fn the_scan_for_neighbours_fields_reaches_as_far_as_the_fastest_walk_in_the_works_time() {
+    let (mut sim, _, _, _, _, _) = neighbours_scene();
+    let nav = sim.rules().people.nav;
+    let walk_min = 30.0;
+    let fastest_m = walk_min * 60.0 * nav.tobler_ms(-nav.best_slope_offset);
+    let level_m = walk_min * 60.0 * nav.tobler_ms(0.0);
+    assert!(fastest_m > level_m, "a descent walks faster than the level");
+    let scan_m = sim.with_ctx_for_tests(|pop, ctx| pop.hire_scan_m_for_tests(ctx));
+    assert!(
+        scan_m + 1e-6 >= fastest_m,
+        "the scan's {scan_m:.0} m against the fastest walk's {fastest_m:.0} m"
+    );
+}

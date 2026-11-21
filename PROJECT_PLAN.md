@@ -11327,7 +11327,26 @@ and M6a gives rivers a daily flow.
       +0.29, 74.6 %; +20.0 %, +0.89, 67.8 %). **Not yet:** the field scan's straight-line bound
       is reckoned at the walking pace on the level, and a walk downhill is a little faster, so a
       field just past that line yet within 30 minutes downhill could be missed (not seen in the
-      scene's land; untested).
+      scene's land; untested) (done 2026-11-21, see the next entry).
+    - *The scan for neighbours' fields bounded by the fastest walk (2026-11-21)* (§9, "The scan for
+      neighbours' fields bounded by the fastest walk"; the fifteenth pass's "Not yet"). `best_job`
+      looked for another settlement's fields within the straight line the level pace walks in the
+      work's 30 minutes (2,518 m); a descent near 5 % walks faster (Tobler's top speed, 3,000 m in
+      30 minutes), so a field within that walk could have been cut before its walk was reckoned.
+      **Fixed:** the line is now the fastest pace walking allows (`top_speed_ms`), so it only
+      widens the candidates; the walk itself still decides. **Not staged:** a scene on sloped land
+      could not be made: on the generated land the farthest field within 30 minutes of the
+      hearth lies 400 m out, off-trail walking being slow, so nothing a walk reaches lies near
+      either line; a home set beyond its hearth to cross the line falls outside the hearth's
+      field and walks from its own, reaching nothing. The scene pins the bound instead (a hook,
+      `hire_scan_m_for_tests`): it fails at the level pace (2,518 m against 3,000 m) and passes
+      at the top pace. **Tested:** transit (15, one new); the whole civ-sim suite (88 targets),
+      the unit tests; smoke (all 10 pass); fmt, clippy and the schema check clean. **The notables'
+      gate**, locally, against 8a89011: passes, 0 of 40 runs changed, every difference, t and
+      detects the same (fixture 1 proposals +53.8 %, t +2.97, detects 54.3 %; enacted +28.2 %,
+      +1.63, 51.9 %; offices +0.0 %, +0.00, 44.7 %; food moved by the polity −4.6 %, −0.32,
+      42.3 %; fixture 2 +16.1 %, +0.71, 67.7 %; +24.6 %, +1.45, 50.9 %; +7.1 %, +0.29, 74.6 %;
+      +20.0 %, +0.89, 67.8 %). **Not yet:** nothing.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
@@ -14784,5 +14803,6 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Reapers from other settlements (2026-11-21; §8 23, first):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A household's people weigh the field work another settlement's households offer where one of those households' fields lies within the hired work's own walk of home (the content's `max_walk_minutes`), and only while its walk is within that walk; no knowledge of the offer is asked beyond its being within a walk, as for a neighbour's. **Reason:** hired field work's leftovers named reapers from other settlements, gated on a long run measuring the three hiring slices, which long run 93 did; the hiring rule is reused whole, and the walk is the content's, so nothing is authored. Seasonal hands come from afar historically, but that is a journey and a stay away from home, a mechanism left for the owner. The gate: 0 of 40 runs changed.
 - **A household that could not make a boat or cart takes up one nobody holds (2026-11-21; §8 23, seventh; backlog D, eleventh item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A household that could not make one weighs its errands by a made one nobody is left to take, standing where it could use it, and takes up only a made one; the bar for taking it is the eleventh item's (worth no less over its remaining life than making a new one would keep), unchanged. **Reason:** what nobody holds is taken up by first use (08-09 §1.2), and the eleventh item tied that use to the making's weighing only because the weighing lived there; a household without the means to make one is the likeliest to use one left standing. A half-made one stays for a household that could finish it. A motor cart is left out: its fuel is weighed by other rules. The gate: 0 of 40 runs changed.
 - **The fifteenth coverage pass (2026-11-21; §8 21):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. 14607bc's and 9254e51's edges were pinned by scenes and the field scan's cost timed (no measurable difference). One fault was fixed: a household that could not make a motor cart no longer takes one up unheld, matching the weighing that leaves motor carts out for it. **Reason:** one rule for weighing and taking up, as 9254e51 meant; a motor cart's fuel is weighed by its own rules. The gate: 0 of 40 runs changed.
+- **The scan for neighbours' fields bounded by the fastest walk (2026-11-21; the fifteenth pass's "Not yet"):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. The straight line `best_job` looks for another settlement's fields within is the work's walk at Tobler's top speed, the fastest pace walking allows, rather than its level pace. **Reason:** the line only narrows which offers are reckoned, and the walk decides; bounding it by the fastest pace means it can never cut one the walk would allow. A sloped-land scene could not be staged (walks within 30 minutes reach a few hundred metres on generated land), so the scene pins the bound. The gate: 0 of 40 runs changed.
 - **Flooding: water and walkability stay daily (2026-11-20; the owner's call; answers long run 67's and run 80's walking-grid question):** Decided by the owner (2026-11-20), relayed by the coordinator. The walking ground and its landmarks stay laid again for each day's flood depths. **Reason, the owner's words:** "Weekly walkability could leave flooded routes usable—or reopened routes blocked—for several days, changing travel, food access and survival." Option (a), the walking ground changing in coarser steps, is **declined**. Reducing or rebuilding the route structures incrementally, with today's water restrictions kept, is left for later (§8 22, third).
 - **"Moved" in the notables' gate means food moved by the polity (2026-11-20; the owner's acceptance criteria, relayed by the coordinator):** the notables' `moved` aggregate measures the polity's food collection and redistribution, not migration. In earlier entries, "moved" means food transfers. Its tolerance here is 95 %, recalibrated, against main's 25 %. From now on gate figures call it "food moved by the polity", and a change in behaviour is told apart from a changed acceptance criterion.

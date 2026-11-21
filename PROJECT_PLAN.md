@@ -8530,7 +8530,7 @@ and M6a gives rivers a daily flow.
       load on fresh ground stays the logged NUDGE. **Not yet:** the demo world measured again
       (Thorndale's and Stonefield's person-hours of looking, and whether Thorndale's wanter goes on
       from its emptied patch); ground looked over on errands, word of barren ground between
-      settlements, and deadwood (about 14 years to renew) under the new memory.
+      settlements (decided against by ADR-0043 §3 ("barren ground is a settlement's own knowledge"), until an amendment, the owner's), and deadwood (about 14 years to renew) under the new memory.
     - *M11d, thirteenth part (2026-11-01): what land not yet worked is expected to give, landed,
       and every scene it moved understood* (backlog A). The tenth part's reverted fix, again, in
       its principled form: **what is expected of a block not yet worked is what the harvest would
@@ -10555,7 +10555,7 @@ and M6a gives rivers a daily flow.
       looking); the whole civ-sim suite (88 targets) and the civ-agents unit tests; smoke, with
       the same figures; fmt and clippy clean. **The notables' gate**, locally, against 7e9a5c8:
       passes, 0 of 40 runs changed (as before). **Not yet:** word of barren ground between
-      settlements (a claim of its own, a slice of the word); deadwood (14 years to renew)
+      settlements (a claim of its own, a slice of the word; decided against by ADR-0043 §3 ("barren ground is a settlement's own knowledge"), until an amendment, the owner's); deadwood (14 years to renew)
       remembered by what is left, as stocks that only fall are, not built: it renews, and its
       fading over the renewal time stands until a lived world shows it misleading.
     - *Fuel fetched from other settlements (2026-11-19): the home-settlement limit lifted* (§9,
@@ -12740,6 +12740,12 @@ and M6a gives rivers a daily flow.
        yet"): ground looked over and found barren is a settlement's own memory; a claim of its
        own in the word would carry it to neighbours, as a deposit's word does. Gated. **Buildable
        now.**
+       *Checked 2026-11-21, not built: needs an ADR amendment (the owner's).* ADR-0043 §3 decided
+       it: "Word of mouth between settlements is not added: a find already becomes known by
+       walking past it, and barren ground is a settlement's own knowledge"; none of its "Revisit
+       when" conditions holds (geology; a demo of settlements that never look again; organised
+       prospecting). §9's "Ground looked over on errands" (2026-11-19) listed it as left without
+       citing the ADR.
     4. *The field-hire offer and its wage on the wire* (§7, "observer states … wire 1.114", "Not
        yet"): the task is shown; what is offered, for how many hours and at what wage is not. A
        new wire table and a web panel line; no simulation change. Gate-neutral. **Buildable now.**

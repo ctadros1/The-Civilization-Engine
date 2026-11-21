@@ -2015,6 +2015,197 @@ fn a_default_whose_imposed_debt_is_paid_in_full_is_told_as_repaid() {
     assert_eq!(claims_of(&sc.sim, ClaimKind::Repaid).len(), 1);
 }
 
+/// The fourteenth coverage pass (§8 21; the guarantor that could pay nothing, f81309c): a
+/// guarantor whose household is no more when it is called on is told of by nobody, as it has no
+/// elder to name, and the default is told as ever; one household standing guarantor for two loans
+/// that fail on one day, paying neither, is told once for each, each naming its own loan. (A loan
+/// has one guarantor: `Pledge::Guarantor` names one household.)
+#[test]
+fn a_guarantor_no_more_is_not_told_and_one_for_two_loans_is_told_for_each() {
+    use civ_agents::word::ClaimKind;
+    // Gone before it is called on.
+    let mut sc = village();
+    let cp = credit(&mut sc.sim);
+    cp.p_max = 0.05;
+    cp.field_recovery = 0.0;
+    cp.guarantor_regard = -1.0;
+    cp.pay_base = 50.0;
+    cp.max_extensions = 0;
+    let guarantor = sc
+        .sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .filter(|h| !h.members.is_empty() && h.id != sc.borrower && h.id != sc.lender)
+        .map(|h| h.id)
+        .min()
+        .expect("a third household");
+    feed(&mut sc.sim, guarantor, 3000.0);
+    let (tp, today) = (sc.sim.rules().people.ties.clone(), sc.sim.now().day_index());
+    let (from, to) = (
+        members_of(&sc.sim, sc.lender),
+        members_of(&sc.sim, guarantor),
+    );
+    let pop = sc.sim.people_mut_for_tests();
+    for &x in &from {
+        for &y in &to {
+            pop.ties
+                .record(x, y, civ_agents::ties::Act::Hearth, 400.0, 0.0, today, &tp);
+        }
+    }
+    weigh(&mut sc.sim);
+    let (_, c) = loan_of(&sc.sim, sc.borrower);
+    let Some(Pledge::Guarantor(g)) = c.pledge else {
+        panic!("lent with a guarantor: {c:?}");
+    };
+    for m in members_of(&sc.sim, g) {
+        sc.sim
+            .with_ctx_for_tests(|pop, ctx| pop.die_for_tests(ctx, m));
+    }
+    assert!(
+        sc.sim.people().household(g).is_none(),
+        "the guarantor's household is no more"
+    );
+    feed(&mut sc.sim, sc.borrower, 0.0);
+    let grace = i64::from(sc.sim.rules().people.credit.grace_days);
+    repay(&mut sc.sim, c.due + grace + 1);
+    assert_eq!(
+        claims_of(&sc.sim, ClaimKind::Defaulted).len(),
+        1,
+        "the default told"
+    );
+    assert!(
+        claims_of(&sc.sim, ClaimKind::GuarantorFailed).is_empty(),
+        "nobody to name"
+    );
+    assert!(claims_of(&sc.sim, ClaimKind::GuarantorPaid).is_empty());
+    // One guarantor for two loans failing the same day, with nothing to spare.
+    let (mut sc, c, i, g, failed_on) = {
+        let mut sc = village();
+        let cp = credit(&mut sc.sim);
+        cp.p_max = 0.05;
+        cp.field_recovery = 0.0;
+        cp.guarantor_regard = -1.0;
+        cp.pay_base = 50.0;
+        cp.max_extensions = 0;
+        let guarantor = sc
+            .sim
+            .people()
+            .households
+            .iter()
+            .map(|(_, h)| h)
+            .filter(|h| !h.members.is_empty() && h.id != sc.borrower && h.id != sc.lender)
+            .map(|h| h.id)
+            .min()
+            .expect("a third household");
+        feed(&mut sc.sim, guarantor, 3000.0);
+        let (tp, today) = (sc.sim.rules().people.ties.clone(), sc.sim.now().day_index());
+        let (from, to) = (
+            members_of(&sc.sim, sc.lender),
+            members_of(&sc.sim, guarantor),
+        );
+        let pop = sc.sim.people_mut_for_tests();
+        for &x in &from {
+            for &y in &to {
+                pop.ties
+                    .record(x, y, civ_agents::ties::Act::Hearth, 400.0, 0.0, today, &tp);
+            }
+        }
+        weigh(&mut sc.sim);
+        let (i, c) = loan_of(&sc.sim, sc.borrower);
+        let Some(Pledge::Guarantor(g)) = c.pledge else {
+            panic!("lent with a guarantor: {c:?}");
+        };
+        let grace = i64::from(sc.sim.rules().people.credit.grace_days);
+        let failed_on = c.due + grace + 1;
+        (sc, c, i, g, failed_on)
+    };
+    // A second loan like it, the same guarantor, due the same day.
+    let twin = {
+        let credit = &mut sc.sim.people_mut_for_tests().order.credit;
+        credit.next += 1;
+        let mut t = credit.claims[i].clone();
+        t.id = credit.next;
+        credit.claims.push(t);
+        credit.next
+    };
+    feed(&mut sc.sim, sc.borrower, 0.0);
+    feed(&mut sc.sim, g, 0.0);
+    repay(&mut sc.sim, failed_on);
+    let said = claims_of(&sc.sim, ClaimKind::GuarantorFailed);
+    let mut events: Vec<u32> = said.iter().filter_map(|x| x.event).collect();
+    events.sort_unstable();
+    let mut want = vec![c.id, twin];
+    want.sort_unstable();
+    assert_eq!(events, want, "told once for each loan: {said:?}");
+    assert!(
+        said.iter().all(|x| x.subject == said[0].subject),
+        "the same elder named"
+    );
+}
+
+/// The fourteenth coverage pass (§8 21; the imposed debt paid in full, 361bfe8): paid over
+/// several days, it is told once, on the day it is met, and not on the days before; and with
+/// the creditor's household no more before it is met, nothing is told, for nobody saw it.
+#[test]
+fn an_imposed_debt_paid_over_days_is_told_once_met_and_not_once_its_creditor_is_gone() {
+    use civ_agents::word::ClaimKind;
+    let ob_of = |sim: &Sim, id: u32| {
+        sim.people()
+            .order
+            .obligations
+            .iter()
+            .find(|o| o.id == id)
+            .copied()
+            .expect("kept")
+    };
+    // Paid over days: a day's paying leaves some owed, then the rest is paid.
+    let (mut sc, loan, id) = imposed_and_meant(3000.0);
+    for o in sc.sim.people_mut_for_tests().order.obligations.iter_mut() {
+        if o.id == id {
+            o.kcal = 1.0e9;
+        }
+    }
+    sc.sim.advance_minutes(DAY).expect("advances");
+    let paid = ob_of(&sc.sim, id).paid_kcal;
+    assert!(paid > 0.0, "paid some the first day");
+    assert!(
+        claims_of(&sc.sim, ClaimKind::Repaid).is_empty(),
+        "not yet met"
+    );
+    // What is left is what a day pays.
+    for o in sc.sim.people_mut_for_tests().order.obligations.iter_mut() {
+        if o.id == id {
+            o.kcal = paid + 0.5 * paid;
+        }
+    }
+    feed(&mut sc.sim, sc.borrower, 3000.0);
+    sc.sim.advance_minutes(DAY).expect("advances");
+    assert_eq!(
+        ob_of(&sc.sim, id).standing,
+        civ_agents::crime::Standing::Met
+    );
+    let said = claims_of(&sc.sim, ClaimKind::Repaid);
+    assert_eq!(said.len(), 1, "{said:?}");
+    assert_eq!(said[0].event, Some(loan));
+    sc.sim.advance_minutes(DAY).expect("advances");
+    assert_eq!(claims_of(&sc.sim, ClaimKind::Repaid).len(), 1, "told once");
+    // The creditor's household gone before it is met: nothing told.
+    let (mut sc, _, id) = imposed_and_meant(3000.0);
+    for m in members_of(&sc.sim, sc.lender) {
+        sc.sim
+            .with_ctx_for_tests(|pop, ctx| pop.die_for_tests(ctx, m));
+    }
+    assert!(sc.sim.people().household(sc.lender).is_none());
+    for _ in 0..3 {
+        sc.sim.advance_minutes(DAY).expect("advances");
+    }
+    let ob = ob_of(&sc.sim, id);
+    assert_ne!(ob.standing, civ_agents::crime::Standing::Open, "{ob:?}");
+    assert!(claims_of(&sc.sim, ClaimKind::Repaid).is_empty(), "{ob:?}");
+}
+
 #[test]
 fn a_default_given_time_by_a_finding_and_then_repaid_is_told_as_repaid() {
     // Backlog D: a loan a finding under debts heard gives time is open again; repaid in full by

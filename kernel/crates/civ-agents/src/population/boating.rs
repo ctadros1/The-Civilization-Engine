@@ -709,6 +709,20 @@ impl Population {
         }
     }
 
+    /// The drive of motor cart `cart` to household `household`'s door today, as
+    /// [`Self::drive_home`] finds it: its seconds, the fuel by good and its kilograms: for tests.
+    #[doc(hidden)]
+    pub fn drive_home_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+        cart: PermanentId,
+    ) -> Option<(f64, usize, f64)> {
+        let home = self.household(household)?.home;
+        let v = ctx.land.carts.list.iter().find(|c| c.id == cart)?;
+        Self::drive_home(ctx, home, v).map(|(s, (f, kg))| (s, f, kg))
+    }
+
     /// The boat or cart someone `person` could fetch home today, as their decision would weigh it:
     /// its id, the trip's minutes, its worth and a motor cart's fuel, hours: for tests.
     #[doc(hidden)]
@@ -1228,13 +1242,43 @@ impl Population {
             .iter()
             .map(|b| b.owner == from && (near || fetchable(b, ctx.land.rivers.centre(b.at))))
             .collect();
-        let carts: Vec<bool> = ctx
-            .land
-            .carts
-            .list
-            .iter()
-            .map(|c| c.owner == from && (near || fetchable(c, cell_centre(ctx.map, c.at as usize))))
-            .collect();
+        // A motor cart's drive home is fuel `to` must hold besides the drives of those before it,
+        // as moving reckons it ([`Self::vehicles_move`]).
+        let mut fuel_left: Vec<(usize, f64)> = Vec::new();
+        let mut carts: Vec<bool> = Vec::with_capacity(ctx.land.carts.list.len());
+        for c in &ctx.land.carts.list {
+            if c.owner != from {
+                carts.push(false);
+                continue;
+            }
+            if near {
+                carts.push(true);
+                continue;
+            }
+            let at = cell_centre(ctx.map, c.at as usize);
+            let drive = Self::drive_home(&*ctx, home, c).filter(|_| {
+                c.made()
+                    && within(at)
+                    && ctx
+                        .catalog
+                        .vehicles
+                        .get(usize::from(c.vehicle))
+                        .is_some_and(|v| v.engine.is_some())
+            });
+            let Some((_, (f, kg))) = drive else {
+                carts.push(fetchable(c, at));
+                continue;
+            };
+            let spent = fuel_left.iter().find(|x| x.0 == f).map_or(0.0, |x| x.1);
+            let goes = held(f) - spent + 1e-9 >= kg;
+            if goes {
+                match fuel_left.iter_mut().find(|x| x.0 == f) {
+                    Some(x) => x.1 += kg,
+                    None => fuel_left.push((f, kg)),
+                }
+            }
+            carts.push(goes);
+        }
         let land = &mut *ctx.land;
         if boats.contains(&true) {
             for (b, _) in land.boats.list.iter_mut().zip(&boats).filter(|x| *x.1) {

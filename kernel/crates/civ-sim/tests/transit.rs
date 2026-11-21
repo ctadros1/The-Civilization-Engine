@@ -1471,3 +1471,148 @@ fn an_heir_far_off_takes_a_motor_cart_it_holds_the_fuel_for_and_fetches_it_by_dr
         assert!(p.bytes == q.bytes, "section `{}` differs", p.tag);
     }
 }
+
+/// The fourteenth coverage pass (§8 21; the ninth item's motor cart, 712b326): an heir far off
+/// holding exactly the fuel its drive home burns takes the motor cart, and one holding a gram
+/// less does not; two motor carts and fuel for one: one passes, as moving takes one (the fuel is
+/// reckoned across them); and fuel gone between the choice to fetch it and the drive: the drive
+/// does not set out, nothing is burned, and the cart stands where it was.
+#[test]
+fn a_motor_cart_passes_far_off_on_exactly_its_fuel_one_at_a_time_and_is_not_driven_once_it_is_gone()
+{
+    let coal_of = |sim: &Sim| {
+        sim.rules()
+            .catalog
+            .goods
+            .iter()
+            .position(|g| g.id == "core:good/coal")
+            .expect("coal")
+    };
+    let set_coal = |sim: &mut Sim, h: PermanentId, kg: f64| {
+        let coal = coal_of(sim);
+        for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+            if x.id == h {
+                x.stores[coal] = kg;
+            }
+        }
+    };
+    let owner_at = |sim: &Sim, id: PermanentId| {
+        sim.land()
+            .carts
+            .list
+            .iter()
+            .find(|c| c.id == id)
+            .map(|c| (c.owner, c.at))
+            .expect("the cart")
+    };
+    let scene = || {
+        let (mut sim, keeper, _, home, market, cells, _) = two_doors_and_a_hearth();
+        let cart = posted(&mut sim, keeper, home, market, cells[0]);
+        let heir = heir_at_the_hearth(&mut sim, market);
+        set_coal(&mut sim, keeper, 0.0);
+        (sim, keeper, heir, cart, cells)
+    };
+    let need = |sim: &mut Sim, heir: PermanentId, cart: PermanentId| {
+        let (_, f, kg) = sim
+            .with_ctx_for_tests(|pop, ctx| pop.drive_home_for_tests(ctx, heir, cart))
+            .expect("a drive home");
+        assert_eq!(f, coal_of(sim));
+        kg
+    };
+    // Exactly the fuel: it passes.
+    let (mut sim, keeper, heir, cart, cells) = scene();
+    let kg = need(&mut sim, heir, cart);
+    set_coal(&mut sim, heir, kg);
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, keeper, heir));
+    assert_eq!(
+        owner_at(&sim, cart),
+        (heir, cells[0]),
+        "exactly its fuel: {kg} kg"
+    );
+    // A gram short: it stays.
+    let (mut sim, keeper, heir, cart, cells) = scene();
+    let kg = need(&mut sim, heir, cart);
+    set_coal(&mut sim, heir, kg - 1e-3);
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, keeper, heir));
+    assert_eq!(
+        owner_at(&sim, cart),
+        (keeper, cells[0]),
+        "a gram short of {kg} kg"
+    );
+    // Two motor carts where it stood, and fuel for one drive: one passes.
+    let (mut sim, keeper, heir, cart, _) = scene();
+    let second = {
+        let c = sim
+            .land()
+            .carts
+            .list
+            .iter()
+            .find(|c| c.id == cart)
+            .cloned()
+            .expect("the cart");
+        let id = sim.allocate_id_for_tests();
+        let land = sim.land_mut_for_tests();
+        land.carts.list.push(civ_land::boats::Boat { id, ..c });
+        land.carts.changed();
+        id
+    };
+    let kg = need(&mut sim, heir, cart);
+    set_coal(&mut sim, heir, 1.5 * kg);
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, keeper, heir));
+    let owners = [owner_at(&sim, cart).0, owner_at(&sim, second).0];
+    assert_eq!(
+        owners.iter().filter(|&&o| o == heir).count(),
+        1,
+        "fuel for one drive of {kg} kg: {owners:?}"
+    );
+    // Chosen to be fetched, its fuel gone before the drive: it does not set out.
+    let (mut sim, keeper, heir, cart, cells) = scene();
+    set_coal(&mut sim, heir, 5000.0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, keeper, heir));
+    assert_eq!(owner_at(&sim, cart), (heir, cells[0]));
+    let fetch = sim
+        .rules()
+        .catalog
+        .activities
+        .iter()
+        .position(|x| x.behavior == civ_agents::params::Behavior::Fetch)
+        .expect("fetching") as u16;
+    let fetching = |sim: &Sim| {
+        sim.people().people.iter().find_map(|(_, p)| {
+            (p.household == heir
+                && p.act.def == fetch
+                && p.act.target == civ_agents::person::Target::Boat(cart))
+            .then_some(p.id)
+        })
+    };
+    let mut who = None;
+    for _ in 0..4 * 24 * 6 {
+        sim.advance_minutes(10).expect("advances");
+        who = fetching(&sim);
+        if who.is_some() {
+            break;
+        }
+    }
+    let who = who.expect("someone of the heir's sets out to fetch it");
+    set_coal(&mut sim, heir, 0.0);
+    for _ in 0..24 * 6 {
+        sim.advance_minutes(10).expect("advances");
+        if sim
+            .people()
+            .person(who)
+            .is_some_and(|p| p.act.target != civ_agents::person::Target::Boat(cart))
+        {
+            break;
+        }
+    }
+    assert_eq!(
+        owner_at(&sim, cart),
+        (heir, cells[0]),
+        "not driven without its fuel"
+    );
+    assert_eq!(
+        sim.people().household(heir).expect("heir").stores[coal_of(&sim)],
+        0.0,
+        "nothing burned"
+    );
+}

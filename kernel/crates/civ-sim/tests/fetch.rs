@@ -3450,6 +3450,109 @@ fn a_passing_place_grown_over_after_its_law_ended_is_cleared_again_under_a_new_o
     saves_and_goes_on_alike(&mut sim, 60);
 }
 
+/// The fourteenth coverage pass (§8 21; the passing place cleared again under a new law,
+/// b5d7f80): a lapsed passing place where another keeper's way also runs is not the polity's to
+/// clear again; and a second law naming the cell while one in force keeps it lays out nothing and
+/// takes no work.
+#[test]
+fn a_lapsed_passing_place_beside_another_keepers_way_or_one_a_law_keeps_is_not_cleared_again() {
+    use civ_agents::polity::{LawStatus, WaySite};
+    use civ_land::ways::{CART, Keeper, Rank, Segment, Surface, WALK, Way};
+    let lapse = |sim: &mut Sim, pi: usize, law: PermanentId| {
+        grow_over(sim);
+        let l = sim.people_mut_for_tests().polities[pi]
+            .laws
+            .iter_mut()
+            .find(|l| l.id == law)
+            .expect("the law");
+        l.status = LawStatus::Superseded;
+    };
+    // Beside a household's way at the same cell: nothing offered there.
+    let (mut sim, buyer, _, pi, law, way, middle, _) = cleared_public_passing_place();
+    let settlement = sim.people().polities[pi].settlement;
+    lapse(&mut sim, pi, law);
+    assert!(first_segment(&sim, way).grown_over());
+    let today = sim.now().day_index();
+    let theirs = sim.allocate_id_for_tests();
+    {
+        let land = sim.land_mut_for_tests();
+        land.ways.add(Way {
+            id: theirs,
+            begun: today,
+            segments: vec![Segment {
+                cells: vec![middle],
+                corridor_m: 1.2,
+                built_m: 1.2,
+                usable_m: 1.2,
+                surface: Surface::Cleared,
+                keeper: Keeper::Household(buyer),
+                kept: today,
+            }],
+            modes: WALK | CART,
+            trips: 0.0,
+            trips_day: today,
+            rank: Rank::Lane,
+            track: None,
+        });
+        land.ways.changed();
+    }
+    assert!(
+        sim.with_ctx_for_tests(|pop, ctx| pop.public_way_for_tests(ctx, settlement))
+            .is_none_or(|(c, _, _)| c != middle),
+        "another keeper's way runs there"
+    );
+    // A second law for the cell while one in force keeps it: nothing laid out, no work its own.
+    let (mut sim, _, _, pi, law, way, middle, labour_h) = cleared_public_passing_place();
+    lapse(&mut sim, pi, law);
+    let first = sim.allocate_id_for_tests();
+    let second = sim.allocate_id_for_tests();
+    for (id, site) in [
+        (
+            first,
+            WaySite {
+                cell: middle,
+                labour_h,
+                work: Some(way),
+            },
+        ),
+        (
+            second,
+            WaySite {
+                cell: middle,
+                labour_h,
+                work: None,
+            },
+        ),
+    ] {
+        let p = &mut sim.people_mut_for_tests().polities[pi];
+        let mut l = p
+            .laws
+            .iter()
+            .find(|l| l.id == law)
+            .cloned()
+            .expect("the law");
+        l.id = id;
+        l.status = LawStatus::InForce;
+        p.laws.push(l);
+        p.ways.push((id, site));
+    }
+    let ways = sim.land().ways.list.len();
+    sim.with_ctx_for_tests(|pop, ctx| pop.begin_public_way_for_tests(ctx, pi, second));
+    assert_eq!(
+        sim.people().polities[pi]
+            .way_site_of(second)
+            .and_then(|s| s.work),
+        None
+    );
+    assert_eq!(sim.land().ways.list.len(), ways, "nothing laid out");
+    let settlement = sim.people().polities[pi].settlement;
+    assert!(
+        sim.with_ctx_for_tests(|pop, ctx| pop.public_way_for_tests(ctx, settlement))
+            .is_none_or(|(c, _, _)| c != middle),
+        "kept by the law in force"
+    );
+}
+
 #[test]
 fn a_households_own_passing_place_grown_over_is_cleared_again_by_its_people_where_its_carts_wait() {
     let (mut sim, buyer, _seller, handcart, middle) = carts_wait_scene(20);

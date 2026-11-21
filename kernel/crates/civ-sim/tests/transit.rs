@@ -1300,3 +1300,174 @@ fn the_timetable_spreads_a_days_runs_over_twelve_hours_from_six() {
     l.runs_a_day = 0;
     assert_eq!(out(&l), vec![360], "at least one");
 }
+
+/// A household of the other settlement, its home set at that settlement's hearth, where the way
+/// from the keeper's door ends: the household.
+fn heir_at_the_hearth(sim: &mut Sim, market: PermanentId) -> PermanentId {
+    let hearth = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|s| s.id == market)
+        .map(|s| s.hearth_m)
+        .expect("the other settlement");
+    let heir = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .filter(|h| h.settlement == Some(market) && !h.members.is_empty())
+        .map(|h| h.id)
+        .min()
+        .expect("a household of the other settlement");
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == heir {
+            x.home = hearth;
+        }
+    }
+    heir
+}
+
+/// Backlog D, the ninth item's "Not yet": a motor cart reaches an heir in another settlement
+/// where the heir holds the fuel to drive it home (the twenty-fifth item's rule), and someone of
+/// the heir's fetches it by driving it, burning that fuel; an heir without the fuel does not take
+/// it, and one whose fuel is gone does not fetch it by driving.
+#[test]
+fn an_heir_far_off_takes_a_motor_cart_it_holds_the_fuel_for_and_fetches_it_by_driving() {
+    let coal_of = |sim: &Sim| {
+        sim.rules()
+            .catalog
+            .goods
+            .iter()
+            .position(|g| g.id == "core:good/coal")
+            .expect("coal")
+    };
+    let set_coal = |sim: &mut Sim, h: PermanentId, kg: f64| {
+        let coal = coal_of(sim);
+        for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+            if x.id == h {
+                x.stores[coal] = kg;
+            }
+        }
+    };
+    let owner_at = |sim: &Sim, id: PermanentId| {
+        sim.land()
+            .carts
+            .list
+            .iter()
+            .find(|c| c.id == id)
+            .map(|c| (c.owner, c.at))
+            .expect("the cart")
+    };
+    let scene = || {
+        let (mut sim, keeper, _, home, market, cells, _) = two_doors_and_a_hearth();
+        let cart = posted(&mut sim, keeper, home, market, cells[0]);
+        let heir = heir_at_the_hearth(&mut sim, market);
+        (sim, keeper, heir, cart, cells)
+    };
+    // The heir holds no coal, and the keeper's passes with its store: so the keeper's is spent
+    // first. Without the fuel to drive it home, the motor cart stays, the keeper's.
+    let (mut sim, keeper, heir, cart, cells) = scene();
+    set_coal(&mut sim, keeper, 0.0);
+    set_coal(&mut sim, heir, 0.0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, keeper, heir));
+    assert_eq!(
+        owner_at(&sim, cart),
+        (keeper, cells[0]),
+        "no coal to drive it home"
+    );
+    // Holding coal for the drive, it is the heir's, standing where it was.
+    let (mut sim, keeper, heir, cart, cells) = scene();
+    set_coal(&mut sim, keeper, 0.0);
+    set_coal(&mut sim, heir, 5000.0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, keeper, heir));
+    assert_eq!(
+        owner_at(&sim, cart),
+        (heir, cells[0]),
+        "the heir's, where it stood"
+    );
+    // Someone of the heir's would fetch it by driving: its fuel weighed at their own cost.
+    let grown = sim.rules().people.family.independent_age;
+    let now = sim.now();
+    let fetcher = sim
+        .people()
+        .household(heir)
+        .expect("the heir")
+        .members
+        .iter()
+        .copied()
+        .find(|&m| {
+            sim.people()
+                .person(m)
+                .is_some_and(|p| p.age_years(now) >= grown)
+        })
+        .expect("a grown member");
+    let facts = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.vehicle_fetch_for_tests(ctx, fetcher))
+    };
+    let (id, trip_min, worth_h, fuel_h) = facts(&mut sim).expect("it would fetch the motor cart");
+    assert_eq!(id, cart);
+    assert!(
+        trip_min > 0.0 && worth_h > 0.0 && fuel_h > 0.0,
+        "{trip_min} {worth_h} {fuel_h}"
+    );
+    // Its coal gone, it would not fetch it by driving.
+    set_coal(&mut sim, heir, 0.0);
+    assert!(facts(&mut sim).is_none(), "no coal to drive it");
+    set_coal(&mut sim, heir, 5000.0);
+    // Lived on, someone of the heir's walks to it and drives it home, burning coal.
+    let fetch = sim
+        .rules()
+        .catalog
+        .activities
+        .iter()
+        .position(|x| x.behavior == civ_agents::params::Behavior::Fetch)
+        .expect("fetching") as u16;
+    let door = |sim: &Sim| {
+        let home = sim.people().household(heir).expect("the heir").home;
+        civ_agents::population::cell_of(sim.map(), home) as u32
+    };
+    let mut drove = false;
+    for _ in 0..4 * 24 * 6 {
+        sim.advance_minutes(10).expect("advances");
+        drove |= sim.people().people.iter().any(|(_, p)| {
+            p.household == heir
+                && p.act.def == fetch
+                && p.act.target == civ_agents::person::Target::Boat(cart)
+                && matches!(
+                    p.act.steps.get(usize::from(p.act.step)),
+                    Some(civ_agents::person::Step::Haul { .. })
+                )
+                && p.trip.is_some()
+        });
+        if owner_at(&sim, cart).1 == door(&sim) {
+            break;
+        }
+    }
+    assert!(drove, "someone of the heir's drove it");
+    assert_eq!(
+        owner_at(&sim, cart),
+        (heir, door(&sim)),
+        "at the heir's door"
+    );
+    let left = sim.people().household(heir).expect("the heir").stores[coal_of(&sim)];
+    assert!(left < 5000.0, "coal burned on the drive: {left} kg left");
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(
+        &mut sim,
+        &saves,
+        commons_persist::SaveKind::Manual,
+        "transit",
+    )
+    .expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    let (x, y) = (
+        persist::encode_sections(&sim),
+        persist::encode_sections(&loaded),
+    );
+    for (p, q) in x.iter().zip(&y) {
+        assert!(p.bytes == q.bytes, "section `{}` differs", p.tag);
+    }
+}

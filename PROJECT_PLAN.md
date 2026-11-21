@@ -9367,7 +9367,8 @@ and M6a gives rivers a daily flow.
       targets, 1,568 tests, none failing); the ten smoke seeds pass; fmt and clippy clean. No
       existing assertion moved. **Not yet:** a boat carried overland where no water links it to
       the heir (a dugout wants several hands), a boat or cart that a way would bring only later
-      passing then, one being made or a motor cart passing to an heir far off, a boat or cart
+      passing then, one being made or a motor cart passing to an heir far off (the motor cart done
+      2026-11-21, see backlog D, ninth item, "a motor cart to an heir far off"), a boat or cart
       nobody is left to take (done 2026-11-03, see backlog D, eleventh item), and fetching in a
       household-resolved settlement (a fetch is a journey, never taken there).
     - *Backlog D, tenth item (2026-11-02): word of a debt kept goes about, and of a guarantor
@@ -11175,6 +11176,34 @@ and M6a gives rivers a daily flow.
       50.9 %; +7.1 %, +0.29, 74.6 %; +20.0 %, +0.89, 67.8 %): a change of behaviour none of the
       forty runs reaches, since none ends a passing place's law. **Not yet:** a lived world where
       one is cleared again under a new law.
+    - *Backlog D, ninth item (2026-11-21): a motor cart to an heir far off, fetched by driving*
+      (§9, "A motor cart to an heir far off"; the ninth item's "Not yet"). A household's boats
+      and carts reached an heir in another settlement where a way would bring them today, and
+      were fetched; a motor cart never did. **Built,** by the twenty-fifth item's drive rule, now
+      one function (`drive_home`: the quickest way for its wheels, empty, and the fuel the trip
+      burns), which moving uses as before: a made motor cart passes to an heir far off where it
+      stands within a fetch's walk and the heir holds the fuel its drive home burns, and stays
+      the gone household's otherwise. Someone of the heir's may fetch it: walked to and driven
+      home, its worth weighed against the trip and the drive's fuel at the household's own cost
+      (a fuel it cannot put a figure on rules the drive out), and only while the household holds
+      that fuel; driven, the fuel is burned as the drive sets out, and without it the drive does
+      not set out. A road line passes with its motor cart only within its settlement, as the
+      twentieth item had it (now said in its own condition, since a cart can go far off without
+      its line), and a road line left behind still says whose it had been. No content, schema,
+      save or wire change. **Tested:** transit (10, one new: an heir far off holding no coal
+      does not take the motor cart, the keeper's still where it stood; holding coal, the heir's,
+      where it stood; someone of the heir's would fetch it, its drive's fuel weighed; its coal
+      gone, they would not; lived on, someone of the heir's drives it to the heir's door, coal
+      burned; it saves and loads exactly; it fails without the change at the heir taking it; the
+      road line scenes unchanged and passing); boats (8), carts (3); the whole civ-sim suite (88
+      targets), the unit tests; smoke (all 10 pass); fmt, clippy and the schema check clean. **The
+      notables' gate**, locally, against b5d7f80: passes, 0 of 40 runs changed, every difference,
+      t and detects the same (fixture 1 proposals +53.8 %, t +2.97, detects 54.3 %; enacted +28.2
+      %, +1.63, 51.9 %; offices +0.0 %, +0.00, 44.7 %; food moved by the polity −4.6 %, −0.32,
+      42.3 %; fixture 2 +16.1 %, +0.71, 67.7 %; +24.6 %, +1.45, 50.9 %; +7.1 %, +0.29, 74.6 %;
+      +20.0 %, +0.89, 67.8 %): a change of behaviour none of the forty runs reaches, since no motor
+      cart is made without the observer. **Not yet:** one being made passing to an heir far off;
+      a lived world where a motor cart reaches an heir far off.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
@@ -14475,5 +14504,6 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **A guarantor who could pay nothing, told (2026-11-21; backlog D, the tenth item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A guarantor called on that can spare nothing makes a word claim of an appended kind, `ClaimKind::GuarantorFailed` (code 16), and the lender's household notes `defaulted` of the guarantor's elder; hearers note `defaulted_others`. A kind of its own, not `Defaulted`, since a default names the debtor's elder and this the guarantor's, of the same loan, and only the kind tells them apart in words; the acts are the default's, since the guarantor's word failed as the debtor's did, and their reasons read true of it. Every member of the lender's household notes it, as of a default (a guarantor that pays is noted by the lender's elder alone, as before). A guarantor that pays anything, in full or in part, is told as paying only. **Reason:** it is evidence the default does not give (the guarantor's own word, not the debtor's), unlike a pledged field taken, which stays untold by the 2026-11-02 entry. The gate: 0 of 40 runs changed, none of them reaching the case.
 - **A default a finding imposed, told as set right (2026-11-21; backlog D, the tenth item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. When a debtor that meant to pay meets in full the obligation a finding under debts heard imposed, it is told as a loan repaid (`ClaimKind::Repaid`, the loan's claim; no new kind or act), and the lender's elder notes `repaid`, as a repayment is noted; a part-payment is not told, and nor is what an officer takes by force, which is the debt enforced, not the debtor's word kept. The loan's standing is left failed. **Reason:** the gives-time remedy's repayment was already told beside the default; the imposed remedy's was the one way a debtor could set a default right without anyone hearing of it, and every figure in the words is the kernel's. The gate: 2 of 40 runs changed, all within tolerance.
 - **A passing place cleared again under a new law (2026-11-21; backlog D, the fourteenth item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A polity's site for a passing place may name a cell where a way runs only when every way there is a passing place of the polity's, grown over, that no `build_way` law of it in force keeps; its site then asks the clearing again it wants, at clearing's own rate, and the new law's work is that way, not a new one. Hours given are credited to the law in force naming the way before an ended one. **Reason:** the 2026-11-03 entry keeps a passing place by the law that cleared it, so one whose law ended had nobody to ask for it, while the site's rule (no way runs there) was written before a passing place could grow over; this reuses the keeping's own reckoning (what clearing again wants) and the first clearing's asking, and names no outcome: it is cleared again only where a gathering passes a new law for it. The gate: 0 of 40 runs changed, none of them reaching the case.
+- **A motor cart to an heir far off (2026-11-21; backlog D, the ninth item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A made motor cart passes to an heir in another settlement only where it stands within a fetch's walk and the heir holds the fuel its drive home burns, by the twenty-fifth item's drive rule (one function, `drive_home`, for moving and fetching), as a boat or cart passes only where a way would bring it today; it is fetched by walking to it and driving it home, its fuel weighed at the household's own cost as a motor cart's trip to market is, and burned as the drive sets out, only while held. Its road line does not go with it: a line passes with its cart only within its settlement, the twentieth item's rule, now its own condition, and the line left behind still says whose it had been. **Reason:** the ninth item kept a motor cart back only because nothing drove one home; the drive rule existed, and an heir that holds no fuel for it could not bring it, so it stays as before. No new state: the gate shows 0 of 40 runs changed, none of them holding a motor cart.
 - **Flooding: water and walkability stay daily (2026-11-20; the owner's call; answers long run 67's and run 80's walking-grid question):** Decided by the owner (2026-11-20), relayed by the coordinator. The walking ground and its landmarks stay laid again for each day's flood depths. **Reason, the owner's words:** "Weekly walkability could leave flooded routes usable—or reopened routes blocked—for several days, changing travel, food access and survival." Option (a), the walking ground changing in coarser steps, is **declined**. Reducing or rebuilding the route structures incrementally, with today's water restrictions kept, is left for later (§8 22, third).
 - **"Moved" in the notables' gate means food moved by the polity (2026-11-20; the owner's acceptance criteria, relayed by the coordinator):** the notables' `moved` aggregate measures the polity's food collection and redistribution, not migration. In earlier entries, "moved" means food transfers. Its tolerance here is 95 %, recalibrated, against main's 25 %. From now on gate figures call it "food moved by the polity", and a change in behaviour is told apart from a changed acceptance criterion.

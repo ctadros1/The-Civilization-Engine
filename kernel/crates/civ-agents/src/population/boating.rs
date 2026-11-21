@@ -105,15 +105,15 @@ impl Population {
         let Some(p) = self.people.get(h) else {
             return false;
         };
-        let (household, pos, who) = (p.household, p.pos, p.id);
+        let (household, pos, who, target) = (p.household, p.pos, p.id, p.act.target);
         let here = cell_of(ctx.map, pos) as u32;
-        let Some(v) = ctx
+        let Some((cart, v)) = ctx
             .land
             .carts
             .list
             .iter()
             .find(|c| c.owner == household && c.at == here && c.made())
-            .and_then(|c| ctx.catalog.vehicles.get(usize::from(c.vehicle)))
+            .and_then(|c| Some((c.id, ctx.catalog.vehicles.get(usize::from(c.vehicle))?)))
         else {
             return false;
         };
@@ -125,11 +125,31 @@ impl Population {
             .map(|c| c.stores.iter().sum::<f64>())
             .sum();
         let wheels = v.wheels(load, params.nav.tobler_ms(0.0));
-        let Some((route, _)) = ctx.land.cart_way(ctx.map, &wheels, pos, to) else {
+        let Some((route, legs_s)) = ctx.land.cart_way(ctx.map, &wheels, pos, to) else {
             return false;
         };
         let Some(leg_v) = wheels.speed(wheels.trail_c, 0.0) else {
             return false;
+        };
+        // A motor cart fetched home is driven, burning the fuel the drive takes, where its
+        // household holds it (backlog D, ninth item's "Not yet"; the twenty-fifth item's rule).
+        // A trip to a seller's door burns its own at the door (M11b, second part).
+        let drive = if target == Target::Boat(cart) {
+            match v.trip_fuel(&ctx.catalog.goods, (route.seconds + legs_s) / 60.0) {
+                Some((f, kg)) => {
+                    let held = self
+                        .household(household)
+                        .and_then(|x| x.stores.get(f).copied())
+                        .unwrap_or(0.0);
+                    if held + 1e-9 < kg {
+                        return false;
+                    }
+                    Some((f, kg))
+                }
+                None => None,
+            }
+        } else {
+            None
         };
         let centre = |c: u32| cell_centre(ctx.map, c as usize);
         let apart = |a: (f32, f32), b: (f32, f32)| f64::from((a.0 - b.0).hypot(a.1 - b.1));
@@ -193,6 +213,9 @@ impl Population {
             }
         }
         let duration = (total_s / 60.0).ceil().max(1.0);
+        if let Some((f, kg)) = drive {
+            self.burn_engine_fuel(&ctx.catalog.goods, household, f, kg);
+        }
         let Some(p) = self.people.get_mut(h) else {
             return false;
         };
@@ -552,11 +575,30 @@ impl Population {
         }
     }
 
+    /// The drive of motor cart `v` to a door at `home` today (backlog D, twenty-fifth item's rule;
+    /// M11b, second part): along the quickest way for its wheels, empty, its seconds and the fuel
+    /// the trip burns, by good and kilograms; none for a cart without an engine or where no way
+    /// for its wheels runs.
+    pub(super) fn drive_home(ctx: &Ctx, home: (f32, f32), v: &Boat) -> Option<(f64, (usize, f64))> {
+        let def = ctx.catalog.vehicles.get(usize::from(v.vehicle))?;
+        def.engine?;
+        let walk = ctx.params.nav.tobler_ms(0.0).max(1e-6);
+        let at = cell_centre(ctx.map, v.at as usize);
+        let (route, legs_s) = ctx
+            .land
+            .cart_way(ctx.map, &def.wheels(0.0, walk), at, home)?;
+        let seconds = route.seconds + legs_s;
+        let fuel = def.trip_fuel(&ctx.catalog.goods, seconds / 60.0)?;
+        Some((seconds, fuel))
+    }
+
     /// The made boat or cart of household `hh` that `me` could fetch home today, if any (backlog
     /// D, ninth item): a boat drawn up beyond where the household draws one up, paddled to the
     /// bank nearest home where the water carries it, by today's quickest way by water; or a cart
-    /// standing away from the door, pulled home empty by today's quickest way for its wheels. A
-    /// motor cart burns its fuel and is not pulled. Either is walked to from home (`field_key`'s
+    /// standing away from the door, pulled home empty by today's quickest way for its wheels, or a
+    /// motor cart driven home so where the household holds the fuel the drive burns, that fuel
+    /// paid for at the household's own cost of it (backlog D, ninth item's "Not yet"; one it
+    /// cannot put a figure on is not driven). Either is walked to from home (`field_key`'s
     /// walk). None after dark, while another of the household is fetching or the vehicle is in
     /// use on a trip, or where no way is open; of two, the one worth more beyond its trip. Its
     /// worth is the walking it saves over the life it has left, at its household's reckoning,
@@ -594,10 +636,14 @@ impl Population {
             .boats
             .made_of(hh.id)
             .find(|b| apart(hh.home, rivers.centre(b.at)) > within);
+        let fuel_held =
+            |(f, kg): (usize, f64)| hh.stores.get(f).copied().unwrap_or(0.0) + 1e-9 >= kg;
         let cart = land.carts.made_of(hh.id).find(|c| {
             c.at != door
                 && vehicle(c).is_some_and(|v| {
-                    v.mode == crate::params::VehicleMode::Cart && v.engine.is_none()
+                    v.mode == crate::params::VehicleMode::Cart
+                        && (v.engine.is_none()
+                            || Self::drive_home(ctx, hh.home, c).is_some_and(|d| fuel_held(d.1)))
                 })
         });
         if boat.is_none() && cart.is_none() {
@@ -629,7 +675,16 @@ impl Population {
                 * (1.0 - f64::from(v.wear)).max(0.0)
         };
         let fetch = |v: &Boat, at: (f32, f32)| {
-            let (bank, back_s) = Self::way_home(ctx, hh.home, v)?;
+            let def = vehicle(v)?;
+            let (bank, back_s, fuel_h) = if def.engine.is_some() {
+                let (back_s, (f, kg)) = Self::drive_home(ctx, hh.home, v)?;
+                let costs = self.own_costs_of(ctx, hh);
+                let fuel_h = kg * super::gas::fuel_hours(&catalog.goods, &costs, f)?;
+                (None, back_s, fuel_h)
+            } else {
+                let (bank, back_s) = Self::way_home(ctx, hh.home, v)?;
+                (bank, back_s, 0.0)
+            };
             let there_s = f64::from(reach.seconds_to(v.at as usize)?);
             Some(crate::decide::VehicleFetch {
                 vehicle: v.id,
@@ -637,7 +692,8 @@ impl Population {
                 bank,
                 door: hh.home,
                 trip_min: (there_s + back_s) / 60.0,
-                worth_h: worth(v, vehicle(v)?),
+                worth_h: worth(v, def),
+                fuel_h,
             })
         };
         let by_water = boat
@@ -646,11 +702,28 @@ impl Population {
         let by_wheels = cart
             .filter(|_| !hauling)
             .and_then(|c| fetch(c, cell_centre(map, c.at as usize)));
-        let net = |v: &crate::decide::VehicleFetch| v.worth_h - v.trip_min / 60.0;
+        let net = |v: &crate::decide::VehicleFetch| v.worth_h - v.trip_min / 60.0 - v.fuel_h;
         match (by_water, by_wheels) {
             (Some(a), Some(b)) => Some(if net(&b) > net(&a) { b } else { a }),
             (a, b) => a.or(b),
         }
+    }
+
+    /// The boat or cart someone `person` could fetch home today, as their decision would weigh it:
+    /// its id, the trip's minutes, its worth and a motor cart's fuel, hours: for tests.
+    #[doc(hidden)]
+    pub fn vehicle_fetch_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        person: PermanentId,
+    ) -> Option<(PermanentId, f64, f64, f64)> {
+        let hh = self
+            .person(person)
+            .and_then(|p| self.household(p.household))?
+            .clone();
+        let (key, _) = self.walking_field_of(ctx, (hh.id, hh.settlement, hh.home));
+        self.vehicle_fetch_facts(ctx, &hh, person, key, false)
+            .map(|v| (v.vehicle, v.trip_min, v.worth_h, v.fuel_h))
     }
 
     /// The walk a fetch allows from home, metres, at an off-trail pace (backlog D, ninth item):
@@ -1114,8 +1187,10 @@ impl Population {
     /// they are until someone of `to` fetches them ([`Population::vehicle_fetch_facts`]), so long
     /// as they stand within the walk a fetch allows of `to`'s home and a way would bring them
     /// there today ([`Population::way_home`]): an heir does not make its own while it holds one,
-    /// so one it could not bring, one being made and a motor cart stay where they stand,
-    /// `from`'s, as before. A wagon passes with the line it runs on ([`Population::lines_pass`]).
+    /// so one it could not bring and one being made stay where they stand, `from`'s, as before. A
+    /// motor cart passes so where `to` holds the fuel its drive home burns ([`Self::drive_home`],
+    /// the twenty-fifth item's rule; backlog D, ninth item's "Not yet"). A wagon passes with the
+    /// line it runs on ([`Population::lines_pass`]).
     pub(super) fn vehicles_pass(
         &mut self,
         ctx: &mut Ctx,
@@ -1135,8 +1210,16 @@ impl Population {
         let within = |at: (f32, f32)| f64::from((at.0 - home.0).hypot(at.1 - home.1)) <= range_m;
         // A made one of another settlement passes where it stands within that walk and a way
         // brings it home today.
+        let held = |g: usize| {
+            self.household(to)
+                .map_or(0.0, |x| x.stores.get(g).copied().unwrap_or(0.0))
+        };
         let fetchable = |v: &Boat, at: (f32, f32)| {
-            v.made() && within(at) && Self::way_home(&*ctx, home, v).is_some()
+            v.made()
+                && within(at)
+                && (Self::way_home(&*ctx, home, v).is_some()
+                    || Self::drive_home(&*ctx, home, v)
+                        .is_some_and(|(_, (f, kg))| held(f) + 1e-9 >= kg))
         };
         let boats: Vec<bool> = ctx
             .land
@@ -1331,7 +1414,6 @@ impl Population {
         };
         let (map, catalog) = (ctx.map, ctx.catalog);
         let door = cell_of(map, home) as u32;
-        let walk = ctx.params.nav.tobler_ms(0.0).max(1e-6);
         let mut going: Vec<Going> = Vec::new();
         for (i, b) in ctx.land.boats.list.iter().enumerate() {
             if b.owner != from || !b.made() {
@@ -1369,13 +1451,7 @@ impl Population {
                 }
                 continue;
             }
-            let at = cell_centre(map, c.at as usize);
-            let Some((route, legs_s)) = ctx.land.cart_way(map, &def.wheels(0.0, walk), at, home)
-            else {
-                continue;
-            };
-            let minutes = (route.seconds + legs_s) / 60.0;
-            let Some((fuel, kg)) = def.trip_fuel(&catalog.goods, minutes) else {
+            let Some((_, (fuel, kg))) = Self::drive_home(ctx, home, c) else {
                 continue;
             };
             let spent = fuel_left.iter().find(|f| f.0 == fuel).map_or(0.0, |f| f.1);

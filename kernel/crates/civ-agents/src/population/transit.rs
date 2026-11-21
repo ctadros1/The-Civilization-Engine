@@ -324,8 +324,9 @@ impl Population {
 
     /// Household `from` is no more and its people joined household `to` (backlog D, twentieth
     /// item; the eighteenth item's "Not yet"): a road line `from` kept passes to `to` with its
-    /// motor cart, where the cart passed to `to` ([`Population::vehicles_pass`]: within the
-    /// settlement), `to` keeps no road line of its own, and its cart's way runs from `to`'s door
+    /// motor cart, where the cart passed to `to` within the settlement (`near`; a motor cart that
+    /// passes to an heir far off, [`Population::vehicles_pass`], leaves its line behind, since its
+    /// runs leave from a door of the settlement it served), `to` keeps no road line of its own, and its cart's way runs from `to`'s door
     /// to the line's far hearth. Its runs then leave from `to`'s door along that way, its
     /// timetable, riders and fare kept, the fare scaled to the run's new minutes, as the fuel a
     /// run burns is (its keeper sets it again by its own cost at its review). Otherwise the line
@@ -334,12 +335,16 @@ impl Population {
         &mut self,
         ctx: &mut Ctx,
         (from, to): (PermanentId, PermanentId),
+        near: bool,
     ) {
         let Some(i) = ctx.land.runs.roads.iter().position(|l| l.operator == from) else {
             return;
         };
         let l = &ctx.land.runs.roads[i];
         let route = (|| {
+            if !near {
+                return None;
+            }
             let x = self.household(to)?;
             if ctx.land.runs.roads.iter().any(|r| r.operator == to) {
                 return None;

@@ -1193,7 +1193,14 @@ impl Population {
         // Whose what did not pass had been: its elder when its people went. Kept before its road
         // line passes or ends, so that an ending can say whose it was.
         self.note_gone(ctx, from, elder);
-        self.road_lines_pass(ctx, (from, to));
+        // And for its road line, whose motor cart may have gone to an heir far off without it
+        // (backlog D, ninth item's "Not yet").
+        if let Some(e) = elder
+            && ctx.land.runs.roads.iter().any(|l| l.operator == from)
+        {
+            self.keep_whose(from, e);
+        }
+        self.road_lines_pass(ctx, (from, to), near);
     }
 
     /// The land of household `from` passes to `to`, or, with no one to take it, stays as it is

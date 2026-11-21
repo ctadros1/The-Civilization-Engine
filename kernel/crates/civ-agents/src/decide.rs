@@ -296,6 +296,9 @@ pub struct VehicleFetch {
     pub door: (f32, f32),
     pub trip_min: f64,
     pub worth_h: f64,
+    /// A motor cart's fuel for the drive home, hours at the household's own cost of it (backlog
+    /// D, ninth item's "Not yet"); 0 for a boat or a cart pulled.
+    pub fuel_h: f64,
 }
 
 /// A passing place someone's household is making, or one their polity is clearing under a law
@@ -1816,10 +1819,12 @@ pub fn candidates(
                         Reason::Cart
                     };
                     term(&mut terms, reason, w.w_walk_hour * v.worth_h);
+                    // A motor cart's fuel is paid for as its trip is, at the household's own cost
+                    // (M11b, second part).
                     term(
                         &mut terms,
                         Reason::Walking,
-                        -w.w_walk_hour * v.trip_min / 60.0,
+                        -w.w_walk_hour * (v.trip_min / 60.0 + v.fuel_h),
                     );
                     let steps = match v.bank {
                         Some(bank) => vec![

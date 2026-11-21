@@ -69,11 +69,21 @@ pub enum ClaimKind {
     /// it could when called on, on a day (backlog D): `subject` is the elder of the guarantor's
     /// household, `event` the loan it stood for in the credit book. Told as a repayment is.
     GuarantorPaid = 15,
+    /// The field a household pledged for a loan it failed passed to its creditor to work, on a day
+    /// (backlog D's "Not yet": a pledged field taken told): `subject` is the elder of the household
+    /// that pledged it, `event` the loan in the credit book. Told as a default is; it teaches
+    /// nothing more of the debtor's word, the default it follows having been told already.
+    PledgeTaken = 16,
+    /// A household that stood guarantor for a loan another household failed was called on and
+    /// had nothing of the good to pay, on a day (backlog D's "Not yet": a guarantor who could pay
+    /// nothing told): `subject` is the elder of the guarantor's household, `event` the loan. Told as
+    /// a default is, as news only: whether being unable to pay breaks one's word is not taught.
+    GuarantorEmpty = 17,
 }
 
 impl ClaimKind {
     /// Every kind, in code order.
-    pub const ALL: [ClaimKind; 16] = [
+    pub const ALL: [ClaimKind; 18] = [
         ClaimKind::Gathering,
         ClaimKind::Grievance,
         ClaimKind::Petition,
@@ -90,6 +100,8 @@ impl ClaimKind {
         ClaimKind::Defaulted,
         ClaimKind::Repaid,
         ClaimKind::GuarantorPaid,
+        ClaimKind::PledgeTaken,
+        ClaimKind::GuarantorEmpty,
     ];
 
     /// Whether claims of this kind are news while they are held (a household's sickness, a
@@ -105,6 +117,8 @@ impl ClaimKind {
                 | ClaimKind::Defaulted
                 | ClaimKind::Repaid
                 | ClaimKind::GuarantorPaid
+                | ClaimKind::PledgeTaken
+                | ClaimKind::GuarantorEmpty
         )
     }
 
@@ -113,7 +127,11 @@ impl ClaimKind {
     pub fn of_a_debt(self) -> bool {
         matches!(
             self,
-            ClaimKind::Defaulted | ClaimKind::Repaid | ClaimKind::GuarantorPaid
+            ClaimKind::Defaulted
+                | ClaimKind::Repaid
+                | ClaimKind::GuarantorPaid
+                | ClaimKind::PledgeTaken
+                | ClaimKind::GuarantorEmpty
         )
     }
 
@@ -469,7 +487,9 @@ impl Word {
             | ClaimKind::BandSeen
             | ClaimKind::Defaulted
             | ClaimKind::Repaid
-            | ClaimKind::GuarantorPaid => c.day + news_days < today,
+            | ClaimKind::GuarantorPaid
+            | ClaimKind::PledgeTaken
+            | ClaimKind::GuarantorEmpty => c.day + news_days < today,
             ClaimKind::Sickness | ClaimKind::Suspicion => c.day + sickness_days < today,
             ClaimKind::Finding => c.day + finding_days < today,
         };

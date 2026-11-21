@@ -831,6 +831,29 @@ impl Population {
         }
     }
 
+    /// The debt a finding imposed for loan `id` was paid in full by a debtor that meant to pay
+    /// (backlog D, the tenth item's "Not yet"): its default is set right, and told as a loan
+    /// repaid is: the creditor's elder notes it of the debtor's elder, and word of it goes about
+    /// beside the word of its default. What was taken from the debtor by force is not its word
+    /// kept, and is not told so (the caller pays it only when the debtor paid it).
+    pub(super) fn imposed_debt_paid(&mut self, ctx: &Ctx, id: u32) {
+        let (now, params) = (ctx.now, ctx.params);
+        let Some(c) = self.order.credit.claims.iter().find(|c| c.id == id) else {
+            return;
+        };
+        let (creditor, debtor) = (c.creditor, c.debtor);
+        let elders = (
+            self.elder_of(creditor, now, params),
+            self.elder_of(debtor, now, params),
+        );
+        if let (Some(a), Some(b)) = elders {
+            self.note_tie(ctx, a, b, Act::Repaid, 1.0, 0.0);
+        }
+        if let Some(b) = elders.1 {
+            self.debt_word(ctx, ClaimKind::Repaid, id, b, now.day_index());
+        }
+    }
+
     /// `kcal` of food paid on debt imposed for loan `id` (M7d slice CB): paid on the loan, in its
     /// good.
     pub(super) fn paid_on_loan(&mut self, ctx: &Ctx, id: u32, kcal: f64) {

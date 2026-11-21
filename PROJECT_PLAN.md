@@ -9415,8 +9415,8 @@ and M6a gives rivers a daily flow.
       suite target by target (94 targets, 1,573 tests, none failing); the ten smoke
       seeds pass; fmt and clippy clean. No existing assertion moved. **Not yet:** ~~a pledged field
       taken told~~ (not told, by §9's "Word of a debt kept…" of 2026-11-02: it teaches nothing the
-      default did not), a default a finding imposes told as set right when its obligation is paid,
-      a default to or a repayment into the common store told (done 2026-11-03, see backlog D's
+      default did not), a default a finding imposes told as set right when its obligation is paid
+      (done 2026-11-21, see backlog D's tenth item, "a default a finding imposed"), a default to or a repayment into the common store told (done 2026-11-03, see backlog D's
       sixteenth item), a guarantor who could pay nothing told (done 2026-11-21, see backlog D's
       tenth item, "a guarantor who could pay nothing"), and a lived world where a lender lends, or
       refuses, for what it heard.
@@ -11109,7 +11109,34 @@ and M6a gives rivers a daily flow.
       polity −4.6 %, −0.32, 42.3 %; fixture 2 +17.2 %, +0.75, 68.7 %; +26.1 %, +1.48, 52.9 %;
       +7.1 %, +0.29, 74.6 %; +20.6 %, +0.91, 67.7 %): a behaviour change none of the forty runs
       reaches, since none has a guarantor called on with nothing to spare. **Not yet:** a lived
-      world where a guarantor fails to pay; a default a finding imposes told as set right.
+      world where a guarantor fails to pay; a default a finding imposes told as set right (done
+      2026-11-21, see the next entry).
+    - *Backlog D, tenth item (2026-11-21): a default a finding imposed, set right when paid,
+      told* (§9, "A default a finding imposed, told as set right"; the tenth item's "Not yet").
+      A default given time by a finding and then repaid was told as repaid; one whose finding
+      imposed what was owed, paid in full, was told of nothing: the loan's standing stays failed
+      and only the chronicle's restitution note said it was paid. **Built:** when a debtor that
+      meant to pay meets in full the obligation a finding under debts heard imposed
+      (`answer_obligations`), the lender's elder notes `repaid` of the debtor's elder and word of
+      it goes about as a loan repaid (`ClaimKind::Repaid`, naming the loan, through `debt_word`:
+      held first by the lender's people, or the store's keeper for a store's loan, never told by
+      the debtor's own household), beside the word of its default. No new kind, code or act; the
+      loan's standing is left as it was. Paid only in part, nothing is told; what an officer takes
+      by force is not the debtor's word kept and is not told so. **Tested:** credit (26, one new:
+      paid in part over a day, nothing told; paid in full, the obligation met, one `Repaid` claim
+      beside the default, naming the loan and the debtor's elder, held by every member of the
+      lender's household and none of the debtor's, in a repayment's words; one of another
+      household told it notes `repaid_others`; told once; it fails without the change at the
+      missing word); the whole civ-sim suite (88 targets), the unit tests; smoke (all 10 pass);
+      fmt, clippy and the schema check clean. **The notables' gate**, locally, against f81309c:
+      passes, 2 of 40 runs changed, all within tolerance (fixture 1 unchanged: proposals +53.8 %,
+      t +2.97, detects 54.3 %; enacted +28.2 %, +1.63, 51.9 %; offices +0.0 %, +0.00, 44.7 %; food
+      moved by the polity −4.6 %, −0.32, 42.3 %; fixture 2 proposals +17.2 % → +16.1 %, t +0.75 →
+      +0.71, detects 68.7 % → 67.7 %; enacted +26.1 % → +24.6 %, +1.48 → +1.45, 52.9 % → 50.9 %;
+      offices +7.1 %, +0.29, 74.6 %; food moved by the polity +20.6 % → +20.0 %, +0.91 → +0.89,
+      67.7 % → 67.8 %): a change of behaviour, the word reaching lenders on the coast. **Not
+      yet:** a lived world where a lender lends, or refuses, for what it heard; a debt taken by
+      force told (it is not the debtor's word kept).
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
@@ -14406,5 +14433,6 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **The thirteenth coverage pass (2026-11-21; §8 21):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. Today's slices (the wage bid, threshing and sowing for hire, the sewer entries) were read against the code: no fault found, eleven edges pinned by five new scenes. **Reason:** tests only, so the gate is unmoved (0 of 40 runs changed). The sowing wage read at the work, not the offer, is left as built: it is reaping's rule, and the coordinator's to change.
 - **The hired task on the wire (2026-11-21; backlog E, observer states; wire 1.114):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. Someone at work for hire on another household's field carries its task (reap, thresh, prepare, sow) in `PersonInfo.hired_task`, an enum appended at the table's end, read from the field as `doing` reads it, so older peers read None and the words never disagree. **Reason:** the decision panel named all four "Work for hire"; one appended field is backward-compatible and needs no new table, and offers and wages stay off the wire until a slice asks for them. Wire only, so the gate is unmoved (0 of 40 runs changed).
 - **A guarantor who could pay nothing, told (2026-11-21; backlog D, the tenth item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A guarantor called on that can spare nothing makes a word claim of an appended kind, `ClaimKind::GuarantorFailed` (code 16), and the lender's household notes `defaulted` of the guarantor's elder; hearers note `defaulted_others`. A kind of its own, not `Defaulted`, since a default names the debtor's elder and this the guarantor's, of the same loan, and only the kind tells them apart in words; the acts are the default's, since the guarantor's word failed as the debtor's did, and their reasons read true of it. Every member of the lender's household notes it, as of a default (a guarantor that pays is noted by the lender's elder alone, as before). A guarantor that pays anything, in full or in part, is told as paying only. **Reason:** it is evidence the default does not give (the guarantor's own word, not the debtor's), unlike a pledged field taken, which stays untold by the 2026-11-02 entry. The gate: 0 of 40 runs changed, none of them reaching the case.
+- **A default a finding imposed, told as set right (2026-11-21; backlog D, the tenth item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. When a debtor that meant to pay meets in full the obligation a finding under debts heard imposed, it is told as a loan repaid (`ClaimKind::Repaid`, the loan's claim; no new kind or act), and the lender's elder notes `repaid`, as a repayment is noted; a part-payment is not told, and nor is what an officer takes by force, which is the debt enforced, not the debtor's word kept. The loan's standing is left failed. **Reason:** the gives-time remedy's repayment was already told beside the default; the imposed remedy's was the one way a debtor could set a default right without anyone hearing of it, and every figure in the words is the kernel's. The gate: 2 of 40 runs changed, all within tolerance.
 - **Flooding: water and walkability stay daily (2026-11-20; the owner's call; answers long run 67's and run 80's walking-grid question):** Decided by the owner (2026-11-20), relayed by the coordinator. The walking ground and its landmarks stay laid again for each day's flood depths. **Reason, the owner's words:** "Weekly walkability could leave flooded routes usable—or reopened routes blocked—for several days, changing travel, food access and survival." Option (a), the walking ground changing in coarser steps, is **declined**. Reducing or rebuilding the route structures incrementally, with today's water restrictions kept, is left for later (§8 22, third).
 - **"Moved" in the notables' gate means food moved by the polity (2026-11-20; the owner's acceptance criteria, relayed by the coordinator):** the notables' `moved` aggregate measures the polity's food collection and redistribution, not migration. In earlier entries, "moved" means food transfers. Its tolerance here is 95 %, recalibrated, against main's 25 %. From now on gate figures call it "food moved by the polity", and a change in behaviour is told apart from a changed acceptance criterion.

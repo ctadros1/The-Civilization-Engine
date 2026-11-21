@@ -1406,6 +1406,10 @@ impl Population {
                         self.note_tie(ctx, m, taker, Act::Restored, 1.0, 0.0);
                     }
                 }
+                // A debt a finding imposed, paid in full: the default is set right (backlog D).
+                if ob.kind == Owed::Debt {
+                    self.imposed_debt_paid(ctx, ob.incident);
+                }
                 self.restitution_note(ctx, k, place);
             } else if day >= ob.due {
                 self.order.obligations[k].standing = Standing::Defaulted;

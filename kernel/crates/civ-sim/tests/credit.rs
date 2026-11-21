@@ -1902,6 +1902,119 @@ fn word_of_a_guarantor_called_on_that_could_pay_nothing_goes_about_as_a_default(
     }
 }
 
+/// A defaulted loan whose finding imposed what was still owed, its debtor meaning to pay and
+/// holding `kg` of grain: the scene, the loan and the obligation's id.
+fn imposed_and_meant(kg: f64) -> (Scene, u32, u32) {
+    use civ_agents::polity::{DebtRemedy, DebtsDef};
+    let (mut sc, loan) = defaulted();
+    let imposed = DebtsDef {
+        remedy: DebtRemedy::Imposed,
+        share: 1.0,
+        extend_days: 0,
+    };
+    sc.sim
+        .with_ctx_for_tests(|pop, ctx| pop.debt_found_for_tests(ctx, loan, 1, imposed));
+    let pop = sc.sim.people_mut_for_tests();
+    let ob = pop
+        .order
+        .obligations
+        .iter_mut()
+        .find(|o| o.kind == civ_agents::crime::Owed::Debt && o.incident == loan)
+        .expect("an obligation");
+    ob.answer = Some((true, 1.0));
+    let id = ob.id;
+    feed(&mut sc.sim, sc.borrower, kg);
+    (sc, loan, id)
+}
+
+#[test]
+fn a_default_whose_imposed_debt_is_paid_in_full_is_told_as_repaid() {
+    // Backlog D, the tenth item's "Not yet": a debt a finding imposed, paid in full by a debtor
+    // that meant to pay, sets the default right. It is told as a loan repaid is, naming the
+    // debtor's elder and the loan, held first by the lender's people, beside the word of its
+    // default; paid only in part, nothing is told.
+    use civ_agents::crime::Standing as Owes;
+    use civ_agents::ties::Act;
+    use civ_agents::word::ClaimKind;
+    let standing = |sim: &Sim, id: u32| {
+        sim.people()
+            .order
+            .obligations
+            .iter()
+            .find(|o| o.id == id)
+            .map(|o| o.standing)
+    };
+    // Paid only in part: a day's paying on a debt raised past what the debtor can spare.
+    let (mut sc, _, id) = imposed_and_meant(3000.0);
+    for o in sc.sim.people_mut_for_tests().order.obligations.iter_mut() {
+        if o.id == id {
+            o.kcal = 1.0e9;
+        }
+    }
+    sc.sim.advance_minutes(DAY).expect("advances");
+    let ob = sc
+        .sim
+        .people()
+        .order
+        .obligations
+        .iter()
+        .find(|o| o.id == id)
+        .copied()
+        .expect("kept");
+    assert!(ob.paid_kcal > 0.0, "it paid some: {ob:?}");
+    assert_eq!(ob.standing, Owes::Open);
+    assert!(
+        claims_of(&sc.sim, ClaimKind::Repaid).is_empty(),
+        "part paid: not told"
+    );
+    // Paid in full: told as repaid.
+    let (mut sc, loan, id) = imposed_and_meant(3000.0);
+    let tp = sc.sim.rules().people.ties.clone();
+    sc.sim.advance_minutes(DAY).expect("advances");
+    assert_eq!(standing(&sc.sim, id), Some(Owes::Met));
+    assert_eq!(
+        claims_of(&sc.sim, ClaimKind::Defaulted).len(),
+        1,
+        "its default"
+    );
+    let said = claims_of(&sc.sim, ClaimKind::Repaid);
+    assert_eq!(said.len(), 1, "{said:?}");
+    let claim = said[0];
+    assert_eq!(claim.event, Some(loan));
+    let elder = claim.subject.expect("names the debtor's elder");
+    assert!(members_of(&sc.sim, sc.borrower).contains(&elder));
+    for &m in &members_of(&sc.sim, sc.lender) {
+        assert!(sc.sim.people().word.has_heard(m, claim.id));
+    }
+    for &m in &members_of(&sc.sim, sc.borrower) {
+        assert!(!sc.sim.people().word.has_heard(m, claim.id));
+    }
+    let words = civ_sim::frames::word::claim_words(&sc.sim, &claim);
+    assert!(
+        words.contains(" repaid what ") && words.contains(" lent it ("),
+        "{words}"
+    );
+    // One of another household, told it, thinks the better of the debtor's elder.
+    let others = people_but(&sc.sim, &[sc.borrower, sc.lender]);
+    let x = *others.first().expect("one of another household");
+    let day = sc.sim.now().day_index();
+    let teller = members_of(&sc.sim, sc.lender)[0];
+    hearth(&mut sc.sim, teller, x);
+    assert_eq!(
+        sc.sim
+            .people()
+            .ties
+            .tie(x, elder, day, &tp)
+            .and_then(|t| t.reason)
+            .map(|r| r.act),
+        Some(Act::RepaidOthers)
+    );
+    // Told once: the days after add nothing. (The scene's finding names no case it heard, so it
+    // is not saved here; a repayment's word saves and loads in the repayment scenes.)
+    sc.sim.advance_minutes(DAY).expect("advances");
+    assert_eq!(claims_of(&sc.sim, ClaimKind::Repaid).len(), 1);
+}
+
 #[test]
 fn a_default_given_time_by_a_finding_and_then_repaid_is_told_as_repaid() {
     // Backlog D: a loan a finding under debts heard gives time is open again; repaid in full by

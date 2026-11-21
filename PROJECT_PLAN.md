@@ -10079,7 +10079,12 @@ and M6a gives rivers a daily flow.
       determinism targets; the civ-agents unit tests (309); smoke; fmt and clippy clean. **The
       notables' gate**, locally: gate-neutral (all 40 runs identical to the last fix's; fixture
       1's proposals +51.9 % and fixture 2's +52.7 % against 105 %). **Not yet:** a council's
-      seats' term in the amendment forecast; a renewable hearer's chance of being named again.
+      seats' term in the amendment forecast (not built 2026-11-21: the core's seats run 360 days
+      and an amendment weighs the decisions of `vote_memory_days`, 365, so the first term already
+      covers all but 5 of them; worth building only if content offers terms well inside that
+      memory; §8 23, second); a renewable hearer's chance of being named again (decided against,
+      see §9, "A hearer for a term is forecast to serve its term, then lapse" (2026-11-18): a
+      renewal needs a new law, so it is not forecast).
     - *ADR-0025's "Writing arrives", slice 1 (2026-11-18): a forum's finding written down, kept
       past the word of it* (§9, "Written findings, slice 1"; §8 16, fourth). Findings lived only
       as word (`ClaimKind::Finding`), let go after `remember_days` (730), so precedent reached no
@@ -12726,6 +12731,11 @@ and M6a gives rivers a daily flow.
        its bar from the next lot, built): a council's seats' term in the amendment forecast, and a
        renewable hearer's chance of being named again. Deliberation, gated (the notables' gate
        measures it). **Buildable now.**
+       *Checked 2026-11-21, not built:* the renewable hearer's half is decided against (§9, "A
+       hearer for a term is forecast to serve its term, then lapse": a renewal needs a new law);
+       the seats' term half would weigh under 1.4 % of a council's forecast with the core's
+       content (seats of 360 days against an amendment's memory of 365), so it waits for content
+       with shorter terms.
     3. *Word of barren ground between settlements* (question 21, thirteenth; ADR-0043's "Not
        yet"): ground looked over and found barren is a settlement's own memory; a claim of its
        own in the word would carry it to neighbours, as a deposit's word does. Gated. **Buildable

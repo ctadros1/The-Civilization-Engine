@@ -11489,10 +11489,13 @@ and M6a gives rivers a daily flow.
       household is no more; under holders, one whose holder and household are both no more).
       A household that moves away goes as a new household and its old one ends, so its fields
       were vacant to the regime, given out at the settlement's next review, while founding still
-      counted them as taken. **Tested:** settlements (33, one new: a field within a field walk
+      counted them as taken. **Tested:** settlements (34, two new: a field within a field walk
       worked and held by a household that is no more leaves home's vacant cropland as it was,
-      and the same field given to a household of the living lowers it by its area; it fails
-      without the change); the whole workspace suite; fmt and clippy clean. No content, schema,
+      and the same field given to a household of the living lowers it by its area, which fails
+      without the change; and under each regime, a field whose user is no more and whose holder
+      lives is cropped under holders, where it goes back to its holder, and vacant under
+      allocation by need, and vacant under both once its holder is no more too); the whole
+      workspace suite; fmt and clippy clean. No content, schema,
       wire or web change; saves stay 220. **Not yet:** its long run.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
@@ -13097,6 +13100,32 @@ and M6a gives rivers a daily flow.
     18 to 20 here), its twelfth (closed, its leftovers 1 and 10 here) and its thirteenth to
     sixteenth (2, 3, 13 and 11 here). From 22: its first done, its fourth report-only and settled
     (smoke's variation, §1 rule 6), its others 17, 19 and 22 here.
+24. **What is open next, ranked (2026-11-22 survey, made as 16 to 23 were: question 23 is used
+    up, each item done, decided against or waiting on the owner, an ADR or Unreal; these are the
+    "Not yet" lines written since, with the backlog's improvement passes):**
+    1. *Why giving-up households leave the map rather than go to a neighbour they know* (§7,
+       "Founding scores kin and ties as moving does", world 2 alone, runs 108 and 111: 64 and 13
+       people off the map after the 42nd year's thin sowing, none to Sedgestead). Diagnosis
+       first (the departure diagnostic, run 112); a rule change only if it shows a fault, and a
+       design question for the owner if the neighbour simply pulls nothing (`refuge` has no
+       term for room there).
+    2. *Why new settlements fail within a year or two* (§7, the founding entries' "Not yet": run
+       103's whole-village foundings came back home within two years; run 108's last six of
+       Thornbank founded Alderbank and then Alderbrook, empty by the 50th year). Diagnosis
+       first, on a scratch branch: each new settlement's first two years, its fields broken and
+       sown, its food, and what each household that leaves it weighed.
+    3. *A field whose household is no more counted vacant at home* (the founding entries' "Not
+       yet"). *Built 2026-11-22* (§7, "A field whose household is no more is vacant at home");
+       its long run to come.
+    4. *The sixteenth coverage pass* (backlog E): the code added 2026-11-21 and 22 (founding's
+       freed land and its kin and ties, the vacant field, reapers within a walk, the lapsed
+       passing place, the guarantor's failed claim) read against its tests for branches no test
+       reaches. Gate-neutral.
+    5. *The 42nd year's thin sowing in world 2* (runs 108, 109, 111 alike: about a third of the
+       usual fields sown): confirm from the weather and the fields' water that it is the
+       season's, not a fault in when sowing is weighed. Diagnosis only.
+    Still waiting from 23: its 14 to 21 (the owner's or an ADR's), 23 (the owner's) and 24
+    (Unreal).
 
 ---
 

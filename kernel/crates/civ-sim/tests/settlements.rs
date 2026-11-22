@@ -2896,3 +2896,68 @@ fn a_field_whose_household_is_no_more_counts_as_vacant_at_home() {
         "{before} ha vacant before, {with_living} with the organizer's {area} ha field"
     );
 }
+
+/// Under each regime, home's vacant cropland counts as vacant what the land review would give
+/// out (ADR-0007 §2): under holders, a field whose user is no more stays cropped while its holder
+/// lives (it goes back to the holder, not to whoever needs it), and is vacant once its holder is
+/// no more too; under allocation by need, a field whose user is no more is vacant whoever holds it.
+#[test]
+fn vacant_cropland_follows_the_regime_s_own_vacancy() {
+    use civ_agents::params::LandUse;
+    for land_use in [LandUse::Holder, LandUse::Need] {
+        let mut sim = world(3, 50, &[]).expect("generates");
+        sim.advance_minutes(30 * 24 * 60).expect("lives");
+        sim.regime_mut_for_tests().land_use = land_use;
+        let a = sim.land().settlements[0].id;
+        let hearth = sim.land().settlements[0].hearth_m;
+        let (organizer, _) = household_of(&sim, a);
+        let vacant = |sim: &mut Sim| {
+            sim.with_ctx_for_tests(|pop, ctx| pop.founding_land_for_tests(ctx, organizer))
+                .expect("at home")
+                .1
+        };
+        let before = vacant(&mut sim);
+        let side_m = 50.0f32;
+        let area = f64::from(side_m * side_m) / 1.0e4;
+        assert!(
+            before > 2.0 * area,
+            "{before} ha vacant: too little for the scene"
+        );
+        // A field beside the hearth held by the organizing household, worked by one no more.
+        let gone = sim.allocate_id_for_tests();
+        let id = sim.allocate_id_for_tests();
+        let mut f = sim.land().fields[0].clone();
+        f.id = id;
+        f.household = gone;
+        f.holder = civ_land::Party::Household(organizer);
+        f.lease = None;
+        f.left_by = None;
+        f.rect = civ_land::RectCm {
+            x: ((hearth.0 + 20.0) * 100.0) as i32,
+            y: ((hearth.1 + 20.0) * 100.0) as i32,
+            w: (side_m * 100.0) as i32,
+            h: (side_m * 100.0) as i32,
+        };
+        sim.land_mut_for_tests().fields.push(f);
+        let held = vacant(&mut sim);
+        let expected = match land_use {
+            LandUse::Holder => before - area,
+            LandUse::Need => before,
+        };
+        assert!(
+            (held - expected).abs() < 1e-6,
+            "{land_use:?}: {before} ha vacant before, {held} with a living holder's field"
+        );
+        // Its holder no more as well: vacant under either regime.
+        sim.land_mut_for_tests()
+            .fields
+            .last_mut()
+            .expect("pushed")
+            .holder = civ_land::Party::Household(gone);
+        let orphan = vacant(&mut sim);
+        assert!(
+            (orphan - before).abs() < 1e-6,
+            "{land_use:?}: {before} ha vacant before, {orphan} with nobody's field"
+        );
+    }
+}

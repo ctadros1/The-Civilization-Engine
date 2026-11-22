@@ -11399,6 +11399,39 @@ and M6a gives rivers a daily flow.
       has gone"). Nothing in either sample shows a fault. **Not yet:** a lived world that reaches
       the passing place cleared again, the motor cart far off or the taking up, should one be
       wanted (the observer's road engine, or a longer world).
+    - *A coalition counts the land its going frees (2026-11-22)* (§9, "A coalition counts the land
+      its going frees"; the dashboard's world 2, river_valley seed 2, collapsing late in 8 of 10
+      long samples). **The fault:** a household asked to join a coalition (`recruit`, ADR-0018 §1,
+      §5) weighed staying against the crowding as it was: its own fields' outlook and home's vacant
+      cropland, never the fields those already going would leave. Every household tied by regard
+      was asked, so in a crowded village each joined as though it would stay in the same crowd,
+      and the village went whole: run 102 (`claude/w2-diag` 0426a6c) saw Thornbank's 67 found
+      Sedgewick in year 36, fail and join Sedgestead (127), and all 42 of Sedgestead's households
+      found Otterwick in year 41 and leave the map in year 42; run 103 saw coalitions of 40 to 70
+      leave every two or three years and come back, until 30 people were left. **Fixed:** a
+      household asked weighs staying with the fields of those already going that lie within a
+      field walk of home counted as vacant, recomputed as each joins; staying's share keeps its
+      cap of 1. The organizing household's own first weighing is unchanged. No size threshold and
+      no new number. **Tested:** settlements (29, two new; a hook, `founding_plan_for_tests`, and
+      `founding_land_for_tests`): a crowded village of 10 households on worn-out ground, fields
+      over all its cropland, everyone regarding everyone. Before the fix every household goes
+      (both scenes fail, 10 of 10); with it the organizing household's share frees enough for the
+      rest, so it goes with its kin's household and fewer than half go, and once they have gone a
+      household staying that weighs founding at its next review would go alone (1 of the 8
+      staying), not send the rest after them. The second scene, the organizing household working a
+      fifth of one household's need, still splinters: a household tied only by regard goes with
+      it, and fewer than half go. The whole civ-sim suite (88 targets), the unit tests; smoke (all
+      10 pass); fmt, clippy and the schema check clean. **The notables' gate**, locally, against
+      4a3f0a5: passes, 0 of 40 runs changed, every difference, t and detects the same (fixture 1
+      proposals +53.8 %, t +2.97, detects 54.3 %; enacted +28.2 %, +1.63, 51.9 %; offices
+      +0.0 %, +0.00, 44.7 %; food moved by the polity −4.6 %, −0.32, 42.3 %; fixture 2 +16.1 %,
+      +0.71, 67.7 %; +24.6 %, +1.45, 50.9 %; +7.1 %, +0.29, 74.6 %; +20.0 %, +0.89, 67.8 %); its
+      fixtures found no coalition. **Not yet:** whether world 2 now lives 50 years, the real test
+      (a long run on this change); what else may draw a whole village after its organizer: a
+      household weighing founding counts each close kin among those going (2 points each) but
+      not the kin it would leave, as moving counts kin there less kin at home, so kin can still
+      carry a coalition far; and why run 103's new settlements failed within a year or two and
+      their people came back, which this change does not touch.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
@@ -14860,5 +14893,6 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **A household that could not make a boat or cart takes up one nobody holds (2026-11-21; §8 23, seventh; backlog D, eleventh item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. A household that could not make one weighs its errands by a made one nobody is left to take, standing where it could use it, and takes up only a made one; the bar for taking it is the eleventh item's (worth no less over its remaining life than making a new one would keep), unchanged. **Reason:** what nobody holds is taken up by first use (08-09 §1.2), and the eleventh item tied that use to the making's weighing only because the weighing lived there; a household without the means to make one is the likeliest to use one left standing. A half-made one stays for a household that could finish it. A motor cart is left out: its fuel is weighed by other rules. The gate: 0 of 40 runs changed.
 - **The fifteenth coverage pass (2026-11-21; §8 21):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. 14607bc's and 9254e51's edges were pinned by scenes and the field scan's cost timed (no measurable difference). One fault was fixed: a household that could not make a motor cart no longer takes one up unheld, matching the weighing that leaves motor carts out for it. **Reason:** one rule for weighing and taking up, as 9254e51 meant; a motor cart's fuel is weighed by its own rules. The gate: 0 of 40 runs changed.
 - **The scan for neighbours' fields bounded by the fastest walk (2026-11-21; the fifteenth pass's "Not yet"):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. The straight line `best_job` looks for another settlement's fields within is the work's walk at Tobler's top speed, the fastest pace walking allows, rather than its level pace. **Reason:** the line only narrows which offers are reckoned, and the walk decides; bounding it by the fastest pace means it can never cut one the walk would allow. A sloped-land scene could not be staged (walks within 30 minutes reach a few hundred metres on generated land), so the scene pins the bound. The gate: 0 of 40 runs changed.
+- **A coalition counts the land its going frees (2026-11-22; the dashboard's world 2):** Decided by Claude under standing owner authority (2026-11-22), at the coordinator's direction. A household asked to join a coalition weighs staying with the fields of the households already going, within a field walk of home, counted as vacant cropland, recomputed as each joins; staying's share stays capped at 1, and the organizing household's own first weighing is unchanged. **Reason:** ADR-0018 §1 and §5 have households choose among plans, each scored by the food it forecasts there against here; staying was forecast against a crowd that the coalition's own going would empty, a reckoning error that let a crowded village go whole (world 2's late collapse). No size threshold is needed or added: ADR-0018 rejected splitting a village at a size (no report gives one), and here the coalition stops where those staying would have the land they need, which the scenes show for a village crowded onto worn-out ground; a village kept this way sends at most a few households after them at the next review, not the rest. Not covered: kin, counted for those going and not those left, and settlements that fail and send their people back (run 103). The gate: 0 of 40 runs changed.
 - **Flooding: water and walkability stay daily (2026-11-20; the owner's call; answers long run 67's and run 80's walking-grid question):** Decided by the owner (2026-11-20), relayed by the coordinator. The walking ground and its landmarks stay laid again for each day's flood depths. **Reason, the owner's words:** "Weekly walkability could leave flooded routes usable—or reopened routes blocked—for several days, changing travel, food access and survival." Option (a), the walking ground changing in coarser steps, is **declined**. Reducing or rebuilding the route structures incrementally, with today's water restrictions kept, is left for later (§8 22, third).
 - **"Moved" in the notables' gate means food moved by the polity (2026-11-20; the owner's acceptance criteria, relayed by the coordinator):** the notables' `moved` aggregate measures the polity's food collection and redistribution, not migration. In earlier entries, "moved" means food transfers. Its tolerance here is 95 %, recalibrated, against main's 25 %. From now on gate figures call it "food moved by the polity", and a change in behaviour is told apart from a changed acceptance criterion.

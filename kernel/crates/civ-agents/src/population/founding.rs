@@ -23,6 +23,7 @@ const RECRUIT_PASSES: usize = 3;
 
 /// The ground a plan weighs: the site, the hectares that could be cropped within a field walk of
 /// it, and those still vacant within a field walk of home.
+#[derive(Clone, Copy)]
 struct Ground {
     site: (f32, f32),
     site_ha: f64,
@@ -119,6 +120,37 @@ impl Population {
             members,
             people,
         })
+    }
+
+    /// [`Self::founding_plan`] for tests: who would go with `household`, their people and what
+    /// founding is worth to it, beside a best other plan worth `best_move`.
+    #[doc(hidden)]
+    pub fn founding_plan_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+        best_move: f64,
+    ) -> Option<(Vec<PermanentId>, u32, f64)> {
+        self.founding_plan(ctx, household, best_move)
+            .map(|p| (p.members, p.people, p.worth))
+    }
+
+    /// For tests: the cropland within a field walk of `household`'s home, hectares, what of it is
+    /// vacant, and what its people need at the believed yield.
+    #[doc(hidden)]
+    pub fn founding_land_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+    ) -> Option<(f64, f64, f64)> {
+        let x = self.household(household)?;
+        let home = x.settlement?;
+        let hearth = ctx.land.settlements.iter().find(|s| s.id == home)?.hearth_m;
+        Some((
+            crate::found::cropland_ha(ctx, ctx.params, hearth),
+            self.vacant_cropland(ctx, hearth),
+            Self::crop_need_ha(ctx, x.members.len() as u32, 1.0),
+        ))
     }
 
     /// The cells `household` might found at: centres of the patches its people have walked, on
@@ -280,7 +312,10 @@ impl Population {
     /// The households of `home` that would go with `organizer` to found on `ground`, the organizer
     /// first, and their people: in passes, each household tied to those already going (a close
     /// kin of theirs, or someone a member of theirs regards) goes if founding with them beats its
-    /// own best plan.
+    /// own best plan. A household asked weighs staying with the fields of those already going
+    /// within a field walk of home counted as vacant: their going frees them (ADR-0018 §1, §5), so
+    /// a crowded village splinters until those staying would have the land they need, and does not
+    /// go whole for a crowding its own going would end.
     fn recruit(
         &self,
         ctx: &Ctx,
@@ -308,6 +343,26 @@ impl Population {
         let mut gone_people: Vec<PermanentId> = self
             .household(organizer)
             .map_or_else(Vec::new, |x| x.members.clone());
+        // The hectares the households going work within a field walk of home: theirs to free.
+        let hearth = ctx
+            .land
+            .settlements
+            .iter()
+            .find(|s| s.id == home)
+            .map(|s| s.hearth_m);
+        let reach = crate::found::field_reach_m(ctx.params);
+        let frees = |h: PermanentId| -> f64 {
+            hearth.map_or(0.0, |at| {
+                self.fields_of(ctx.land, h)
+                    .filter(|f| {
+                        let c = f.rect.centre_m();
+                        (c.0 - at.0).hypot(c.1 - at.1) <= reach
+                    })
+                    .map(civ_land::Field::area_ha)
+                    .sum()
+            })
+        };
+        let mut freed = frees(organizer);
         // The factions a member of the organizing household organizes: their members leave
         // together with it (M5a slice AO; a faction's organizer's "leave together").
         let led: Vec<PermanentId> = gone_people
@@ -362,7 +417,11 @@ impl Population {
                 let mut with = going.clone();
                 with.push(c);
                 let n = people + x.members.len() as u32;
-                let worth = self.found_worth(ctx, c, ground, &with, n);
+                let staying = Ground {
+                    vacant: ground.vacant + freed,
+                    ..*ground
+                };
+                let worth = self.found_worth(ctx, c, &staying, &with, n);
                 let own = self
                     .move_worth(ctx, c)
                     .into_iter()
@@ -375,6 +434,7 @@ impl Population {
                     going.push(c);
                     people = n;
                     gone_people.extend_from_slice(&x.members);
+                    freed += frees(c);
                     joined = true;
                 }
             }

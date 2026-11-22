@@ -2320,3 +2320,288 @@ fn a_household_that_moves_takes_the_wood_its_skipped_dishes_saved() {
         .expect("moved");
     assert!((moved - 1.5).abs() < 1e-12, "{moved} kg owed back");
 }
+
+/// A village crowded onto worn-out ground, for the coalition scenes: one settlement whose fields
+/// cover all its cropland within a field walk, each household working its share (the organizing
+/// household `small_share` of one household's need where asked), every field's last harvest
+/// giving no more than its seed back, so no household's fields will bring it anything and none is
+/// left vacant. Everyone regards everyone, every household holds food and seed enough to go, and
+/// the organizing household knows open ground two field walks out. Founding is weighed with
+/// moving's and founding's costs and the walk at nothing, so what decides who goes is the share of
+/// need the new ground would bring against the share staying would, and kin. Returns the world,
+/// the organizing household and the village's households.
+fn crowded_village(
+    small_share: Option<f64>,
+) -> (Sim, civ_core::PermanentId, Vec<civ_core::PermanentId>) {
+    use civ_land::soil::{HarvestRecord, Limit};
+    let mut sim = world(3, 50, &[]).expect("generates");
+    sim.advance_minutes(30 * 24 * 60).expect("lives");
+    {
+        let rules = sim.rules_mut_for_tests().expect("rules of its own");
+        rules.people.moving.cost = 0.0;
+        rules.people.founding.cost = 0.0;
+        rules.people.decision.w_walk_hour = 0.0;
+    }
+    let a = sim.land().settlements[0].id;
+    let hearth = sim.land().settlements[0].hearth_m;
+    let (organizer, _) = household_of(&sim, a);
+    let mut homes: Vec<_> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(a) && !x.members.is_empty())
+        .map(|(_, x)| x.id)
+        .collect();
+    homes.sort();
+    let reach = field_reach_m(&sim) as f32;
+    let patches = &sim.land().patches;
+    let site = (0..patches.class.len())
+        .find(|&p| {
+            let c = patches.centre_m(p);
+            let d = (c.0 - hearth.0).hypot(c.1 - hearth.1);
+            let cell = civ_agents::population::cell_of(sim.map(), c);
+            d > 2.0 * reach + 100.0
+                && d < 2.0 * reach + 1500.0
+                && sim.map().water[cell] == civ_world::WATER_LAND
+                && sim.nav().walkable(cell)
+                && f64::from(civ_world::terrain::slope_at(sim.map(), cell))
+                    <= sim.rules().people.band.site_max_slope
+        })
+        .expect("dry, gentle land two field walks out");
+    let (cropland, _, need) = sim
+        .with_ctx_for_tests(|pop, ctx| pop.founding_land_for_tests(ctx, organizer))
+        .expect("at home");
+    let (grain, seed, seed_kg, year) = {
+        let rules = sim.rules();
+        let crop = &rules.catalog.crops[rules.people.farm.crop];
+        let year = civ_land::fields::calendar_year(sim.now().day_index()) - 1;
+        (crop.good, crop.seed_good, crop.seed_kg_per_ha as f32, year)
+    };
+    // The fields now: last year's harvest gave back its seed and no more.
+    let worn = vec![HarvestRecord {
+        year,
+        kg_per_ha: seed_kg,
+        limit: Limit::Soil,
+    }];
+    let template = sim.land().fields[0].clone();
+    for f in sim.land_mut_for_tests().fields.iter_mut() {
+        f.soil.record = worn.clone();
+    }
+    // The rest of the cropland, in a field for each household on a ring about the hearth, so
+    // that nothing within a field walk is vacant.
+    let n = homes.len();
+    let organizer_ha = small_share.map(|s| s * need);
+    let rest_ha = cropland - organizer_ha.unwrap_or(0.0);
+    let others = if organizer_ha.is_some() { n - 1 } else { n };
+    for (i, &h) in homes.iter().enumerate() {
+        let ha = if h == organizer
+            && let Some(o) = organizer_ha
+        {
+            o
+        } else {
+            rest_ha / others as f64
+        };
+        let side = (ha * 1.0e4).sqrt();
+        let angle = std::f64::consts::TAU * i as f64 / n as f64;
+        let ring = 0.5 * f64::from(reach);
+        let (cx, cy) = (
+            f64::from(hearth.0) + ring * angle.cos(),
+            f64::from(hearth.1) + ring * angle.sin(),
+        );
+        let id = sim.allocate_id_for_tests();
+        let mut f = template.clone();
+        f.id = id;
+        f.household = h;
+        f.holder = civ_land::Party::Household(h);
+        f.lease = None;
+        f.rect = civ_land::RectCm {
+            x: ((cx - side / 2.0) * 100.0) as i32,
+            y: ((cy - side / 2.0) * 100.0) as i32,
+            w: (side * 100.0) as i32,
+            h: (side * 100.0) as i32,
+        };
+        f.soil.record = worn.clone();
+        sim.land_mut_for_tests().fields.push(f);
+    }
+    let day = sim.now().day_index();
+    let tp = sim.rules().people.ties.clone();
+    let pop = sim.people_mut_for_tests();
+    pop.forget_derived();
+    let people: Vec<_> = homes
+        .iter()
+        .flat_map(|&h| pop.household(h).expect("lives").members.clone())
+        .collect();
+    for &x in &people {
+        for &y in &people {
+            pop.ties
+                .record(x, y, civ_agents::ties::Act::Hearth, 2.0, 0.0, day, &tp);
+        }
+    }
+    for (_, x) in pop.households.iter_mut() {
+        if x.id == organizer {
+            x.known.push(civ_agents::person::KnownPatch {
+                resource: 0,
+                patch: site as u32,
+                rate: 1.0,
+                hours: 1.0,
+                seen_day: day,
+            });
+        }
+        for (good, kg) in [(grain, 2_000.0), (seed, 400.0)] {
+            x.stores[good] += kg;
+            x.flows.add(civ_agents::person::Flow::Brought, good, kg);
+        }
+    }
+    (sim, organizer, homes)
+}
+
+#[test]
+fn a_crowded_village_tied_by_regard_splinters_and_the_rest_stay_on_the_land_it_frees() {
+    // Found by the dashboard's world 2 (river_valley seed 2): a coalition took every household of
+    // its village, each weighing staying against the crowding as it was, without the land the
+    // coalition's going would free (ADR-0018 §1, §5). A household asked to join weighs staying
+    // with the fields of those already going counted as vacant: here the organizing household's
+    // share alone would give each household asked its need, so only those its kin's going draws
+    // go, and the parent keeps its people.
+    let (mut sim, organizer, homes) = crowded_village(None);
+    let ours = sim
+        .people()
+        .household(organizer)
+        .expect("lives")
+        .members
+        .clone();
+    // One household's member a child of the organizing household's eldest.
+    let child = homes
+        .iter()
+        .filter(|&&h| h != organizer)
+        .find_map(|&h| {
+            sim.people()
+                .household(h)
+                .expect("lives")
+                .members
+                .iter()
+                .copied()
+                .find(|&q| {
+                    sim.people()
+                        .person(q)
+                        .is_some_and(|p| p.age_years(sim.now()) >= 16.0)
+                })
+                .map(|q| (h, q))
+        })
+        .expect("an adult in another household");
+    {
+        let parent = ours[0];
+        let female = sim
+            .people()
+            .person(parent)
+            .is_some_and(|p| p.sex == civ_agents::Sex::Female);
+        let pop = sim.people_mut_for_tests();
+        let r = pop.records.get_mut(&child.1).expect("on record");
+        if female {
+            r.mother = Some(parent);
+        } else {
+            r.father = Some(parent);
+        }
+        pop.forget_derived();
+    }
+    let (members, _, worth) = sim
+        .with_ctx_for_tests(|pop, ctx| pop.founding_plan_for_tests(ctx, organizer, 0.0))
+        .expect("it would found");
+    assert!(worth > 0.0, "{worth}");
+    assert_eq!(members[0], organizer);
+    assert!(members.contains(&child.0), "its kin go: {members:?}");
+    assert!(
+        members.len() < homes.len() / 2,
+        "{} of {} households would go: {members:?}",
+        members.len(),
+        homes.len()
+    );
+    // Its plan wins two reviews and the coalition goes.
+    for _ in 0..2 {
+        sim.people_mut_for_tests().review_due.insert(organizer);
+        sim.advance_minutes(24 * 60).expect("lives");
+    }
+    let c = sim.people().coalitions.last().cloned().expect("on record");
+    assert_eq!(c.fate, civ_agents::places::CoalitionFate::Founded, "{c:?}");
+    assert!(c.members.len() < homes.len() / 2, "{c:?}");
+    // The village kept does not send the rest after them: a household staying that knows open
+    // ground of its own, weighing founding at its next review, would take a few households at
+    // most, since the fields of those going would be free for the rest.
+    let a = sim.land().settlements[0].id;
+    let lived: Vec<(f32, f32)> = sim
+        .land()
+        .settlements
+        .iter()
+        .filter(|s| s.abandoned.is_none())
+        .map(|s| s.hearth_m)
+        .collect();
+    let hearth = sim.land().settlements[0].hearth_m;
+    let reach = field_reach_m(&sim) as f32;
+    let patches = &sim.land().patches;
+    let site = (0..patches.class.len())
+        .find(|&p| {
+            let c = patches.centre_m(p);
+            let d = (c.0 - hearth.0).hypot(c.1 - hearth.1);
+            let cell = civ_agents::population::cell_of(sim.map(), c);
+            d < 2.0 * reach + 1500.0
+                && lived
+                    .iter()
+                    .all(|h| (h.0 - c.0).hypot(h.1 - c.1) > 2.0 * reach + 100.0)
+                && sim.map().water[cell] == civ_world::WATER_LAND
+                && sim.nav().walkable(cell)
+                && f64::from(civ_world::terrain::slope_at(sim.map(), cell))
+                    <= sim.rules().people.band.site_max_slope
+        })
+        .expect("more open ground two field walks out");
+    let day = sim.now().day_index();
+    let staying: Vec<_> = homes
+        .iter()
+        .copied()
+        .filter(|&h| {
+            sim.people()
+                .household(h)
+                .is_some_and(|x| x.settlement == Some(a) && !x.members.is_empty())
+        })
+        .collect();
+    assert!(staying.len() > homes.len() / 2, "{staying:?}");
+    let next = staying[0];
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == next {
+            x.known.push(civ_agents::person::KnownPatch {
+                resource: 0,
+                patch: site as u32,
+                rate: 1.0,
+                hours: 1.0,
+                seen_day: day,
+            });
+        }
+    }
+    let again = sim
+        .with_ctx_for_tests(|pop, ctx| pop.founding_plan_for_tests(ctx, next, 0.0))
+        .map_or(0, |(m, _, _)| m.len());
+    assert!(
+        again < staying.len() / 2,
+        "{again} of the {} households staying would go next",
+        staying.len()
+    );
+}
+
+#[test]
+fn a_crowded_village_still_splinters_while_what_the_goers_free_leaves_staying_short() {
+    // The same crowded village, the organizing household working only a fifth of one household's
+    // need: what its going frees leaves a household asked short, so households tied to it only by
+    // regard still go with it, until what those going free would give the rest their need. A
+    // small coalition goes; the village keeps most of its households.
+    let (mut sim, organizer, homes) = crowded_village(Some(0.2));
+    let (members, _, _) = sim
+        .with_ctx_for_tests(|pop, ctx| pop.founding_plan_for_tests(ctx, organizer, 0.0))
+        .expect("it would found");
+    assert_eq!(members[0], organizer);
+    assert!(members.len() >= 2, "a coalition goes: {members:?}");
+    assert!(
+        members.len() < homes.len() / 2,
+        "{} of {} households would go: {members:?}",
+        members.len(),
+        homes.len()
+    );
+}

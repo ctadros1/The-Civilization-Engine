@@ -282,7 +282,7 @@ impl Population {
     /// Under allocation by need, a field whose household is no more; under holders, ground whose
     /// holder is no household of the living (it left, died out with no heir, or the ground went
     /// back to the settlement).
-    fn vacant(&self, regime_use: LandUse, f: &Field) -> bool {
+    pub(super) fn vacant(&self, regime_use: LandUse, f: &Field) -> bool {
         match regime_use {
             LandUse::Need => self.household(f.household).is_none(),
             LandUse::Holder => match f.holder {

@@ -237,16 +237,19 @@ impl Population {
     }
 
     /// Hectares that could still be cropped within a field walk of `hearth`: its cropland less
-    /// the fields there now, whoever's (none below nothing).
+    /// the fields there now, whoever's (none below nothing). A field the regime counts as vacant
+    /// (its household is no more: it left, or died out with no heir) is the settlement's to give
+    /// at its next review (`review_land`), so it counts as ground to be had, not as cropped.
     fn vacant_cropland(&self, ctx: &Ctx, hearth: (f32, f32)) -> f64 {
         let reach = crate::found::field_reach_m(ctx.params);
+        let regime_use = ctx.regime.land_use;
         let cropped: f64 = ctx
             .land
             .fields
             .iter()
             .filter(|f| {
                 let c = f.rect.centre_m();
-                (c.0 - hearth.0).hypot(c.1 - hearth.1) <= reach
+                (c.0 - hearth.0).hypot(c.1 - hearth.1) <= reach && !self.vacant(regime_use, f)
             })
             .map(civ_land::Field::area_ha)
             .sum();

@@ -2841,3 +2841,58 @@ fn a_household_with_more_kin_going_than_staying_still_goes() {
         .expect("weighed");
     assert!(members.contains(&kin_home), "{members:?}");
 }
+
+/// Home's vacant cropland counts a field whose household is no more as ground to be had: the
+/// regime gives it out at the settlement's next review, so it is no more cropped than open ground
+/// (ADR-0018 §5; ADR-0007 §2). The same field worked by a household of the living is cropped.
+#[test]
+fn a_field_whose_household_is_no_more_counts_as_vacant_at_home() {
+    let mut sim = world(3, 50, &[]).expect("generates");
+    sim.advance_minutes(30 * 24 * 60).expect("lives");
+    let a = sim.land().settlements[0].id;
+    let hearth = sim.land().settlements[0].hearth_m;
+    let (organizer, _) = household_of(&sim, a);
+    let vacant = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.founding_land_for_tests(ctx, organizer))
+            .expect("at home")
+            .1
+    };
+    let before = vacant(&mut sim);
+    let side_m = 50.0f32;
+    let area = f64::from(side_m * side_m) / 1.0e4;
+    assert!(
+        before > 2.0 * area,
+        "{before} ha vacant: too little for the scene"
+    );
+    // A field beside the hearth, worked and held by a household that is no more.
+    let gone = sim.allocate_id_for_tests();
+    assert!(sim.people().household(gone).is_none());
+    let id = sim.allocate_id_for_tests();
+    let mut f = sim.land().fields[0].clone();
+    f.id = id;
+    f.household = gone;
+    f.holder = civ_land::Party::Household(gone);
+    f.lease = None;
+    f.left_by = None;
+    f.rect = civ_land::RectCm {
+        x: ((hearth.0 + 20.0) * 100.0) as i32,
+        y: ((hearth.1 + 20.0) * 100.0) as i32,
+        w: (side_m * 100.0) as i32,
+        h: (side_m * 100.0) as i32,
+    };
+    sim.land_mut_for_tests().fields.push(f);
+    let with_gone = vacant(&mut sim);
+    assert!(
+        (with_gone - before).abs() < 1e-9,
+        "{before} ha vacant before, {with_gone} with the field of a household no more"
+    );
+    // Given to the organizing household, the same field is cropped.
+    let f = sim.land_mut_for_tests().fields.last_mut().expect("pushed");
+    f.household = organizer;
+    f.holder = civ_land::Party::Household(organizer);
+    let with_living = vacant(&mut sim);
+    assert!(
+        (before - with_living - area).abs() < 1e-6,
+        "{before} ha vacant before, {with_living} with the organizer's {area} ha field"
+    );
+}

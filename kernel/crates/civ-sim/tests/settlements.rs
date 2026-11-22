@@ -2605,3 +2605,95 @@ fn a_crowded_village_still_splinters_while_what_the_goers_free_leaves_staying_sh
         homes.len()
     );
 }
+
+#[test]
+fn founding_is_worth_more_than_staying_only_by_kin_and_grievance_when_both_lands_suffice() {
+    // Recruit diagnostic run 106 (world 2 alone): households joined whole-village coalitions with
+    // staying's share of need at its cap (stake 1.00, 248 ha vacant against a rest-need of 38)
+    // and the site's at its cap too (240 ha). Both shares are capped at 1, so the land weighs
+    // nothing either way; what carries a household asked is its close kin among those going and
+    // its grievance, against moving's and founding's costs and the walk. Under the content's
+    // rules: a household with neither stays; each close kin going adds `w_kin`.
+    let mut sim = world(3, 50, &[]).expect("generates");
+    sim.advance_minutes(30 * 24 * 60).expect("lives");
+    let a = sim.land().settlements[0].id;
+    let hearth = sim.land().settlements[0].hearth_m;
+    let (organizer, parent) = household_of(&sim, a);
+    let reach = field_reach_m(&sim) as f32;
+    let patches = &sim.land().patches;
+    let site = (0..patches.class.len())
+        .map(|p| patches.centre_m(p))
+        .find(|&c| {
+            let d = (c.0 - hearth.0).hypot(c.1 - hearth.1);
+            let cell = civ_agents::population::cell_of(sim.map(), c);
+            d > 2.0 * reach + 100.0
+                && d < 2.0 * reach + 1500.0
+                && sim.map().water[cell] == civ_world::WATER_LAND
+                && sim.nav().walkable(cell)
+                && f64::from(civ_world::terrain::slope_at(sim.map(), cell))
+                    <= sim.rules().people.band.site_max_slope
+        })
+        .expect("dry, gentle land two field walks out");
+    let going = vec![organizer];
+    let parts = |sim: &mut Sim, h| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.found_parts_for_tests(ctx, h, site, &going, 0.0))
+            .expect("weighed")
+    };
+    let mut homes: Vec<_> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(a) && !x.members.is_empty() && x.id != organizer)
+        .map(|(_, x)| x.id)
+        .collect();
+    homes.sort();
+    let apart = homes
+        .iter()
+        .copied()
+        .find(|&h| {
+            let p = parts(&mut sim, h);
+            p.kin == 0 && p.grievance == 0.0
+        })
+        .expect("a household with no kin among those going and no grievance");
+    let (mp, fp, walk_w) = {
+        let p = &sim.rules().people;
+        (p.moving.clone(), p.founding.clone(), p.decision.w_walk_hour)
+    };
+    let p = parts(&mut sim, apart);
+    // Both shares at their cap: the land weighs nothing.
+    assert_eq!((p.there, p.here), (1.0, 1.0), "{p:?}");
+    let formula = |p: &civ_agents::population::FoundParts| {
+        mp.w_stake * (p.there - p.here) + mp.w_grievance * p.grievance + mp.w_kin * p.kin as f64
+            - mp.cost
+            - fp.cost
+            - walk_w * p.walk_h
+    };
+    assert!((p.worth - formula(&p)).abs() < 1e-9, "{p:?}");
+    assert!(
+        p.worth < 0.0,
+        "with neither kin going nor grievance it stays: {p:?}"
+    );
+    // Its member a child of the organizing household's eldest: kin among those going.
+    let child = sim.people().household(apart).expect("lives").members[0];
+    {
+        let female = sim
+            .people()
+            .person(parent)
+            .is_some_and(|q| q.sex == civ_agents::Sex::Female);
+        let pop = sim.people_mut_for_tests();
+        let r = pop.records.get_mut(&child).expect("on record");
+        if female {
+            r.mother = Some(parent);
+        } else {
+            r.father = Some(parent);
+        }
+        pop.forget_derived();
+    }
+    let q = parts(&mut sim, apart);
+    assert!(q.kin >= 1, "{q:?}");
+    assert_eq!((q.there, q.here), (1.0, 1.0), "{q:?}");
+    assert!(
+        (q.worth - p.worth - mp.w_kin * q.kin as f64).abs() < 1e-9,
+        "{p:?} {q:?}"
+    );
+}

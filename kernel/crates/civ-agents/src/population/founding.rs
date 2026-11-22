@@ -30,6 +30,21 @@ struct Ground {
     vacant: f64,
 }
 
+/// What founding is worth to a household and what it is made of: the share of the coalition's
+/// need the site would bring and the share staying would (each at most 1), its close kin among
+/// the households going, its most keenly felt grievance, the walk there in hours, and the worth
+/// in moving's points.
+#[doc(hidden)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FoundParts {
+    pub there: f64,
+    pub here: f64,
+    pub kin: usize,
+    pub grievance: f64,
+    pub walk_h: f64,
+    pub worth: f64,
+}
+
 /// A plan to found: where, what it is worth to the household that weighs it, and who would go
 /// (that household first) with how many people.
 #[derive(Clone, Debug, PartialEq)]
@@ -261,10 +276,21 @@ impl Population {
         going: &[PermanentId],
         people: u32,
     ) -> f64 {
+        self.found_parts(ctx, household, ground, going, people)
+            .map_or(f64::NEG_INFINITY, |p| p.worth)
+    }
+
+    /// [`Self::found_worth`] and what it is made of.
+    fn found_parts(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+        ground: &Ground,
+        going: &[PermanentId],
+        people: u32,
+    ) -> Option<FoundParts> {
         let (site, vacant) = (ground.site, ground.vacant);
-        let Some(x) = self.household(household) else {
-            return f64::NEG_INFINITY;
-        };
+        let x = self.household(household)?;
         let (mp, fp) = (&ctx.params.moving, &ctx.params.founding);
         let need_there = Self::crop_need_ha(ctx, people.max(1), fp.yield_share);
         let there = if need_there > 0.0 {
@@ -301,12 +327,48 @@ impl Population {
                 / ctx.nav.params().top_speed_ms().max(0.1)
                 / 3600.0
         });
-        mp.w_stake * (there - here)
-            + mp.w_grievance * self.grievance_of(ctx, household)
-            + mp.w_kin * kin as f64
-            - mp.cost
-            - fp.cost
-            - ctx.params.decision.w_walk_hour * walk_h
+        let grievance = self.grievance_of(ctx, household);
+        let worth =
+            mp.w_stake * (there - here) + mp.w_grievance * grievance + mp.w_kin * kin as f64
+                - mp.cost
+                - fp.cost
+                - ctx.params.decision.w_walk_hour * walk_h;
+        Some(FoundParts {
+            there,
+            here,
+            kin,
+            grievance,
+            walk_h,
+            worth,
+        })
+    }
+
+    /// For tests: what founding at `site` with the households `going` is worth to `household`,
+    /// and what it is made of, with `freed_ha` hectares counted vacant at home besides
+    /// ([`Self::recruit`]).
+    #[doc(hidden)]
+    pub fn found_parts_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+        site: (f32, f32),
+        going: &[PermanentId],
+        freed_ha: f64,
+    ) -> Option<FoundParts> {
+        let home = self.household(household)?.settlement?;
+        let hearth = ctx.land.settlements.iter().find(|s| s.id == home)?.hearth_m;
+        let ground = Ground {
+            site,
+            site_ha: crate::found::cropland_ha(ctx, ctx.params, site),
+            vacant: self.vacant_cropland(ctx, hearth) + freed_ha,
+        };
+        let people = going
+            .iter()
+            .chain(std::iter::once(&household))
+            .filter_map(|&h| self.household(h))
+            .map(|x| x.members.len() as u32)
+            .sum();
+        self.found_parts(ctx, household, &ground, going, people)
     }
 
     /// The households of `home` that would go with `organizer` to found on `ground`, the organizer

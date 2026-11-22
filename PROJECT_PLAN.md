@@ -11431,7 +11431,10 @@ and M6a gives rivers a daily flow.
       household weighing founding counts each close kin among those going (2 points each) but
       not the kin it would leave, as moving counts kin there less kin at home, so kin can still
       carry a coalition far; and why run 103's new settlements failed within a year or two and
-      their people came back, which this change does not touch.
+      their people came back, which this change does not touch; and home's vacant cropland
+      (`vacant_cropland`) counts every field within a field walk as cropped, a field left by a
+      household gone among them, so until the regime gives such a field to another household it
+      still counts against vacant land.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's

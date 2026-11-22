@@ -129,10 +129,10 @@ jobs:
         run: |
           set -euo pipefail
           cargo build --locked --release -p civ-host
-          # Diagnostic (claude/w2-diag, not for landing): the dashboard's world 2 alone, a line a
+          # Diagnostic (claude/w2-depart-diag, not for landing): the dashboard's world 2 alone, a line a
           # year from year 30, for its late collapse in 8 of 10 long samples.
-          TCE_DASH_ONLY=2 TCE_W2_DIAG=1 target/release/civ-host dashboard --json "$RUNNER_TEMP/dashboard.json" 2>&1 \
-            | grep -E 'W2DIAG|^world|^2 |RED|passed|FAILED' || true
+          TCE_DASH_ONLY=2 TCE_W2_DIAG=1 TCE_RECRUIT_DIAG=1 TCE_DEPART_DIAG=1 target/release/civ-host dashboard --json "$RUNNER_TEMP/dashboard.json" 2>&1 \
+            | grep -E 'W2DIAG|RECRUIT|GATHER|FOUNDED|DEPART|^world|^2 |RED|passed|FAILED' || true
       - name: Keep gate reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

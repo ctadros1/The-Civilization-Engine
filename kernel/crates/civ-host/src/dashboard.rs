@@ -1875,7 +1875,7 @@ fn w2_diag(
         }
     }
     let need = params.household.daily_kcal_per_person;
-    let mut days: Vec<f64> = households
+    let days_of: Vec<f64> = households
         .iter()
         .map(|x| {
             let st = civ_agents::population::stores_now(x, sim.now(), params, goods);
@@ -1888,6 +1888,7 @@ fn w2_diag(
             kcal / (x.members.len().max(1) as f64 * need)
         })
         .collect();
+    let mut days = days_of.clone();
     days.sort_by(f64::total_cmp);
     let median = days.get(days.len() / 2).copied().unwrap_or(0.0);
     let short = days.iter().filter(|&&d| d < 30.0).count();
@@ -1920,6 +1921,23 @@ fn w2_diag(
         *stages.entry(format!("{:?}", f.stage)).or_default() += 1;
     }
     let grain = rules.catalog.crops.get(params.farm.crop).map(|c| c.good);
+    // Diagnostic (claude/w2-depart-diag): each settlement's own fields (those its households
+    // work, and a field nobody works the settlement's whose hearth is nearest), with the latest
+    // season's harvest there, its fields by stage and its households' food in days.
+    let owner = |f: &civ_land::Field| {
+        pop.household(f.household)
+            .and_then(|x| x.settlement)
+            .or_else(|| {
+                let c = f.rect.centre_m();
+                land.settlements
+                    .iter()
+                    .min_by(|a, b| {
+                        let d = |h: (f32, f32)| (h.0 - c.0).hypot(h.1 - c.1);
+                        d(a.hearth_m).total_cmp(&d(b.hearth_m))
+                    })
+                    .map(|s| s.id)
+            })
+    };
     let places: Vec<String> = land
         .settlements
         .iter()
@@ -1927,7 +1945,45 @@ fn w2_diag(
             let ask = grain
                 .and_then(|g| pop.market(s.id).and_then(|m| m.price_h(g)))
                 .map_or_else(|| "-".to_owned(), |h| format!("{h:.2}"));
-            format!("{} {} ask {ask}", s.name, pop.residents(s.id))
+            let mine: Vec<&civ_land::Field> = land
+                .fields
+                .iter()
+                .filter(|f| owner(f) == Some(s.id))
+                .collect();
+            let got: Vec<f32> = mine
+                .iter()
+                .flat_map(|f| {
+                    f.soil
+                        .record
+                        .iter()
+                        .filter(|r| r.year == year)
+                        .map(|r| r.kg_per_ha)
+                })
+                .collect();
+            let got_mean = if got.is_empty() {
+                0.0
+            } else {
+                got.iter().sum::<f32>() / got.len() as f32
+            };
+            let mut st: BTreeMap<String, u32> = BTreeMap::new();
+            for f in &mine {
+                *st.entry(format!("{:?}", f.stage)).or_default() += 1;
+            }
+            let mut food: Vec<f64> = households
+                .iter()
+                .zip(&days_of)
+                .filter(|(x, _)| x.settlement == Some(s.id))
+                .map(|(_, &d)| d)
+                .collect();
+            food.sort_by(f64::total_cmp);
+            let food_median = food.get(food.len() / 2).copied().unwrap_or(0.0);
+            format!(
+                "{} {} ask {ask} reaped {} mean {got_mean:.0} kg/ha stages {st:?} food median \
+                 {food_median:.0}",
+                s.name,
+                pop.residents(s.id),
+                got.len(),
+            )
         })
         .collect();
     eprintln!(

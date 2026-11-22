@@ -30,6 +30,25 @@ struct Ground {
     vacant: f64,
 }
 
+/// What founding is worth to a household and what it is made of: the share of the coalition's
+/// need the site would bring and the share staying would (each at most 1), its close kin among
+/// the households going and staying at home, how well its members know those going and those
+/// staying, its most keenly felt grievance, the walk there in hours, and the worth in moving's
+/// points.
+#[doc(hidden)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FoundParts {
+    pub there: f64,
+    pub here: f64,
+    pub kin: usize,
+    pub kin_home: usize,
+    pub known: f64,
+    pub known_home: f64,
+    pub grievance: f64,
+    pub walk_h: f64,
+    pub worth: f64,
+}
+
 /// A plan to found: where, what it is worth to the household that weighs it, and who would go
 /// (that household first) with how many people.
 #[derive(Clone, Debug, PartialEq)]
@@ -102,13 +121,16 @@ impl Population {
         };
         let alone = vec![household];
         // Every close kin coming could not carry it past its best plan: no coalition is sought.
-        let kin_all = x
-            .members
-            .iter()
-            .map(|&m| self.close_kin(m).len())
-            .sum::<usize>();
-        let most = self.found_worth(ctx, household, &ground, &alone, x.members.len() as u32)
-            + ctx.params.moving.w_kin * kin_all as f64;
+        // Going alone leaves every kin and everyone known at home; were they all to come, kin and
+        // ties would weigh as much for it as they weigh against it alone.
+        let mp = &ctx.params.moving;
+        let most = self
+            .found_parts(ctx, household, &ground, &alone, x.members.len() as u32)
+            .map_or(f64::NEG_INFINITY, |p| {
+                p.worth
+                    + 2.0 * mp.w_kin * p.kin_home as f64
+                    + 2.0 * mp.w_ties * p.known_home / (1.0 + p.known_home)
+            });
         if most <= best_move.max(0.0) {
             return None;
         }
@@ -126,11 +148,12 @@ impl Population {
     /// founding is worth to it, beside a best other plan worth `best_move`.
     #[doc(hidden)]
     pub fn founding_plan_for_tests(
-        &self,
+        &mut self,
         ctx: &Ctx,
         household: PermanentId,
         best_move: f64,
     ) -> Option<(Vec<PermanentId>, u32, f64)> {
+        self.refresh_kin();
         self.founding_plan(ctx, household, best_move)
             .map(|p| (p.members, p.people, p.worth))
     }
@@ -251,8 +274,9 @@ impl Population {
     /// `household`, points (ADR-0018 §5; the people profile's `[founding]`): the share of their
     /// yearly need the site's cropland would bring at a low share of the believed yield, against
     /// the share its own fields and home's vacant cropland would; its most keenly felt grievance;
-    /// its close kin among the households going; against moving's cost and founding's besides,
-    /// and the walk there once.
+    /// kin and those known as moving weighs them, its close kin among the households going less
+    /// those staying at home and how well its members know those going against those staying;
+    /// against moving's cost and founding's besides, and the walk there once.
     fn found_worth(
         &self,
         ctx: &Ctx,
@@ -261,10 +285,21 @@ impl Population {
         going: &[PermanentId],
         people: u32,
     ) -> f64 {
+        self.found_parts(ctx, household, ground, going, people)
+            .map_or(f64::NEG_INFINITY, |p| p.worth)
+    }
+
+    /// [`Self::found_worth`] and what it is made of.
+    fn found_parts(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+        ground: &Ground,
+        going: &[PermanentId],
+        people: u32,
+    ) -> Option<FoundParts> {
         let (site, vacant) = (ground.site, ground.vacant);
-        let Some(x) = self.household(household) else {
-            return f64::NEG_INFINITY;
-        };
+        let x = self.household(household)?;
         let (mp, fp) = (&ctx.params.moving, &ctx.params.founding);
         let need_there = Self::crop_need_ha(ctx, people.max(1), fp.yield_share);
         let there = if need_there > 0.0 {
@@ -281,13 +316,40 @@ impl Population {
         } else {
             1.0
         };
-        let mut kin = 0usize;
+        // Kin and those known as moving weighs them (ADR-0018 §5, `move_worth`): close kin of a
+        // member among the households going less those staying at home, outside the household;
+        // how well its members know those going against those staying.
+        let home = x.settlement;
+        let side = |q: PermanentId| -> Option<bool> {
+            let h = self.person(q)?.household;
+            if h == household {
+                return None;
+            }
+            if going.contains(&h) {
+                Some(true)
+            } else {
+                let at = self.household(h)?.settlement;
+                (at.is_some() && at == home).then_some(false)
+            }
+        };
+        let (mut kin, mut kin_home) = (0usize, 0usize);
+        let (mut known, mut known_home) = (0.0, 0.0);
+        let day = ctx.now.day_index();
         for &m in &x.members {
             for q in self.close_kin(m) {
-                let goes = self
-                    .person(q)
-                    .is_some_and(|p| p.household != household && going.contains(&p.household));
-                kin += usize::from(goes);
+                match side(q) {
+                    Some(true) => kin += 1,
+                    Some(false) => kin_home += 1,
+                    None => {}
+                }
+            }
+            for t in self.ties.of(m) {
+                let k = t.known_at(day, &ctx.params.ties);
+                match side(t.to) {
+                    Some(true) => known += k,
+                    Some(false) => known_home += k,
+                    None => {}
+                }
             }
         }
         let walk_h = x.settlement.map_or(0.0, |home| {
@@ -301,12 +363,55 @@ impl Population {
                 / ctx.nav.params().top_speed_ms().max(0.1)
                 / 3600.0
         });
-        mp.w_stake * (there - here)
-            + mp.w_grievance * self.grievance_of(ctx, household)
-            + mp.w_kin * kin as f64
+        let grievance = self.grievance_of(ctx, household);
+        let sat = |s: f64| s / (1.0 + s);
+        let worth = mp.w_stake * (there - here)
+            + mp.w_grievance * grievance
+            + mp.w_kin * (kin as f64 - kin_home as f64)
+            + mp.w_ties * (sat(known) - sat(known_home))
             - mp.cost
             - fp.cost
-            - ctx.params.decision.w_walk_hour * walk_h
+            - ctx.params.decision.w_walk_hour * walk_h;
+        Some(FoundParts {
+            there,
+            here,
+            kin,
+            kin_home,
+            known,
+            known_home,
+            grievance,
+            walk_h,
+            worth,
+        })
+    }
+
+    /// For tests: what founding at `site` with the households `going` is worth to `household`,
+    /// and what it is made of, with `freed_ha` hectares counted vacant at home besides
+    /// ([`Self::recruit`]).
+    #[doc(hidden)]
+    pub fn found_parts_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        household: PermanentId,
+        site: (f32, f32),
+        going: &[PermanentId],
+        freed_ha: f64,
+    ) -> Option<FoundParts> {
+        self.refresh_kin();
+        let home = self.household(household)?.settlement?;
+        let hearth = ctx.land.settlements.iter().find(|s| s.id == home)?.hearth_m;
+        let ground = Ground {
+            site,
+            site_ha: crate::found::cropland_ha(ctx, ctx.params, site),
+            vacant: self.vacant_cropland(ctx, hearth) + freed_ha,
+        };
+        let people = going
+            .iter()
+            .chain(std::iter::once(&household))
+            .filter_map(|&h| self.household(h))
+            .map(|x| x.members.len() as u32)
+            .sum();
+        self.found_parts(ctx, household, &ground, going, people)
     }
 
     /// The households of `home` that would go with `organizer` to found on `ground`, the organizer

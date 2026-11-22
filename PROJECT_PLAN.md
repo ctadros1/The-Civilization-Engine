@@ -11430,11 +11430,51 @@ and M6a gives rivers a daily flow.
       (a long run on this change); what else may draw a whole village after its organizer: a
       household weighing founding counts each close kin among those going (2 points each) but
       not the kin it would leave, as moving counts kin there less kin at home, so kin can still
-      carry a coalition far; and why run 103's new settlements failed within a year or two and
+      carry a coalition far (done the same day, see the next entry); and why run 103's new settlements failed within a year or two and
       their people came back, which this change does not touch; and home's vacant cropland
       (`vacant_cropland`) counts every field within a field walk as cropped, a field left by a
       household gone among them, so until the regime gives such a field to another household it
       still counts against vacant land.
+    - *Founding scores kin and ties as moving does (2026-11-22)* (§9, "Founding scores kin and
+      ties as moving does"; the previous entry's "Not yet"; recruit diagnostic run 106). **The
+      fault:** run 106 (`claude/w2-recruit-diag` 7ada76d, on 1e63d03, world 2 alone) still
+      collapsed, 175 to 6 by year 44, and its RECRUIT lines showed the land was not what moved
+      people: staying's share was at its cap (stake 1.00, 188-248 ha vacant against a rest-need of
+      29-38 ha), and so was the site's (240-264 ha). Sedgestead's 28 households all went (27
+      joined, 23 of them with two or more close kin going), and 18 of Thornbank's 22. Both shares
+      are capped at 1, so the land weighed nothing either way. What carried a household asked was
+      founding's kin term: 2 points for each close kin among those going, with nothing against
+      the kin it would leave, and no ties at all. Moving weighs kin there less kin at home and
+      those known there against those known at home (`move_worth`, ADR-0018 §5). In a village 40
+      years old, one person whose parent and three brothers and sisters go brings 8 points, so
+      each household joining carried its kin's households over and the village went whole.
+      **Fixed:** founding scores kin and ties by moving's rule, with moving's pairing and weights.
+      Kin: `w_kin` for each close kin of a member among the households going, less each staying at
+      home, outside the household. Ties: `w_ties·(sat(known among those going) − sat(known
+      staying))`, `sat(s) = s/(1+s)`. The organizing household's bound for seeking a coalition is
+      what going alone is worth, plus what kin and ties would weigh were they all to come, so it is
+      still an upper bound. `found_worth` is now `found_parts` (what founding is worth to a
+      household and what it is made of), with a hook, `found_parts_for_tests`; the hooks index who
+      is whose child before they weigh. No new number. **Tested:** settlements (32, three new, one
+      restaged). The kin-dense village (one member of every household a child of the organizing
+      household's eldest) failed first, 10 of 10 households going; with the fix no more than half
+      go. A household whose member's parent and brothers and sisters all go, and none of whose
+      kin stay, still goes. 5a7c050's scene checks the formula's parts: with both lands
+      sufficing, both shares are 1, a household with no kin going and no grievance comes out
+      below nothing, and each close kin going adds `w_kin`. The two crowded-village scenes still
+      pass. Slice AO's founding scene (a household gathers its kin and founds a settlement when
+      they hold enough to go) now stages founding as worth something to a household alone with
+      moving's cost at −40, not −1, since going alone weighs the four children's households it
+      leaves; the story it tells is unchanged. The whole civ-sim suite (88 targets, 956 tests),
+      the unit tests; smoke (all 10 pass); fmt,
+      clippy and the schema check clean. **The notables' gate**, locally, against 1e63d03:
+      passes, 0 of 40 runs changed, every difference, t and detects the same (fixture 1
+      proposals +53.8 %, t +2.97, detects 54.3 %; enacted +28.2 %, +1.63, 51.9 %; offices
+      +0.0 %, +0.00, 44.7 %; food moved by the polity −4.6 %, −0.32, 42.3 %; fixture 2 +16.1 %,
+      +0.71, 67.7 %; +24.6 %, +1.45, 50.9 %; +7.1 %, +0.29, 74.6 %; +20.0 %, +0.89, 67.8 %); its
+      fixtures found no coalition. **Not yet:** whether world 2 now lives 50 years (a long run on this change);
+      whether a kin-dense village still tips whole once more of a household's kin go than stay;
+      and why run 103's new settlements failed within a year or two.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
@@ -14897,5 +14937,6 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **The fifteenth coverage pass (2026-11-21; §8 21):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. 14607bc's and 9254e51's edges were pinned by scenes and the field scan's cost timed (no measurable difference). One fault was fixed: a household that could not make a motor cart no longer takes one up unheld, matching the weighing that leaves motor carts out for it. **Reason:** one rule for weighing and taking up, as 9254e51 meant; a motor cart's fuel is weighed by its own rules. The gate: 0 of 40 runs changed.
 - **The scan for neighbours' fields bounded by the fastest walk (2026-11-21; the fifteenth pass's "Not yet"):** Decided by Claude under standing owner authority (2026-11-21), at the coordinator's direction. The straight line `best_job` looks for another settlement's fields within is the work's walk at Tobler's top speed, the fastest pace walking allows, rather than its level pace. **Reason:** the line only narrows which offers are reckoned, and the walk decides; bounding it by the fastest pace means it can never cut one the walk would allow. A sloped-land scene could not be staged (walks within 30 minutes reach a few hundred metres on generated land), so the scene pins the bound. The gate: 0 of 40 runs changed.
 - **A coalition counts the land its going frees (2026-11-22; the dashboard's world 2):** Decided by Claude under standing owner authority (2026-11-22), at the coordinator's direction. A household asked to join a coalition weighs staying with the fields of the households already going, within a field walk of home, counted as vacant cropland, recomputed as each joins; staying's share stays capped at 1, and the organizing household's own first weighing is unchanged. **Reason:** ADR-0018 §1 and §5 have households choose among plans, each scored by the food it forecasts there against here; staying was forecast against a crowd that the coalition's own going would empty, a reckoning error that let a crowded village go whole (world 2's late collapse). No size threshold is needed or added: ADR-0018 rejected splitting a village at a size (no report gives one), and here the coalition stops where those staying would have the land they need, which the scenes show for a village crowded onto worn-out ground; a village kept this way sends at most a few households after them at the next review, not the rest. Not covered: kin, counted for those going and not those left, and settlements that fail and send their people back (run 103). The gate: 0 of 40 runs changed.
+- **Founding scores kin and ties as moving does (2026-11-22; the dashboard's world 2, recruit diagnostic run 106):** Decided by Claude under standing owner authority (2026-11-22), at the coordinator's direction. A household weighing founding scores kin and those known by moving's own rule (`move_worth`): `w_kin` for each close kin of a member among the households going less each staying at home, outside the household, and `w_ties·(sat(known among those going) − sat(known staying))`, with moving's pairing and weights. **Reason:** ADR-0018 §5 scores every plan (stay, join, found, leave the map) on the same terms, among them kin and ties near. Founding counted the kin going and not the kin left, and no ties, so where both lands sufficed (run 106: staying's and the site's shares both at their cap of 1) each household joining carried its kin's households over and villages went whole. Moving's rule applied to founding is no new number and no size threshold (ADR-0018 rejected one). The organizing household's bound for seeking a coalition stays an upper bound. The gate: 0 of 40 runs changed.
 - **Flooding: water and walkability stay daily (2026-11-20; the owner's call; answers long run 67's and run 80's walking-grid question):** Decided by the owner (2026-11-20), relayed by the coordinator. The walking ground and its landmarks stay laid again for each day's flood depths. **Reason, the owner's words:** "Weekly walkability could leave flooded routes usable—or reopened routes blocked—for several days, changing travel, food access and survival." Option (a), the walking ground changing in coarser steps, is **declined**. Reducing or rebuilding the route structures incrementally, with today's water restrictions kept, is left for later (§8 22, third).
 - **"Moved" in the notables' gate means food moved by the polity (2026-11-20; the owner's acceptance criteria, relayed by the coordinator):** the notables' `moved` aggregate measures the polity's food collection and redistribution, not migration. In earlier entries, "moved" means food transfers. Its tolerance here is 95 %, recalibrated, against main's 25 %. From now on gate figures call it "food moved by the polity", and a change in behaviour is told apart from a changed acceptance criterion.

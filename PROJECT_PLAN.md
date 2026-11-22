@@ -10840,6 +10840,11 @@ and M6a gives rivers a daily flow.
       so the probe's reading holds: a body is found only by a walk within 50 m of it, which their
       walks do not make. Thorndale's and Stonefield's wanters are as before; nothing of M11 was
       built or proposed anywhere.
+      **Demo run 99** on development 58264d4 (node4, 2026-11-22): 8 years, 2,920 days, 933 people
+      in 6 settlements; saved 21.1 MB and loaded 933 against 933; 0.95 s a day (p50 0.44, p95
+      3.79). Against demo 91 on 0acf11e: 928 people, 0.93 s a day. The day's slices changed
+      nothing the demo shows: still no M11 instrument built, no M11 law proposed; Thorndale holds
+      7 of 2,000 kg of iron ore kept.
     - *Research 08-24, §7 (2026-11-20): the dishes' wood a kilogram, checked once built* (§9, "The
       dishes' figures checked"; §8 21, sixth). The figures the dish-skipping hearth charges were
       read again. **Groats hold:** USDA's plain oatmeal cooked with water is 71 kcal a 100 g against
@@ -11347,6 +11352,19 @@ and M6a gives rivers a daily flow.
       +1.63, 51.9 %; offices +0.0 %, +0.00, 44.7 %; food moved by the polity −4.6 %, −0.32,
       42.3 %; fixture 2 +16.1 %, +0.71, 67.7 %; +24.6 %, +1.45, 50.9 %; +7.1 %, +0.29, 74.6 %;
       +20.0 %, +0.89, 67.8 %). **Not yet:** nothing.
+    - *A hand come for hire to a field whose work has gone (2026-11-22): paid nothing, checked*
+      (§8 23, fifth; run 100's probe). Of 1,110 sessions of field work by hands of another
+      settlement in run 100, 27 found the field needing nothing and 1 found it to be tended, which
+      nobody offers for hire. **Not a fault:** an offer is read when the hand weighs the day, and
+      the field may change before they arrive (reaped and threshed by others, or sown since);
+      `hired_reaping` routes by what the field needs on arrival, and with nothing to reap the
+      reaping wage is nil, so it stops before any work, wear or pay. The session is lost to the
+      hand, as a walk to a seller sold out is. **Tested:** people (45, one new: a hand sent to a
+      field reaped and threshed, and to one sown and growing, is paid nothing, does nothing, wears
+      nothing, and the field is as it was; tests only); the whole civ-sim suite (88 targets), the
+      unit tests; smoke (all 10 pass); fmt, clippy and the schema check clean. **The notables'
+      gate**, locally, against 58264d4: passes, 0 of 40 runs changed, every difference, t and
+      detects the same. **Not yet:** nothing.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's

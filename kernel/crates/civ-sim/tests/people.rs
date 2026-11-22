@@ -3152,3 +3152,84 @@ fn the_fields_frame_carries_the_field_work_offered_for_hire() {
     );
     assert_eq!(civ_sim::frames::fields::fields_response(&mut sim), payload);
 }
+
+/// §8 23, fifth (run 100's probe: of 1,110 sessions of field work by hands of another settlement,
+/// 27 found the field needing nothing and 1 found it to be tended): a hand who comes for hire to a
+/// field whose work has gone, reaped and threshed by others, or sown since and needing only
+/// tending, which nobody offers for hire, is paid nothing and does nothing there, wears no tool,
+/// and the field is as it was. An offer is read when the hand weighs the day; the field may change
+/// before they arrive.
+#[test]
+fn a_hand_come_for_hire_to_a_field_whose_work_has_gone_is_paid_nothing_and_does_nothing() {
+    let (mut sim, employer, neighbours, fields, _) = short_of_hands_at_the_harvest(400.0);
+    let rules = sim.rules().clone();
+    let crop = rules.catalog.crops[rules.people.farm.crop].clone();
+    let grain = crop.good;
+    let field = fields[0];
+    let hand = sim
+        .people()
+        .people
+        .iter()
+        .filter(|(_, p)| neighbours.contains(&p.household))
+        .filter(|(_, p)| (20.0..=50.0).contains(&p.age_years(sim.now())))
+        .map(|(_, p)| p.id)
+        .min()
+        .expect("a grown neighbour");
+    let hand_household = sim.people().person(hand).expect("the hand").household;
+    let day = sim.now().day_index();
+    let seen = |sim: &Sim| {
+        let f = sim
+            .land()
+            .fields
+            .iter()
+            .find(|f| f.id == field)
+            .cloned()
+            .expect("the field");
+        let tools: Vec<f64> = sim
+            .people()
+            .household(hand_household)
+            .expect("the hand's household")
+            .stores
+            .clone();
+        (
+            f.stage,
+            f.work_h,
+            f.sheaves_kg,
+            f.tended_h,
+            sim.people().transfers.get(civ_agents::Channel::Wage, grain),
+            tools,
+        )
+    };
+    for (stage, sown_day, sheaves, task) in [
+        // Reaped and threshed by others: nothing to do.
+        (civ_land::FieldStage::Reaped, 0, 0.0, None),
+        // Sown since, and growing: tending only, which nobody offers for hire.
+        (
+            civ_land::FieldStage::Sown,
+            day - 10,
+            0.0,
+            Some(civ_land::FieldTask::Tend),
+        ),
+    ] {
+        for f in sim.land_mut_for_tests().fields.iter_mut() {
+            if f.id == field {
+                f.stage = stage;
+                f.sown_day = if sown_day == 0 { f.sown_day } else { sown_day };
+                f.sheaves_kg = sheaves;
+                f.work_h = 0.0;
+                f.tended_h = 0.0;
+            }
+        }
+        let task_now = sim
+            .land()
+            .fields
+            .iter()
+            .find(|f| f.id == field)
+            .and_then(|f| f.task(&crop, day));
+        assert_eq!(task_now, task, "{stage:?}");
+        let before = seen(&sim);
+        sim.with_ctx_for_tests(|pop, ctx| pop.hired_field_work_for_tests(ctx, hand, field, 240));
+        assert_eq!(seen(&sim), before, "{stage:?}: nothing paid, done or worn");
+    }
+    assert!(sim.land().fields.iter().any(|f| f.household == employer));
+}

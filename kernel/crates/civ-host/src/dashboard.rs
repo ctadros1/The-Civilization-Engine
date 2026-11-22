@@ -1564,6 +1564,14 @@ pub fn run(
                     if i >= WORLDS {
                         break;
                     }
+                    // Diagnostic (claude/w2-diag, not for landing): one world alone.
+                    if std::env::var("TCE_DASH_ONLY")
+                        .ok()
+                        .and_then(|v| v.parse::<u64>().ok())
+                        .is_some_and(|only| only != i + 1)
+                    {
+                        continue;
+                    }
                     let world = run_one(content, options, i + 1, saves);
                     report(&world);
                     results
@@ -1684,6 +1692,13 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
     let start = sim.now().minutes();
     let mut most = run.founders;
     let dir = saves.map(|d| d.join(format!("dashboard-{}", world.seed)));
+    let diag = std::env::var_os("TCE_W2_DIAG").is_some();
+    let from: u32 = std::env::var("TCE_W2_FROM")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(30);
+    let mut last_moves = run.moves;
+    let mut year_began = sim.now();
     for y in 1..=years {
         if let Err(e) = run.live_to(sim, start + i64::from(y) * MINUTES_PER_YEAR) {
             world
@@ -1692,6 +1707,13 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
             break;
         }
         world.failures.extend(run.year_end(sim, y));
+        if diag {
+            if y >= from {
+                w2_diag(sim, world.seed, y, year_began, &last_moves, &run.moves);
+            }
+            last_moves = run.moves;
+            year_began = sim.now();
+        }
         let living = sim.people().living();
         world.people.push(living);
         world.fires.household_years += sim.people().households.len() as u64;
@@ -1811,6 +1833,118 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
             _ => {}
         }
     }
+}
+
+/// Diagnostic (claude/w2-diag, not for landing): one line of world `seed`'s year `y`, lived from
+/// `since`: its people and households, its settlements' accounts for the year (from `was` to
+/// `now`), deaths by cause and foundings told in the chronicle, food a person held in days, the
+/// year's harvests, fields by stage, and grain asked at each settlement.
+fn w2_diag(
+    sim: &Sim,
+    seed: u64,
+    y: u32,
+    since: civ_core::SimTime,
+    was: &smoke::Moves,
+    now: &smoke::Moves,
+) {
+    use civ_agents::history::{Cause, ChronicleKind};
+    let pop = sim.people();
+    let rules = sim.rules();
+    let goods = &rules.catalog.goods;
+    let params = &rules.people;
+    let households: Vec<_> = pop
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .filter(|x| !x.members.is_empty())
+        .collect();
+    let mut causes: BTreeMap<String, u32> = BTreeMap::new();
+    let (mut founded, mut left, mut fled, mut moved) = (0, 0, 0, 0);
+    for e in pop.chronicle.iter().filter(|e| e.at >= since) {
+        match e.kind {
+            ChronicleKind::Died => {
+                let c =
+                    Cause::from_key(&e.name).map_or_else(|| e.name.clone(), |c| format!("{c:?}"));
+                *causes.entry(c).or_default() += 1;
+            }
+            ChronicleKind::SettlementFounded => founded += 1,
+            ChronicleKind::Left => left += 1,
+            ChronicleKind::Fled => fled += 1,
+            ChronicleKind::Moved => moved += 1,
+            _ => {}
+        }
+    }
+    let need = params.household.daily_kcal_per_person;
+    let mut days: Vec<f64> = households
+        .iter()
+        .map(|x| {
+            let st = civ_agents::population::stores_now(x, sim.now(), params, goods);
+            let kcal: f64 = st
+                .iter()
+                .zip(goods)
+                .filter(|(_, g)| g.kcal_per_kg > 0.0)
+                .map(|(kg, g)| kg.max(0.0) * g.kcal_per_kg)
+                .sum();
+            kcal / (x.members.len().max(1) as f64 * need)
+        })
+        .collect();
+    days.sort_by(f64::total_cmp);
+    let median = days.get(days.len() / 2).copied().unwrap_or(0.0);
+    let short = days.iter().filter(|&&d| d < 30.0).count();
+    let land = sim.land();
+    // The latest harvest season on record (the dashboard's years begin at the world's own start).
+    let year = land
+        .fields
+        .iter()
+        .flat_map(|f| f.soil.record.iter().map(|r| r.year))
+        .max()
+        .unwrap_or(0);
+    let reaped: Vec<f32> = land
+        .fields
+        .iter()
+        .flat_map(|f| {
+            f.soil
+                .record
+                .iter()
+                .filter(|r| r.year == year)
+                .map(|r| r.kg_per_ha)
+        })
+        .collect();
+    let mean = if reaped.is_empty() {
+        0.0
+    } else {
+        reaped.iter().sum::<f32>() / reaped.len() as f32
+    };
+    let mut stages: BTreeMap<String, u32> = BTreeMap::new();
+    for f in &land.fields {
+        *stages.entry(format!("{:?}", f.stage)).or_default() += 1;
+    }
+    let grain = rules.catalog.crops.get(params.farm.crop).map(|c| c.good);
+    let places: Vec<String> = land
+        .settlements
+        .iter()
+        .map(|s| {
+            let ask = grain
+                .and_then(|g| pop.market(s.id).and_then(|m| m.price_h(g)))
+                .map_or_else(|| "-".to_owned(), |h| format!("{h:.2}"));
+            format!("{} {} ask {ask}", s.name, pop.residents(s.id))
+        })
+        .collect();
+    eprintln!(
+        "W2DIAG world {seed} year {y} people {} households {} born {} died {} arrived {} \
+         departed {} off_map {} | deaths {causes:?} | founded {founded} left {left} fled {fled} \
+         moved {moved} | food days median {median:.0} under30 {short} | reaped in {year} {} fields mean \
+         {mean:.0} kg/ha | stages {stages:?} | {}",
+        pop.living(),
+        households.len(),
+        now.births - was.births,
+        now.deaths - was.deaths,
+        now.arrivals - was.arrivals,
+        now.departures - was.departures,
+        now.off_map - was.off_map,
+        reaped.len(),
+        places.join("; "),
+    );
 }
 
 /// Grades the worlds' runs of `years` years against §4.7.

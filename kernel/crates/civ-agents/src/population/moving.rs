@@ -252,6 +252,47 @@ impl Population {
             .map(|(s, _)| s)
     }
 
+    /// Diagnostic (claude/w2-depart-diag): what [`Self::refuge`] weighs for `household`, in
+    /// words: the share fed at home, and each place it knows with how it came to be known,
+    /// whether it is lived in, the food a member last saw there, kin and those known there, the
+    /// pull, and whether it could be a refuge.
+    pub(super) fn refuge_words(&self, ctx: &Ctx, household: PermanentId) -> String {
+        let Some(home) = self.household(household).and_then(|x| x.settlement) else {
+            return "no home".to_owned();
+        };
+        let mp = &ctx.params.moving;
+        let draws = self.draws(ctx, household);
+        let fed_here = self.fed_share(ctx, home);
+        let sat = |s: f64| s / (1.0 + s);
+        let known = self.known_places.of(household);
+        let mut out = format!("fed_here {fed_here:.2} knows {}", known.len());
+        for k in known {
+            let s = ctx.land.settlements.iter().find(|s| s.id == k.settlement);
+            let lived = s.is_some_and(|s| s.abandoned.is_none());
+            let name = s.map_or("?", |s| s.name.as_str());
+            let there = draws
+                .iter()
+                .find(|d| d.0 == k.settlement)
+                .map_or(Draw::default(), |d| d.1);
+            let fed = k.food.map_or(0.0, |f| f64::from(f) - fed_here);
+            let pull = mp.w_kin * there.kin as f64 + mp.w_ties * sat(there.known) + mp.w_fed * fed;
+            let looked = k.food.is_none_or(|f| f64::from(f) > fed_here);
+            out.push_str(&format!(
+                " | {name} how {:?} first {} last {} visited {:?} lived {lived} food {:?} kin {} \
+                 known {:.2} pull {pull:.2} looked_better {looked} refuge {}",
+                k.how,
+                k.first,
+                k.last,
+                k.visited,
+                k.food,
+                there.kin,
+                there.known,
+                lived && looked && pull > 0.0,
+            ));
+        }
+        out
+    }
+
     /// What `household`'s members find at each settlement: close kin living there outside the
     /// household, and those they know there.
     fn draws(&self, ctx: &Ctx, household: PermanentId) -> Vec<(PermanentId, Draw)> {

@@ -502,6 +502,12 @@ impl Population {
                 None
             }
         };
+        // Diagnostic (claude/w2-recruit-diag2): who is asked and why each goes or stays.
+        let diag = std::env::var_os("TCE_RECRUIT_DIAG").is_some();
+        let mut tally = [0u32; 3];
+        let (mut asked_n, mut was_only, mut stake_sum) = (0u32, 0u32, 0.0f64);
+        let (mut net_sum, mut net_pos, mut ties_sum, mut griev_sum) = (0i64, 0u32, 0.0f64, 0.0f64);
+        let (mut declined_kin, mut declined_net_neg) = (0u32, 0u32);
         for _ in 0..RECRUIT_PASSES {
             let mut joined = false;
             // The closest tied are asked first, so who goes is not decided by the order
@@ -515,7 +521,7 @@ impl Population {
                 })
                 .collect();
             asked.sort_unstable();
-            for (_, c) in asked {
+            for (t, c) in asked {
                 let Some(x) = self.household(c) else {
                     continue;
                 };
@@ -535,7 +541,41 @@ impl Population {
                 // It goes if founding with them is worth more to it than its own best plan, and
                 // only if they would still hold food and seed enough to go with it (10-01 §2.3):
                 // a household that would leave them short is not asked.
-                if worth > own && self.lacking(ctx, &with) == Lacking::Nothing {
+                let enough = self.lacking(ctx, &with) == Lacking::Nothing;
+                let parts = if diag {
+                    self.found_parts(ctx, c, &staying, &with, n)
+                } else {
+                    None
+                };
+                if diag {
+                    asked_n += 1;
+                    let was = self.found_worth(ctx, c, ground, &with, n);
+                    if was > own && worth <= own && enough {
+                        was_only += 1;
+                    }
+                    if !(worth > own && enough)
+                        && let Some(p) = parts
+                    {
+                        declined_kin += u32::from(p.kin > 0);
+                        declined_net_neg += u32::from(p.kin > 0 && p.kin < p.kin_home);
+                    }
+                }
+                if worth > own && enough {
+                    if diag {
+                        tally[usize::from(t.min(2))] += 1;
+                        if let Some(p) = parts {
+                            let net = p.kin as i64 - p.kin_home as i64;
+                            net_sum += net;
+                            net_pos += u32::from(net > 0);
+                            let sat = |v: f64| v / (1.0 + v);
+                            ties_sum +=
+                                ctx.params.moving.w_ties * (sat(p.known) - sat(p.known_home));
+                            griev_sum += p.grievance;
+                        }
+                        stake_sum += self
+                            .outlook(ctx, c)
+                            .map_or(0.0, |o| (o.harvest / o.year_need.max(1.0)).clamp(0.0, 1.0));
+                    }
                     going.push(c);
                     people = n;
                     gone_people.extend_from_slice(&x.members);
@@ -546,6 +586,43 @@ impl Population {
             if !joined {
                 break;
             }
+        }
+        if diag {
+            let joined = going.len() as u32 - 1;
+            let need: f64 = candidates
+                .iter()
+                .filter_map(|&c| self.household(c))
+                .map(|x| Self::crop_need_ha(ctx, x.members.len() as u32, 1.0))
+                .sum();
+            let mean = |v: f64| {
+                if joined > 0 {
+                    v / f64::from(joined)
+                } else {
+                    0.0
+                }
+            };
+            eprintln!(
+                "RECRUIT day {} home {} org {} households {} asked {asked_n} joined {joined} \
+                 (kin {}, faction {}, regard {}) people {people} joiners: net_kin_mean {:.2} \
+                 net_kin_pos {net_pos} ties_mean {:.2} grievance_mean {:.2} stake_mean {:.2} | \
+                 declined with kin going {declined_kin} (fewer going than staying {declined_net_neg}) \
+                 | vacant {:.1} freed {:.1} need_rest {:.1} site_ha {:.1} declined_only_for_freed {was_only}",
+                ctx.now.day_index(),
+                home.get(),
+                organizer.get(),
+                candidates.len() + 1,
+                tally[0],
+                tally[1],
+                tally[2],
+                mean(net_sum as f64),
+                mean(ties_sum),
+                mean(griev_sum),
+                mean(stake_sum),
+                ground.vacant,
+                freed,
+                need,
+                ground.site_ha,
+            );
         }
         (going, people)
     }
@@ -602,6 +679,18 @@ impl Population {
                 self.coalitions.len() - 1
             }
         };
+        if std::env::var_os("TCE_RECRUIT_DIAG").is_some() {
+            let c = &self.coalitions[ci];
+            eprintln!(
+                "GATHER day {} home {} org {} reviews {} households {} people {}",
+                ctx.now.day_index(),
+                home.get(),
+                household.get(),
+                c.reviews,
+                c.members.len(),
+                c.people
+            );
+        }
         if self.coalitions[ci].reviews < ctx.params.moving.reviews.max(1) {
             return;
         }
@@ -800,6 +889,20 @@ impl Population {
             f64::from(CoalitionStep::Founded as u8),
             words,
         );
+        if std::env::var_os("TCE_RECRUIT_DIAG").is_some() {
+            let left = self
+                .households
+                .iter()
+                .filter(|(_, x)| x.settlement == Some(c.from) && !x.members.is_empty())
+                .count();
+            eprintln!(
+                "FOUNDED day {} from {} as {} households {households} people {} households_left {left}",
+                now.day_index(),
+                c.from.get(),
+                id.get(),
+                people.len()
+            );
+        }
         let k = &mut self.coalitions[ci];
         k.fate = CoalitionFate::Founded;
         k.ended = Some(day);

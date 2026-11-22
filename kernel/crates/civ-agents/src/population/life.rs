@@ -789,7 +789,21 @@ impl Population {
             }
             // They go to a settlement they know that draws them, if one does (M5a slice AN).
             self.refresh_kin();
-            match self.refuge(ctx, household) {
+            let refuge = self.refuge(ctx, household);
+            if std::env::var_os("TCE_DEPART_DIAG").is_some() {
+                let x = self.household(household);
+                eprintln!(
+                    "DEPART day {day} household {} of {:?} people {} food_kcal {food:.0} \
+                     worn {worn:.2} wait {wait:.0} reach {reach:.1} stake {stake:.2} chance \
+                     {chance:.3} goes {} | {}",
+                    household.get(),
+                    x.and_then(|x| x.settlement).map(PermanentId::get),
+                    x.map_or(0, |x| x.members.len()),
+                    refuge.map_or_else(|| "nowhere yet".to_owned(), |s| s.get().to_string()),
+                    self.refuge_words(ctx, household),
+                );
+            }
+            match refuge {
                 Some(to) => self.relocate(ctx, household, to),
                 None => stranded.push(household),
             }
@@ -804,6 +818,13 @@ impl Population {
                 self.refresh_kin();
                 match self.refuge(ctx, household) {
                     Some(to) => {
+                        if std::env::var_os("TCE_DEPART_DIAG").is_some() {
+                            eprintln!(
+                                "DEPART day {day} household {} goes {} after those it knows",
+                                household.get(),
+                                to.get()
+                            );
+                        }
                         self.relocate(ctx, household, to);
                         false
                     }
@@ -815,6 +836,12 @@ impl Population {
             }
         }
         for household in stranded {
+            if std::env::var_os("TCE_DEPART_DIAG").is_some() {
+                eprintln!(
+                    "DEPART day {day} household {} goes off the map",
+                    household.get()
+                );
+            }
             self.leave(ctx, household);
         }
     }

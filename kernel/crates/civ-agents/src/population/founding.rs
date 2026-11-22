@@ -397,6 +397,10 @@ impl Population {
                 None
             }
         };
+        // Diagnostic (claude/w2-recruit-diag): who is asked and why each goes or stays.
+        let diag = std::env::var_os("TCE_RECRUIT_DIAG").is_some();
+        let mut tally = [0u32; 3];
+        let (mut asked_n, mut kin2, mut was_only, mut stake_sum) = (0u32, 0u32, 0u32, 0.0f64);
         for _ in 0..RECRUIT_PASSES {
             let mut joined = false;
             // The closest tied are asked first, so who goes is not decided by the order
@@ -410,7 +414,7 @@ impl Population {
                 })
                 .collect();
             asked.sort_unstable();
-            for (_, c) in asked {
+            for (t, c) in asked {
                 let Some(x) = self.household(c) else {
                     continue;
                 };
@@ -430,7 +434,30 @@ impl Population {
                 // It goes if founding with them is worth more to it than its own best plan, and
                 // only if they would still hold food and seed enough to go with it (10-01 §2.3):
                 // a household that would leave them short is not asked.
-                if worth > own && self.lacking(ctx, &with) == Lacking::Nothing {
+                let enough = self.lacking(ctx, &with) == Lacking::Nothing;
+                if diag {
+                    asked_n += 1;
+                    let was = self.found_worth(ctx, c, ground, &with, n);
+                    if was > own && worth <= own && enough {
+                        was_only += 1;
+                    }
+                }
+                if worth > own && enough {
+                    if diag {
+                        tally[usize::from(t.min(2))] += 1;
+                        let mut kin = 0u32;
+                        for &m in &x.members {
+                            for q in self.close_kin(m) {
+                                kin += u32::from(self.person(q).is_some_and(|p| {
+                                    p.household != c && going.contains(&p.household)
+                                }));
+                            }
+                        }
+                        kin2 += u32::from(kin >= 2);
+                        stake_sum += self
+                            .outlook(ctx, c)
+                            .map_or(0.0, |o| (o.harvest / o.year_need.max(1.0)).clamp(0.0, 1.0));
+                    }
                     going.push(c);
                     people = n;
                     gone_people.extend_from_slice(&x.members);
@@ -441,6 +468,36 @@ impl Population {
             if !joined {
                 break;
             }
+        }
+        if diag {
+            let joined = going.len() as u32 - 1;
+            let need: f64 = candidates
+                .iter()
+                .filter_map(|&c| self.household(c))
+                .map(|x| Self::crop_need_ha(ctx, x.members.len() as u32, 1.0))
+                .sum();
+            eprintln!(
+                "RECRUIT day {} home {} org {} households {} asked {asked_n} joined {joined} \
+                 (kin {}, faction {}, regard {}; with 2+ kin going {kin2}) people {people} \
+                 stake_mean {:.2} vacant {:.1} freed {:.1} need_rest {:.1} site_ha {:.1} \
+                 declined_only_for_freed {was_only}",
+                ctx.now.day_index(),
+                home.get(),
+                organizer.get(),
+                candidates.len() + 1,
+                tally[0],
+                tally[1],
+                tally[2],
+                if joined > 0 {
+                    stake_sum / f64::from(joined)
+                } else {
+                    0.0
+                },
+                ground.vacant,
+                freed,
+                need,
+                ground.site_ha,
+            );
         }
         (going, people)
     }
@@ -497,6 +554,18 @@ impl Population {
                 self.coalitions.len() - 1
             }
         };
+        if std::env::var_os("TCE_RECRUIT_DIAG").is_some() {
+            let c = &self.coalitions[ci];
+            eprintln!(
+                "GATHER day {} home {} org {} reviews {} households {} people {}",
+                ctx.now.day_index(),
+                home.get(),
+                household.get(),
+                c.reviews,
+                c.members.len(),
+                c.people
+            );
+        }
         if self.coalitions[ci].reviews < ctx.params.moving.reviews.max(1) {
             return;
         }
@@ -695,6 +764,20 @@ impl Population {
             f64::from(CoalitionStep::Founded as u8),
             words,
         );
+        if std::env::var_os("TCE_RECRUIT_DIAG").is_some() {
+            let left = self
+                .households
+                .iter()
+                .filter(|(_, x)| x.settlement == Some(c.from) && !x.members.is_empty())
+                .count();
+            eprintln!(
+                "FOUNDED day {} from {} as {} households {households} people {} households_left {left}",
+                now.day_index(),
+                c.from.get(),
+                id.get(),
+                people.len()
+            );
+        }
         let k = &mut self.coalitions[ci];
         k.fate = CoalitionFate::Founded;
         k.ended = Some(day);

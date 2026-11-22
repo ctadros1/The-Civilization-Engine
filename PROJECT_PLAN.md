@@ -11365,6 +11365,40 @@ and M6a gives rivers a daily flow.
       unit tests; smoke (all 10 pass); fmt, clippy and the schema check clean. **The notables'
       gate**, locally, against 58264d4: passes, 0 of 40 runs changed, every difference, t and
       detects the same. **Not yet:** nothing.
+    - *The 2026-11-21 behaviour slices in lived worlds: two 50-year samples (2026-11-22)* (§8 23,
+      fifth; the fourteenth and fifteenth coverage passes). The gate reached none of the day's
+      slices, so the dashboard's five river-valley worlds were lived 50 years with each slice's
+      events printed (`claude/d21-diag` 5abdae4 on 58264d4, not landed): run 100 on node1 (8
+      passed, 3 amber, 11 n/a; world seconds w1 6,915, w2 7,203, w3 5,596, w4 13,869, w5 5,193;
+      world 2 fell to none in year 48) and run 98 on node3 (8 passed, 3 amber, 11 n/a; w1 10,184,
+      w2 9,404, w3 13,123, w4 34,195, w5 12,308). Report-only.
+
+      | | run 100 | run 98 |
+      |---|---|---|
+      | hired field work by a hand of another settlement | 1,110 of 3,742 sessions (30 %) | 1,338 of 4,629 (29 %) |
+      | of those: reap, thresh, prepare, sow | 820, 191, 28, 43 | 860, 243, 89, 74 |
+      | of those: the field needing nothing, or tending | 27 and 1 (2.5 %) | 54 and 18 (5.4 %) |
+      | guarantors called on: in full, in part, nothing | 7: 3, 3, 1 | 5: 4, 0, 1 |
+      | debts a finding imposed: met by payment, by force | 12: 4, 1 | 13: 6, 0 |
+      | passing places grown over, offered, laid, cleared again | 0, 0, 0, 0 | 0, 0, 0, 0 |
+      | motor carts passed far off, kept for want of fuel, driven home | 0, 0, 0 | 0, 0, 0 |
+      | boats or carts nobody held, taken up | 0 | 0 |
+
+      **The plain reading:** about 30 % of hired field work crosses a settlement, the same in both
+      samples (reapers within a walk, 14607bc, reach it in lived worlds). A guarantor paying
+      nothing happens about once a sample (once in each), and is told as `GuarantorFailed` once;
+      the others paid in full or in part, told as paying. A debt a finding imposed is met in
+      about a third to a half (5 of 12, 6 of 13), and none printed as defaulted, so the rest
+      stood open or lapsed. Three slices are never reached in 50 years, each for its own reason:
+      no passing place a law cleared grew over (the counter of those grown over under their law
+      read 0), so none could lapse and be cleared again under a new law; no motor cart exists
+      without the observer, the road engine's technique being one only the observer brings; and
+      no boat or cart was left with nobody to take it where a household wanted one. The sessions
+      that found the field needing nothing or only tending (2.5 % and 5.4 %) are the case pinned
+      the same day: paid nothing and doing nothing ("A hand come for hire to a field whose work
+      has gone"). Nothing in either sample shows a fault. **Not yet:** a lived world that reaches
+      the passing place cleared again, the motor cart far off or the taking up, should one be
+      wanted (the observer's road engine, or a longer world).
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
@@ -12863,6 +12897,9 @@ and M6a gives rivers a daily flow.
        motor cart reaches an heir far off, on the demo worlds over decades. Report-only,
        gate-neutral. **Buildable now.**
        *Checked 2026-11-21: open* (no decision; it needs long runs, the nodes busy for hours).
+       *Done 2026-11-22* (§7, "The 2026-11-21 behaviour slices in lived worlds: two 50-year
+       samples"): runs 100 and 98; about 30 % of hired field work crosses a settlement; nothing
+       shows a fault; three slices are never reached, each for its reason.
     6. *A former keeper telling the store's loan it saw made* (backlog D, sixteenth item, "Not
        yet"). Word, gated, small. **Buildable now.**
        *Checked 2026-11-21: decided against* (§9, "Word of a loan from the common store",

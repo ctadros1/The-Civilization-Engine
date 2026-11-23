@@ -13198,7 +13198,11 @@ and M6a gives rivers a daily flow.
        who may build, or no ground found) and why no kin takes them in. A household of an
        elder and a child is plausible; one that stays three years without shelter, nobody
        building for or with it, is the question, and it may be a design matter (shared work on
-       a neighbour's house, or such a household joining kin) rather than a fault.
+       a neighbour's house, or such a household joining kin) rather than a fault. *A second
+       scratch probe, the same day:* nothing bars it: it knows how to build a home (one program
+       open to it), a site is found every year and it has 5.4 to 6.1 hours of a capable adult's
+       work a day; it never chooses to begin. The next probe, if this is seen again, is the
+       elder's decision receipts: what wins over building, by how much.
     Still waiting from 23: its 14 to 21 (the owner's or an ADR's), 23 (the owner's) and 24
     (Unreal).
 

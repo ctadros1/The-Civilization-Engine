@@ -11528,8 +11528,10 @@ and M6a gives rivers a daily flow.
       grandparent of 67 and a child of 7 without a roof for three years: both were barred from
       a home's work by age every time, while the people profile gave the elder 0.69 of an
       adult's work. **Tested:** content (85, one new: a home's work stops no sooner than other
-      building work, and someone of that age still has work to give; it fails at 65). Saves,
-      schema, wire and web unchanged; the content's digest changes with the values.
+      building work, and someone of that age still has work to give; it fails at 65); the
+      smoke world replayed with `--only` and `--identity` now passes (12 people and 13
+      buildings, where it had 11 and 12 and failed on 9cf0512, ec72c16 and 96d79ef alike).
+      Saves, schema, wire and web unchanged; the content's digest changes with the values.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's

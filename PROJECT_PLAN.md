@@ -13118,6 +13118,14 @@ and M6a gives rivers a daily flow.
        Thornbank founded Alderbank and then Alderbrook, empty by the 50th year). Diagnosis
        first, on a scratch branch: each new settlement's first two years, its fields broken and
        sown, its food, and what each household that leaves it weighed.
+       *Checked 2026-11-22, from runs 108 to 113's yearly lines: nothing to build.* Run 103's
+       pattern (whole villages founding and coming home within two years) has not been seen
+       since founding weighed the kin and those known left behind (9cf0512: runs 108, 109, 110,
+       111 and 113). What remains is a remnant: in run 108 Thornbank's last six, after its
+       people gave up, founded Alderbank, a year later Alderbrook, and the next year five of
+       them moved to Sedgestead (79 to 86 people), the small group joining the neighbour as
+       moving weighs it; none died of it. Why the first site was left after a year is not
+       known; it is one remnant in five samples, so it is left unless it recurs.
     3. *A field whose household is no more counted vacant at home* (the founding entries' "Not
        yet"). *Built 2026-11-22* (§7, "A field whose household is no more is vacant at home");
        its long run to come.

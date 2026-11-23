@@ -13181,6 +13181,16 @@ and M6a gives rivers a daily flow.
        neither. The departures that followed fell in the hungry weeks before harvest (calendar
        day 170, food at nothing, 39 to 41 days to wait), after thin years (402 kg/ha in the 31st,
        488 in the 41st), not because a crop's wait read long.
+    6. *A smoke world with a household unroofed for three years* (2026-11-23, a local
+       `civ-host smoke --years 10`): `core:worldgen/ria_coast:3` of identity
+       `31400139183710429a9680e1a81232d2` ends with 11 people in 4 households, only 3 of them
+       under a roof in years 8 to 10, below the gate's 80 % (12 buildings, 4 of them damaged).
+       It fails alike on 9cf0512, ec72c16 and 96d79ef (replayed with `--only` and
+       `--identity`: the same people, the same years), so no change since development caused
+       it; the chain's shorter smoke and long run 110's fresh worlds passed. Seen once: to be
+       diagnosed (which household, and why it builds or mends no roof) if it is seen again,
+       or when no gated work waits. Replay: `civ-host smoke --years 10 --only
+       core:worldgen/ria_coast:3 --identity 31400139183710429a9680e1a81232d2`.
     Still waiting from 23: its 14 to 21 (the owner's or an ADR's), 23 (the owner's) and 24
     (Unreal).
 

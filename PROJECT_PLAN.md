@@ -11559,7 +11559,9 @@ and M6a gives rivers a daily flow.
       t +2.97, detects 54.3 %; enacted +28.2 %, +1.63, 51.9 %; offices +0.0 %, +0.00, 44.7 %;
       food moved by the polity −4.6 %, −0.32, 42.3 %; fixture 2 +16.1 %, +0.71, 67.7 %;
       +24.6 %, +1.45, 50.9 %; +7.1 %, +0.29, 74.6 %; +20.0 %, +0.89, 67.8 %). **Not yet:** its
-      long run.
+      long run; and whether a Detailed world saved between a helper's plan and its beginning the
+      plot goes on alike (`first_home_for` is derived and not saved, the same kind of gap as the
+      home site fixed the same day); untested.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's

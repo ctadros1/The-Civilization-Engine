@@ -13201,8 +13201,16 @@ and M6a gives rivers a daily flow.
        a neighbour's house, or such a household joining kin) rather than a fault. *A second
        scratch probe, the same day:* nothing bars it: it knows how to build a home (one program
        open to it), a site is found every year and it has 5.4 to 6.1 hours of a capable adult's
-       work a day; it never chooses to begin. The next probe, if this is seen again, is the
-       elder's decision receipts: what wins over building, by how much.
+       work a day; it never chooses to begin. *A third, its decision receipts:* it cannot
+       begin: building a hut and cutting poles are barred by age to both, every time (the
+       elder "too old" past `max_age_years = 65`, the child "too young" under 12), while the
+       people profile's `capacity_by_age` still gives the elder 0.69 of an adult's work at 67,
+       and the other building activities stop at 70. So a household of none between 12 and 65
+       can never build a home, and nothing else houses it. **Next, a slice under the owner's
+       standing authority once long run 116 is judged:** let the capacity curve govern a
+       hut's work past 65 (the age caps of `build_hut` and `cut_poles` raised to the 70 of the
+       other building work, a tuning value either way, recorded as a NUDGE), or such a household
+       joining kin; the first is the smaller change and keeps the two rules from disagreeing.
     Still waiting from 23: its 14 to 21 (the owner's or an ADR's), 23 (the owner's) and 24
     (Unreal).
 

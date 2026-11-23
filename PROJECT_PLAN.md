@@ -13191,6 +13191,14 @@ and M6a gives rivers a daily flow.
        diagnosed (which household, and why it builds or mends no roof) if it is seen again,
        or when no gated work waits. Replay: `civ-host smoke --years 10 --only
        core:worldgen/ria_coast:3 --identity 31400139183710429a9680e1a81232d2`.
+       *Diagnosed in part 2026-11-23 (a scratch print in the roof check, not landed):* the
+       household without a roof in years 8 to 10 is a grandparent of 67 with a child of 7, in a
+       settlement founded after the band's (id 323), owning no building at all, begun, finished
+       or fallen. Not yet known: why it never begins one (the elder's capacity at that age,
+       who may build, or no ground found) and why no kin takes them in. A household of an
+       elder and a child is plausible; one that stays three years without shelter, nobody
+       building for or with it, is the question, and it may be a design matter (shared work on
+       a neighbour's house, or such a household joining kin) rather than a fault.
     Still waiting from 23: its 14 to 21 (the owner's or an ADR's), 23 (the owner's) and 24
     (Unreal).
 

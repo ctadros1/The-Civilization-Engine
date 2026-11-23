@@ -13153,6 +13153,14 @@ and M6a gives rivers a daily flow.
     5. *The 42nd year's thin sowing in world 2* (runs 108, 109, 111 alike: about a third of the
        usual fields sown): confirm from the weather and the fields' water that it is the
        season's, not a fault in when sowing is weighed. Diagnosis only.
+       *Checked 2026-11-23 (runs 108, 109, 111, 112): no fault found.* The yearly line counts
+       stages on one day, the world's anniversary; the years after it still reaped their usual
+       fields at usual yields (run 112: 287 fields in the 42nd, 260 in the 43rd, 587 and
+       694 kg/ha), so nothing went unsown: fields were sown or reaped on the other side of that
+       day. Its cause (the weather or the work's timing) is not confirmed, the line giving
+       neither. The departures that followed fell in the hungry weeks before harvest (calendar
+       day 170, food at nothing, 39 to 41 days to wait), after thin years (402 kg/ha in the 31st,
+       488 in the 41st), not because a crop's wait read long.
     Still waiting from 23: its 14 to 21 (the owner's or an ADR's), 23 (the owner's) and 24
     (Unreal).
 

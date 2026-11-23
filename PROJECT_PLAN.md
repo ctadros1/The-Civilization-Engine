@@ -13206,11 +13206,17 @@ and M6a gives rivers a daily flow.
        elder "too old" past `max_age_years = 65`, the child "too young" under 12), while the
        people profile's `capacity_by_age` still gives the elder 0.69 of an adult's work at 67,
        and the other building activities stop at 70. So a household of none between 12 and 65
-       can never build a home, and nothing else houses it. **Next, a slice under the owner's
-       standing authority once long run 116 is judged:** let the capacity curve govern a
-       hut's work past 65 (the age caps of `build_hut` and `cut_poles` raised to the 70 of the
-       other building work, a tuning value either way, recorded as a NUDGE), or such a household
-       joining kin; the first is the smaller change and keeps the two rules from disagreeing.
+       can never build a home, and nothing else houses it. *Tried and withdrawn the same day:*
+       the two caps raised to 70 (scratch branch `claude/hut-age`, f9bc239) let the smoke world
+       pass (12 people, 13 buildings), but chain 179 failed six targets (faction, gas, mending,
+       people, tips, transit). The mending scenes make a household 67 on purpose and expect
+       its kin to mend its leaking hut, because elders past 65 do no hut work: that is the
+       model (help with mending, research 11-04 §1.6), and the cap's 65 is part of it; the others are elders of 65
+       to 70 now choosing hut work over their offices and errands. **The gap is narrower:**
+       kin and neighbours mend an elder household's hut, but nobody builds a first one for a
+       household with none who may. **Next:** extend that help to a first home (the work owed
+       as mending owes it), designed against research 11-04 §1.6 as help with mending was;
+       or such a household joining kin. Either is a slice of its own, with its long run.
     Still waiting from 23: its 14 to 21 (the owner's or an ADR's), 23 (the owner's) and 24
     (Unreal).
 

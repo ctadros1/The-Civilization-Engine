@@ -2327,6 +2327,14 @@ impl Population {
         self.views.remove(&household);
     }
 
+    /// Household `household`'s members changed (a birth, a death, someone sent away or moving
+    /// in or out): it sees its options afresh, and the site it found for a home today, sized to
+    /// its members' work, is looked for again (ADR-0011 §4), as a save made now would have it.
+    pub(super) fn members_changed(&mut self, household: PermanentId) {
+        self.changed(household);
+        self.home_sites.remove(&household);
+    }
+
     /// Goods moved between household `household` and the party its step was with (`with`): the
     /// two of them, and every household whose kept view names either (as the seller it would buy
     /// from, the household it would ask or take from, the workshop it would work for), see their

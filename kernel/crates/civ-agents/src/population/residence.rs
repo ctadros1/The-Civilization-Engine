@@ -184,7 +184,7 @@ impl Population {
         let mut arrived: BTreeMap<PermanentId, SimTime> = BTreeMap::new();
         for e in &self.chronicle {
             match e.kind {
-                ChronicleKind::Died | ChronicleKind::Left => {
+                ChronicleKind::Died | ChronicleKind::Left | ChronicleKind::Exiled => {
                     for &p in &e.people {
                         told.entry(p).or_insert(e.settlement);
                     }

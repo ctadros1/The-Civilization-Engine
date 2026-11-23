@@ -4536,3 +4536,37 @@ fn the_core_weighs_a_mend_given_at_an_ask_as_food_given() {
         assert_eq!(acts[mend as usize], core[mend as usize], "{}", mend.name());
     }
 }
+
+#[test]
+fn the_work_of_a_home_is_open_as_long_as_other_building_work() {
+    // A household of an elder and a child could never build a home when cutting poles and
+    // building a hut stopped at 65 while the people profile gave an elder of 67 two thirds of
+    // an adult's work and the other building work stopped at 70 (plan §8 24, sixth item).
+    let reg = registry(load(&repo_content()));
+    let c = &reg.catalog;
+    let age_of =
+        |id: &str| c.activities[c.index_of(id).expect("the activity exists")].max_age_years;
+    let other = c
+        .activities
+        .iter()
+        .filter(|a| a.id.starts_with("core:activity/build_") && a.id != "core:activity/build_hut")
+        .map(|a| a.max_age_years)
+        .fold(f64::INFINITY, f64::min);
+    assert!(other.is_finite(), "other building work exists");
+    let capacity = |age: f64| {
+        let t = &reg.people.params.capacity_by_age;
+        t.windows(2)
+            .find(|w| age >= w[0].0 && age <= w[1].0)
+            .map_or(0.0, |w| {
+                w[0].1 + (w[1].1 - w[0].1) * (age - w[0].0) / (w[1].0 - w[0].0)
+            })
+    };
+    for id in ["core:activity/build_hut", "core:activity/cut_poles"] {
+        let max = age_of(id);
+        assert!(
+            max >= other,
+            "{id} stops at {max}, other building work at {other}"
+        );
+        assert!(capacity(max) > 0.0, "{id}: no work left to give at {max}");
+    }
+}

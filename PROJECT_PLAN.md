@@ -13217,6 +13217,15 @@ and M6a gives rivers a daily flow.
        household with none who may. **Next:** extend that help to a first home (the work owed
        as mending owes it), designed against research 11-04 §1.6 as help with mending was;
        or such a household joining kin. Either is a slice of its own, with its long run.
+    7. *The 100,000-person bench workload 8.5× M9* (2026-11-23, bench run 118 on node3, cancelled
+       at its six hours): living to the first midnight took 8,762 s on 9cf0512 against the M9
+       base's 1,025 s on the same machine, where §9 "The bench after M11 and M12 (2026-10-31)"
+       recorded 0.967× on 1d776c8; the smaller workloads are unchanged (ten of 60 0.9×, three of
+       400 1.2×, a village of 500 1.0×), so it grows with the people more than in proportion.
+       Development already carries it. A red past ADR-0028 §1's clause (the 100k workload within
+       10 %), investigated before new backlog items: the commits 1d776c8..9cf0512 are being
+       bisected on a smaller workload that shows it. Long runs on node3 are also about twice as
+       slow as on node1 or node4 (the same world-2 diagnostic: 149 min on node3, 70 on node4).
     Still waiting from 23: its 14 to 21 (the owner's or an ADR's), 23 (the owner's) and 24
     (Unreal).
 

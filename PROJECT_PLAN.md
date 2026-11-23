@@ -13113,6 +13113,22 @@ and M6a gives rivers a daily flow.
        first (the departure diagnostic, run 112); a rule change only if it shows a fault, and a
        design question for the owner if the neighbour simply pulls nothing (`refuge` has no
        term for room there).
+       *Diagnosed 2026-11-23 (departure diagnostic run 112, world 2 alone on 9cf0512): the
+       neighbour pulls nothing; a question for the owner, the rule left as it is.* Of 20
+       households that gave up, the 11 leaving new settlements went back to the one they came
+       from, where they had kin and those they knew (a pull of 4 to 17). The 9 leaving Thornbank
+       itself (its 46th and 49th years; food at nothing, 39 to 41 days before the harvest, or a
+       year from the next crop) all knew Sedgestead, lived in and the only place lived in that
+       they knew, but by word or a sight of it alone: no member had seen its food, none had kin
+       or anyone known there, so its pull was 0.00 and `refuge` (a pull above nothing) refused
+       it; the places with a pull (3.1, from food a member once saw) are not lived in. So they
+       left the map. **For the owner:** whether a household that gives up should weigh a
+       settlement it knows is lived in, with nothing else known of it, as somewhere to go:
+       research 05-06 §1.4 asks that famine migration answer expected access to food, by stages
+       through a nearby refuge, and §1.2 that networks help but are not needed ("permit
+       migration … without pre-existing relatives"); for example at a neutral food impression
+       against its own fed share. Or whether going off the map is right for those with no tie
+       anywhere. Not built.
     2. *Why new settlements fail within a year or two* (§7, the founding entries' "Not yet": run
        103's whole-village foundings came back home within two years; run 108's last six of
        Thornbank founded Alderbank and then Alderbrook, empty by the 50th year). Diagnosis

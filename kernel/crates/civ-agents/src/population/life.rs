@@ -380,6 +380,8 @@ impl Population {
             x.members.push(id);
         }
         self.sort_members(household);
+        // Its members changed: it sees its options afresh (ADR-0011 §4).
+        self.members_changed(household);
         if let Some(m) = self.person_mut(mother) {
             m.repro = Repro::Recovering {
                 until: now.plus_minutes(minutes_of_days(recovery)),
@@ -491,6 +493,9 @@ impl Population {
         let age = p.age_years(now);
         let mut settlement = None;
         let mut emptied = false;
+        // Its members change: the household sees its options afresh (ADR-0011 §4), as a save
+        // made now would have it see them.
+        self.members_changed(household);
         if let Some(x) = self.household_mut(household) {
             x.members.retain(|m| *m != id);
             if let Some(g) = p.carrying.good.map(usize::from)
@@ -560,8 +565,8 @@ impl Population {
 
     /// `id` is sent from the valley by a gathering's finding (M4b slice AB, ADR-0015 §5): they
     /// leave their household as the dead do (what they carried stays with it; their partner is
-    /// left without them), their record says when they left, and the chronicle notes it as a
-    /// leaving. A household left with no one is cared for at the day's end.
+    /// left without them), their record says when they left, and the chronicle tells that they
+    /// were sent away and left the valley. A household left with no one is cared for at the day's end.
     pub(crate) fn exile(&mut self, ctx: &mut Ctx, id: PermanentId) {
         let now = ctx.now;
         let Some(household) = self.person(id).map(|p| p.household) else {
@@ -579,6 +584,9 @@ impl Population {
         let at = p.position_at(now.minutes() as f64);
         let mut settlement = None;
         let mut emptied = false;
+        // Its members change: the household sees its options afresh (ADR-0011 §4), as a save
+        // made now would have it see them.
+        self.members_changed(household);
         if let Some(x) = self.household_mut(household) {
             x.members.retain(|m| *m != id);
             if let Some(g) = p.carrying.good.map(usize::from)
@@ -627,7 +635,7 @@ impl Population {
                 .unwrap_or_default();
             self.chronicle_push(
                 now,
-                ChronicleKind::Left,
+                ChronicleKind::Exiled,
                 vec![id],
                 settlement,
                 Some(at),
@@ -1825,6 +1833,9 @@ impl Population {
         self.transfer(ctx.now, ctx.params, goods, &legs, Channel::Allocation);
         let mut water = 0.0;
         let mut known = Vec::new();
+        // Both households' members change: they see their options afresh (ADR-0011 §4).
+        self.members_changed(from);
+        self.members_changed(to);
         if let Some(x) = self.household_mut(from) {
             water = x.water_l * share;
             x.water_l -= water;

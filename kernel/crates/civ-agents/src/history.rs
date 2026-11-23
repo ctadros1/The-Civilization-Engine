@@ -983,6 +983,11 @@ pub enum ChronicleKind {
     /// lies nearest its door, `place` the door its runs leave from, `number` the step
     /// ([`RoadStep`]), and `name` the sentence.
     RoadLine,
+    /// Someone a gathering's finding sent away left the valley, with nowhere among their kin to
+    /// go (M4b slice AB, ADR-0015 §5): `people` is the one sent away, `settlement` where they
+    /// lived, `place` where they were, `number` 1, and `name` that settlement's name. Before
+    /// 2026-11-23 such a leaving was told as a household's ([`ChronicleKind::Left`]).
+    Exiled,
 }
 
 /// What happened to a road line, in a [`ChronicleKind::RoadLine`] entry. Numeric in saves: append
@@ -1431,6 +1436,15 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 spans.push(settlement(event));
             }
             spans.push(Span::Text(".".to_owned()));
+            spans
+        }
+        ChronicleKind::Exiled => {
+            let Some(who) = person(0) else {
+                return vec![Span::Text("Someone was sent away by a finding.".to_owned())];
+            };
+            let mut spans = vec![who, Span::Text(" was sent from ".to_owned())];
+            spans.push(settlement(event));
+            spans.push(Span::Text(" by a finding and left the valley.".to_owned()));
             spans
         }
         ChronicleKind::TakenIn => {
@@ -1905,6 +1919,32 @@ mod tests {
         assert_eq!(
             plain(&render(&left(""), &name_of)),
             "The household of Iver (2 people) gave up and left the valley."
+        );
+    }
+
+    #[test]
+    fn someone_sent_away_with_nowhere_to_go_is_told_as_sent_away() {
+        let (village, who) = (
+            PermanentId::from_raw(7).expect("non-zero"),
+            PermanentId::from_raw(9).expect("non-zero"),
+        );
+        let event = ChronicleEvent {
+            seq: 4,
+            at: SimTime::ZERO,
+            kind: ChronicleKind::Exiled,
+            people: vec![who],
+            settlement: Some(village),
+            place: None,
+            number: 1.0,
+            name: "Hazelstead".to_owned(),
+            firm: None,
+        };
+        let spans = render(&event, &|_| "Iver".to_owned());
+        assert!(spans.contains(&Span::Person(who, "Iver".to_owned())));
+        assert!(spans.contains(&Span::Settlement(village, "Hazelstead".to_owned())));
+        assert_eq!(
+            plain(&spans),
+            "Iver was sent from Hazelstead by a finding and left the valley."
         );
     }
 }

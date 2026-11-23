@@ -4,7 +4,7 @@
 use std::path::Path;
 use std::sync::OnceLock;
 
-use civ_agents::{Origin, ResidenceWhy};
+use civ_agents::{ChronicleKind, Origin, ResidenceWhy};
 use civ_content::ContentRegistry;
 use civ_core::SimTime;
 use civ_land::Founding;
@@ -1373,6 +1373,34 @@ fn an_exile_goes_where_kin_live_and_one_drawn_nowhere_leaves_the_map() {
         pop.residence_problems()
     );
     assert!(pop.problems(u64::MAX, usize::MAX).is_empty());
+    // The chronicle tells the one drawn nowhere as sent away, not as a household that gave up.
+    let told = |kind: ChronicleKind| -> Vec<_> {
+        pop.chronicle
+            .iter()
+            .filter(|e| e.kind == kind && e.people.contains(&kinless))
+            .cloned()
+            .collect()
+    };
+    assert!(
+        told(ChronicleKind::Left).is_empty(),
+        "{:?}",
+        told(ChronicleKind::Left)
+    );
+    let sent = told(ChronicleKind::Exiled);
+    assert_eq!(sent.len(), 1, "{sent:?}");
+    assert_eq!(sent[0].settlement, Some(a));
+    let name_of = |id| {
+        pop.records
+            .get(&id)
+            .map_or_else(String::new, |r| r.given.clone())
+    };
+    let words = civ_agents::history::plain(&civ_agents::history::render(&sent[0], &name_of));
+    assert!(
+        words.ends_with(" by a finding and left the valley.") && words.contains(" was sent from "),
+        "{words}"
+    );
+    // Its code saves and loads.
+    saves_and_goes_on_alike(&mut sim, 60);
 }
 
 /// Saves `sim`, loads it, and checks every section of the loaded world is the same, and that the

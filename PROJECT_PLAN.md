@@ -13318,14 +13318,27 @@ and M6a gives rivers a daily flow.
     7. *The 100,000-person bench workload 8.5× M9* (2026-11-23, bench run 118 on node3, cancelled
        at its six hours): living to the first midnight took 8,762 s on 9cf0512 against the M9
        base's 1,025 s on the same machine, where §9 "The bench after M11 and M12 (2026-10-31)"
-       recorded 0.967× on 1d776c8; the smaller workloads are unchanged (ten of 60 0.9×, three of
-       400 1.2×, a village of 500 1.0×), so it grows with the people more than in proportion.
+       recorded 0.967× on 1d776c8. *Corrected 2026-11-24:* this line first said the smaller
+       workloads were unchanged (three of 400 1.2×, a village of 500 1.0×). Run 118's own logs
+       say otherwise: a village of 500 1,202 to 1,242 ms a day on 9cf0512 against 864 to 892 on
+       the base (about 1.38×), three of 400 1,088 to 1,103 against 770 to 791 (about 1.42×), ten
+       of 60 0.90×. So the Detailed worlds, at 1.20× and 1.19× on 1d776c8, had also gone past the
+       clause's 20 % by 9cf0512; the 100k workload grew far more than in proportion.
        Development already carries it. A red past ADR-0028 §1's clause (the 100k workload within
        10 %), investigated before new backlog items: the commits 1d776c8..9cf0512 are being
        bisected on a smaller workload that shows it. Long runs on node3 are also about twice as
        slow as on node1 or node4 (the same world-2 diagnostic: 149 min on node3, 70 on node4).
        *Bisected and cut exactly 2026-11-24* (§7 and §9, "The hire scan and the home under way
        cut exactly"); the 100k workload's own figure waits for a bench run.
+       *Bench run 122 (2026-11-24, node3, 38ff89f against the M9 base): not resolved.* The 100k
+       workload 426,768 against 171,174 ms a day, **2.49×** (8.5× before the cut); a village of
+       500 1,272 against 884, **1.44×**; three of 400 1,080 against 780, **1.39×**; ten of 60
+       0.88×. All three past the clause, so nothing is promoted. A local timing of a village of
+       500 (two interleaved rounds, 90 days, the same machine) on 9cf0512, 4d33e11, 96d79ef,
+       5f721b6 and 6c3ca0a gives 659 to 723 ms a day at each, so nothing since 9cf0512 moved the
+       Detailed worlds: their slowdown lies in 1d776c8..9cf0512, the range the 30,000-person
+       bisect found d5dd5b1 (hire for sowing) in. **Next:** bisect a village of 500 there, then
+       profile what remains on both workloads and cut it exactly.
     Still waiting from 23: its 14 to 21 (the owner's or an ADR's), 23 (the owner's) and 24
     (Unreal).
 25. **What is open next, ranked (2026-11-24, found during the seventeenth coverage pass; 24's

@@ -4,7 +4,7 @@
 //! through the ledger, keeps books, passes to the household its owners join, and closes when
 //! nobody is left to keep it or it has sold nothing for months.
 
-use civ_core::{Handle, PermanentId, SimTime};
+use civ_core::{FastMap, Handle, PermanentId, SimTime};
 use civ_land::PlotUse;
 
 use civ_world::nav::TravelField;
@@ -1041,15 +1041,14 @@ impl Population {
             .map(|a| f64::from(a.max_walk_minutes))
             .fold(0.0, f64::max);
         let walk_m = Self::hire_scan_m(ctx, walk_min);
-        let mut nearby: Vec<PermanentId> = ctx
-            .land
-            .fields
-            .iter()
-            .filter(|f| {
-                let at = f.rect.centre_m();
-                f64::from((at.0 - hh.home.0).hypot(at.1 - hh.home.1)) <= walk_m
-            })
-            .map(|f| f.household)
+        // The other settlements' households with a field within the walk, from the fields near
+        // home only (`fields_near`); each employer's fields from the index of who works what,
+        // while it holds every field, else from one pass over them; and the hands already out
+        // for hire gathered once, when first wanted (§8 24, seventh: an exact cut, ADR-0028 §1).
+        let mut nearby: Vec<PermanentId> = self
+            .fields_near(ctx.land, hh.home, walk_m)
+            .into_iter()
+            .map(|i| ctx.land.fields[i].household)
             .filter(|&e| {
                 e != hh.id
                     && self
@@ -1059,13 +1058,31 @@ impl Population {
             .collect();
         nearby.sort_unstable();
         nearby.dedup();
+        let by_household: Option<FastMap<PermanentId, Vec<u32>>> =
+            (!self.fields_all_indexed(ctx.land)).then(|| {
+                let mut by: FastMap<PermanentId, Vec<u32>> = FastMap::default();
+                for (i, f) in ctx.land.fields.iter().enumerate() {
+                    by.entry(f.household).or_default().push(i as u32);
+                }
+                by
+            });
+        let hired = std::cell::OnceCell::new();
+        let set_out = |ids: &[PermanentId]| {
+            Self::hours_on(hired.get_or_init(|| self.hired_set_out(ctx)), ids)
+        };
         let reaping: Vec<(PermanentId, super::reapers::ReapOffer)> = self
-            .households
-            .iter()
-            .filter(|(_, x)| x.id != hh.id && x.settlement == Some(settlement))
-            .map(|(_, x)| x.id)
+            .households_in(settlement)
+            .filter(|x| x.id != hh.id)
+            .map(|x| x.id)
             .chain(nearby.iter().copied())
-            .filter_map(|e| self.reap_offer(ctx, e).map(|o| (e, o)))
+            .filter_map(|e| {
+                let fields = match &by_household {
+                    Some(by) => by.get(&e).map_or(&[][..], Vec::as_slice),
+                    None => self.indexed_fields(ctx.land, e),
+                };
+                self.reap_offer_with(ctx, e, fields, &set_out)
+                    .map(|o| (e, o))
+            })
             .collect();
         if hiring.is_empty() && reaping.is_empty() {
             return None;

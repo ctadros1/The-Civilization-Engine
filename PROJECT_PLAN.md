@@ -11565,6 +11565,47 @@ and M6a gives rivers a daily flow.
       a Detailed world saved between a helper's plan and its beginning the
       plot goes on alike (`first_home_for` is derived and not saved, the same kind of gap as the
       home site fixed the same day); untested.
+    - *The hire scan and the home under way cut exactly (2026-11-24)* (§9, "The hire scan and
+      the home under way cut exactly"; §8 24, seventh; ADR-0028 §1). **Found:** a workload that
+      shows it in minutes, 10 groups of 3,000 (`bench_village --people 3000 --groups 10 --size
+      2048 --known --max --household 10 --days 1`, the gate's flags at a tenth of its people),
+      was bisected over `1d776c8..9cf0512` (first parent, kernel commits). Day 1 took 12.2 s on
+      1d776c8, 10.7 on 618c5d0, 14.1 on c5a9e28, 13.6 on ac51037 and 13.5 on 77f1d9d4, then
+      23.0 on **d5dd5b1** (ground prepared and sown for hire, the first bad commit), 24.3 on
+      f1f5ee8, 26.1 on d20bd1b, 28.1 on 14607bc (reapers of other settlements), 32.3 on
+      9cf0512. After it, 4d33e11 (31.7) and 96d79ef (29.5) changed nothing, and **5f721b6**
+      (help with a first home) took it to 51.6, 51.8 on 13d6c7c. **The hot spots**, sampled
+      with gdb on line tables:
+      1. `best_job` weighed every household of the settlement as an employer on every
+         decision, and each offer walked the employer's fields through `fields_of`, which scans
+         every field once a field has changed hands that day. It found each first field's index
+         by a scan of all fields, and counted the hired hands already out by a walk over every
+         person, once for each employer short of hands. The sowing offer made this the common
+         case through the sowing window, and the scan for other settlements' fields walked every
+         field again.
+      2. `home_plan` asked of every unfinished building in the world whether the household could
+         build it (a string search of the content's programs) before asking whose it was, an
+         order the first-home slice introduced.
+      **Cut, nothing that happens changed:** each employer's fields come from the index of who
+      works what, while it holds every field, else from one pass over the fields for the
+      decision. Each field's index travels with it. The hands out for hire are gathered once for
+      the decision. Other settlements' fields within the walk come from a grid of the fields by
+      500 m square (`fields_near`), added to at midnight; a field never moves or goes, and a
+      test that changes the land by hand drops the grid. The employers of the settlement come
+      from the settlement index (`households_in`, in the order a scan finds them, checked in
+      debug builds). `home_plan` asks whose a building is first. **Timed** on that workload,
+      on this machine: day 1 51.8 s on 13d6c7c, 19.7 and 21.0 s after the cut; to the first
+      midnight 248.4 s, then 133.7 and 135.6 s. Runs on one build varied by up to about 15 %.
+      This is below 77f1d9d4's midnight (161.0 s) but not its day (13.5 s): what remains of the
+      day is the offers themselves, now weighed for every employer each decision as the hire
+      slices intend. **Exact:** `bench_village --digest`, which hashes every section a save would hold, gives the same hash for
+      every section on 13d6c7c and after the cut for three fixed-seed worlds: ten groups of 60 over
+      400 days (112 of 113 sections the same), a village of 500 over 400 days (64 of 65) and the
+      3,000-person workload's first day (112 of 113). The section that differs is `meta`, which
+      holds the wall-clock time the world was made (`created_unix_ms`). The whole civ-sim suite (88 targets), the unit tests,
+      fmt and clippy clean; the debug builds the suite runs check the grid, the index and the
+      settlement order against full scans on every call. **Not yet:** the 100k workload's own
+      figure, on a bench run.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
@@ -13278,6 +13319,8 @@ and M6a gives rivers a daily flow.
        10 %), investigated before new backlog items: the commits 1d776c8..9cf0512 are being
        bisected on a smaller workload that shows it. Long runs on node3 are also about twice as
        slow as on node1 or node4 (the same world-2 diagnostic: 149 min on node3, 70 on node4).
+       *Bisected and cut exactly 2026-11-24* (§7 and §9, "The hire scan and the home under way
+       cut exactly"); the 100k workload's own figure waits for a bench run.
     Still waiting from 23: its 14 to 21 (the owner's or an ADR's), 23 (the owner's) and 24
     (Unreal).
 
@@ -15148,5 +15191,6 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **A household whose members change sees its options afresh (2026-11-23):** Decided by Claude under standing owner authority (2026-11-23). A birth, a death, an exile and people moving in or out of a household drop its kept view and the home site found for it that day. **Reason:** ADR-0011 §4 requires caches to be pure functions of saved state; the day's home site was sized to members no longer there, so a world saved after such a change went on differently from the one that was not (the exile scene's receipts, within the hour). **Considered:** dropping the site at every consequential step (`changed`), refused as costlier: the search for a site is the dear part, and a deposit or a day's work does not change the members it is sized to. Other inputs that can change within a day (ground another household takes) are left as the cache already treats them; none showed in the scenes run.
 - **Where a household that gives up goes (2026-11-24; §8 24, first item):** Decided by the owner (2026-11-24): households that give up should weigh viable migration alternatives (relocation to an established settlement, founding where realistically feasible, and leaving the map only when no viable internal alternative exists), arising from their circumstances, the environment, their knowledge, accessibility, resources and perceived survival prospects rather than arbitrary probabilities or hardcoded outcome hierarchies; the design to be presented before any substantial new migration mechanics are built. Claude's proposal: `docs/briefs/giving-up-plans.md`, not yet built.
 - **Help with a first home (2026-11-23; §8 24, sixth item):** Decided by Claude under standing owner authority (2026-11-23), at the coordinator's direction. A household with no home standing or begun, and nobody of an age a build activity admits, asks for help as help with mending asks: its kin, then a neighbour its people hold a tie with, under the same refusal, worked out daily and not saved. The one asked, if housed itself and someone of it may build, begins the asker's home where and as the asker would, on the asker's ground, and builds it with its own materials, and the asker owes each stage's work as for mending. **Reason:** research 11-04 §1.6 has households recruit relatives or neighbours for building work, with reciprocal help making an obligation, which help with mending already models for upkeep. A household of an elder past the build ages and a child otherwise stays unroofed for good (a smoke world, three years). The age caps are part of that model and stay; raising them was tried and withdrawn. No new number. The gate: 0 of 40 runs changed.
+- **The hire scan and the home under way cut exactly (2026-11-24; §8 24, seventh; ADR-0028 §1):** Decided by Claude under standing owner authority (2026-11-24), at the coordinator's direction. Two exact cuts, nothing that happens changed: who would hire field work is weighed from each employer's indexed fields and one gathering of the hands already out for hire per decision, with other settlements' fields within the walk found by a grid of fields by 500 m square kept with the field index; and a household's plan asks whose a building is before whether it can build it. **Reason:** ADR-0028 §1's rule (profile, cut what can be cut exactly, then amend to the figure reached). The bench's 100k workload stood at 8.5× M9 (bench run 118), from the sowing hire (d5dd5b1) making a per-decision walk over every household's fields the common case and the first-home slice (5f721b6) testing every building in the world; the save sections of three worlds are unchanged. The day stays slower than before the hire slices, as their offers are weighed for every employer; whether the 100k clause holds is for the bench run.
 - **Flooding: water and walkability stay daily (2026-11-20; the owner's call; answers long run 67's and run 80's walking-grid question):** Decided by the owner (2026-11-20), relayed by the coordinator. The walking ground and its landmarks stay laid again for each day's flood depths. **Reason, the owner's words:** "Weekly walkability could leave flooded routes usable—or reopened routes blocked—for several days, changing travel, food access and survival." Option (a), the walking ground changing in coarser steps, is **declined**. Reducing or rebuilding the route structures incrementally, with today's water restrictions kept, is left for later (§8 22, third).
 - **"Moved" in the notables' gate means food moved by the polity (2026-11-20; the owner's acceptance criteria, relayed by the coordinator):** the notables' `moved` aggregate measures the polity's food collection and redistribution, not migration. In earlier entries, "moved" means food transfers. Its tolerance here is 95 %, recalibrated, against main's 25 %. From now on gate figures call it "food moved by the polity", and a change in behaviour is told apart from a changed acceptance criterion.

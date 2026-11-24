@@ -6,8 +6,11 @@
 //! someone who may do the work, and gives it as it gives food: unless it believes the asker took
 //! from it or from those it regards ([`Population::refuses`]). Its people mend the building
 //! through the same work as their own, with their household's materials, and once it is
-//! mended the asker's household owes them the hours (`helped_mend`, `gave_mend`). Who asks
-//! whom is worked out afresh each day and not saved.
+//! mended the asker's household owes them the hours (`helped_mend`, `gave_mend`). A household
+//! with no home, standing or begun, and nobody of an age to build asks the same way for help with
+//! a first home: the one asked begins the asker's home, where and as the asker would, on the
+//! asker's ground, and builds it with its own materials while it is unfinished, the asker owing
+//! it each stage's work. Who asks whom is worked out afresh each day and not saved.
 
 use super::*;
 use crate::ties::Act;
@@ -16,16 +19,40 @@ impl Population {
     /// Whether person `p` may do building work on `b` now: of an age a build activity admits,
     /// and knowing `b`'s technique if it needs one.
     pub(super) fn may_mend(&self, ctx: &Ctx, p: &Person, b: &Building) -> bool {
+        self.may_build(ctx, p, &b.spec.program)
+    }
+
+    /// Whether person `p` may do building work to `program` now: of an age a build activity
+    /// admits, and knowing its technique if it needs one.
+    fn may_build(&self, ctx: &Ctx, p: &Person, program: &str) -> bool {
         let catalog = ctx.catalog;
-        let age = p.age_years(ctx.now);
-        let of_age = catalog.activities.iter().any(|a| {
-            a.behavior == Behavior::Build && age >= a.min_age_years && age <= a.max_age_years
-        });
-        of_age
+        Self::of_building_age(ctx, p)
             && catalog
-                .building_index(&b.spec.program)
+                .building_index(program)
                 .and_then(|i| catalog.buildings.get(i))
                 .is_some_and(|d| d.technique.is_none_or(|t| p.knows(t)))
+    }
+
+    /// Whether person `p` is of an age a build activity admits.
+    fn of_building_age(ctx: &Ctx, p: &Person) -> bool {
+        let age = p.age_years(ctx.now);
+        ctx.catalog.activities.iter().any(|a| {
+            a.behavior == Behavior::Build && age >= a.min_age_years && age <= a.max_age_years
+        })
+    }
+
+    /// Whether someone of `members` may do building work to `program` now
+    /// ([`Population::may_build`]).
+    pub(super) fn someone_may_build(
+        &self,
+        ctx: &Ctx,
+        members: &[PermanentId],
+        program: &str,
+    ) -> bool {
+        members
+            .iter()
+            .filter_map(|m| self.person(*m))
+            .any(|p| self.may_build(ctx, p, program))
     }
 
     /// Whether someone of `members` may do building work on `b` now ([`Population::may_mend`]).
@@ -56,7 +83,9 @@ impl Population {
     /// Works out, once a day, who asks whom to mend: each household with a finished building
     /// standing whose wear shows, or with a repair begun, and nobody who may do the work, asks
     /// the first of its candidates ([`Population::mend_candidates`]) that has someone who may
-    /// and does not refuse it.
+    /// and does not refuse it. So does a household with no home standing or begun, or with one
+    /// begun that nobody of it may work on, and nobody of an age to build: the one it asks must
+    /// have someone of that age, and someone who may work on the home begun.
     fn mend_asks_today(&mut self, ctx: &Ctx) {
         let day = ctx.now.day_index();
         if self.mend_asks.0 == Some(day) {
@@ -89,9 +118,34 @@ impl Population {
                 })
                 .filter(|b| !self.someone_may_mend(ctx, &x.members, b))
                 .collect();
-            if wanting.is_empty() {
+            // A first home: none of its own standing or begun that someone of it may work on,
+            // and nobody of it of an age to build one.
+            let unhoused = !x
+                .members
+                .iter()
+                .filter_map(|m| self.person(*m))
+                .any(|p| Self::of_building_age(ctx, p))
+                && !ctx.land.buildings.iter().any(|b| {
+                    b.household == id
+                        && catalog.is_dwelling(&b.spec.program)
+                        && b.finished()
+                        && b.standing()
+                });
+            let begun: Vec<&Building> = if unhoused {
+                ctx.land
+                    .buildings
+                    .iter()
+                    .filter(|b| {
+                        b.household == id && !b.finished() && catalog.is_dwelling(&b.spec.program)
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            if wanting.is_empty() && !unhoused {
                 continue;
             }
+            let wanting: Vec<&Building> = wanting.into_iter().chain(begun).collect();
             let Some(elder) = self.elder_of(id, ctx.now, ctx.params) else {
                 continue;
             };
@@ -100,6 +154,12 @@ impl Population {
                     wanting
                         .iter()
                         .all(|b| self.someone_may_mend(ctx, &hx.members, b))
+                        && (!unhoused
+                            || hx
+                                .members
+                                .iter()
+                                .filter_map(|m| self.person(*m))
+                                .any(|p| Self::of_building_age(ctx, p)))
                 }) && !self.refuses(ctx, h, elder)
             });
             if let Some(h) = helper {

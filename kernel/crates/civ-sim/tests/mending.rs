@@ -289,3 +289,163 @@ fn a_household_with_someone_who_may_do_the_work_mends_its_own() {
         "no help asked"
     );
 }
+
+/// A world of two households of one settlement or more, its smallest household `asker` with no
+/// home at all, standing or begun, its first member made `elder` years old and the rest `young`:
+/// the world, the asker and the other households of its settlement.
+fn unhoused(seed: u64, elder: f64, young: f64) -> (Sim, PermanentId, Vec<PermanentId>) {
+    let mut sim = world(seed);
+    let (asker, others) = {
+        let pop = sim.people();
+        let settled: Vec<_> = pop
+            .households
+            .iter()
+            .map(|(_, h)| h)
+            .filter(|h| h.settlement.is_some())
+            .collect();
+        let asker = settled
+            .iter()
+            .filter(|h| h.members.len() >= 2)
+            .min_by_key(|h| (h.members.len(), h.id))
+            .expect("a settled household of two or more");
+        let others: Vec<PermanentId> = settled
+            .iter()
+            .filter(|h| h.id != asker.id && h.settlement == asker.settlement)
+            .map(|h| h.id)
+            .collect();
+        (asker.id, others)
+    };
+    assert!(!others.is_empty(), "a neighbour in its settlement");
+    assert!(
+        !sim.land().buildings.iter().any(|b| b.household == asker),
+        "no home, standing or begun"
+    );
+    let now = sim.now();
+    let born = |age: f64| SimTime::from_minutes(now.minutes() - (age * 525_600.0) as i64);
+    let pop = sim.people_mut_for_tests();
+    let first = pop
+        .household(asker)
+        .and_then(|x| x.members.first().copied())
+        .expect("someone");
+    for (_, p) in pop.people.iter_mut() {
+        if p.household == asker {
+            p.born = born(if p.id == first { elder } else { young });
+        }
+    }
+    (sim, asker, others)
+}
+
+/// Household `household`'s home under a roof, if it has one.
+fn roofed_home(sim: &Sim, household: PermanentId) -> Option<PermanentId> {
+    let catalog = &sim.rules().catalog;
+    sim.land()
+        .buildings
+        .iter()
+        .find(|b| b.household == household && b.roofed() && catalog.is_dwelling(&b.spec.program))
+        .map(|b| b.id)
+}
+
+/// Lives `sim` a day at a time, at most `days`, until household `household` has a home under a
+/// roof.
+fn until_roofed(sim: &mut Sim, household: PermanentId, days: u32) -> Option<PermanentId> {
+    for _ in 0..days {
+        sim.advance_minutes(24 * 60).expect("advances");
+        if let Some(b) = roofed_home(sim, household) {
+            return Some(b);
+        }
+    }
+    None
+}
+
+#[test]
+fn an_elder_and_a_child_with_no_home_have_one_begun_and_roofed_by_their_kin_who_are_owed_the_work()
+{
+    // Found by a smoke world (§8 24, sixth item): a grandparent of 67 and a child of 7, of an age
+    // no build activity admits, never began a home and lived three years unroofed. They ask as
+    // help with mending asks (research 11-04 §1.6): their kin begin their home, on their ground,
+    // and build it with their own materials, and are owed the work.
+    let (mut sim, asker, others) = unhoused(3, 67.0, 7.0);
+    let kin = others[0];
+    make_kin(&mut sim, asker, kin);
+    let home = until_roofed(&mut sim, asker, 365).expect("a home roofed within the year");
+    assert_eq!(
+        sim.people().kin_households_for_tests(asker),
+        vec![kin],
+        "its only kin"
+    );
+    let b = building(&sim, home);
+    assert_eq!(b.household, asker, "the asker's own home");
+    let plot = sim
+        .land()
+        .plots
+        .iter()
+        .find(|p| p.id == b.plot)
+        .expect("its plot");
+    assert_eq!(plot.household, asker, "on the asker's ground");
+    // Nobody of the asker's household did the work: the materials came from the kin's stores.
+    let pop = sim.people();
+    let built = |h: PermanentId| {
+        let x = pop.household(h).expect("it");
+        (0..sim.rules().catalog.goods.len())
+            .map(|g| x.flows.get(civ_agents::person::Flow::Built, g))
+            .sum::<f64>()
+    };
+    assert_eq!(built(asker), 0.0);
+    assert!(built(kin) > 0.0, "the kin brought the materials");
+    let t = tie(&sim, asker, kin).expect("a tie to the kin");
+    assert_eq!(t.reason.map(|r| r.act), Some(Act::HelpedMend));
+    assert!(t.help_h > 0.0, "the asker owes the work: {}", t.help_h);
+    let back = tie(&sim, kin, asker).expect("the kin's tie back");
+    assert!(back.help_h < 0.0, "the kin is owed: {}", back.help_h);
+    let problems = pop.problems(sim.ids().peek_next(), sim.rules().catalog.activities.len());
+    assert!(problems.is_empty(), "{problems:?}");
+}
+
+#[test]
+fn with_no_kin_a_neighbour_its_people_hold_a_tie_with_builds_its_first_home() {
+    let (mut sim, asker, _) = unhoused(3, 67.0, 7.0);
+    assert!(sim.people().kin_households_for_tests(asker).is_empty());
+    let me = sim
+        .people()
+        .household(asker)
+        .and_then(|x| x.members.first().copied())
+        .expect("someone");
+    // At first its people know nobody well; ties form at the hearth as the months pass.
+    until_roofed(&mut sim, asker, 365).expect("a home roofed within the year");
+    let pop = sim.people();
+    let helped: Vec<_> = pop
+        .ties
+        .of(me)
+        .iter()
+        .filter(|t| t.reason.map(|r| r.act) == Some(Act::HelpedMend))
+        .collect();
+    assert_eq!(helped.len(), 1, "one household built it");
+    let helper = pop.person(helped[0].to).expect("alive").household;
+    assert_ne!(helper, asker);
+    assert_eq!(
+        pop.household(helper)
+            .and_then(|x| x.members.first().copied()),
+        Some(helped[0].to),
+        "asked through the tie its elder holds to theirs"
+    );
+    assert!(helped[0].help_h > 0.0, "the asker owes the work");
+}
+
+#[test]
+fn a_household_with_someone_of_age_builds_its_own_first_home() {
+    let (mut sim, asker, others) = unhoused(3, 67.0, 30.0);
+    make_kin(&mut sim, asker, others[0]);
+    let home = until_roofed(&mut sim, asker, 365).expect("a home roofed within the year");
+    assert_eq!(building(&sim, home).household, asker);
+    let pop = sim.people();
+    let x = pop.household(asker).expect("it");
+    let built: f64 = (0..sim.rules().catalog.goods.len())
+        .map(|g| x.flows.get(civ_agents::person::Flow::Built, g))
+        .sum();
+    assert!(built > 0.0, "its own materials");
+    assert!(
+        tie(&sim, asker, others[0])
+            .is_none_or(|t| t.reason.map(|r| r.act) != Some(Act::HelpedMend)),
+        "no help asked"
+    );
+}

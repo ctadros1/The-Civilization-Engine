@@ -11521,6 +11521,50 @@ and M6a gives rivers a daily flow.
       measured:** a day after a save made mid-day, worlds go apart even with no exile; ADR-0011
       saves an Accelerated world only at midnight, and the approximations are not saved, so
       this was not followed further.
+    - *Help with a first home (2026-11-23)* (§9, "Help with a first home"; §8 24, sixth item;
+      research 11-04 §1.6). **The gap:** help with mending let kin, then a neighbour its people
+      hold a tie with, mend a finished building of a household with nobody who may do build
+      work, but a household with no home at all and nobody of an age a build activity admits
+      (12 to 65 for building a hut and cutting poles) was never housed. The smoke world
+      `core:worldgen/ria_coast:3` (identity `31400139183710429a9680e1a81232d2`) kept a
+      grandparent of 67 and a child of 7 unroofed for three years, failing its roof check. The
+      age caps stay: raising them broke help with mending's design and six targets
+      (`claude/hut-age`). **Built:** such a household, with no home standing or begun, or with
+      one begun that nobody of it may work on, asks as help with mending asks. It has the same
+      candidates, the same refusal (`refuses`), is worked out daily and is not saved. The one
+      asked needs someone of building age, and someone who may work on the home begun.
+      A household asked that is housed itself begins the asker's first home, where and as the
+      asker would find it that day, as one site cache per household (`site_today`, out of
+      `home_plan`), of a program someone of it may build. The plot and the building are the
+      asker's, on the asker's ground as the regime gives it, and the asker's home moves to it.
+      The helper's people work on it while it is unfinished, with their own materials, and the
+      asker owes the helper's household each stage's work as mending records it
+      (`helped_mend`, `gave_mend`). A derived map (`first_home_for`, cleared with the other
+      caches on load) carries which household's home a helper's plan begins to the moment it
+      is taken up. At the roof and the finish, what follows for the household follows the
+      building's owner: shelter, the home moved in, an old home taken down. Those are the same
+      as before for a household building its own. Households with someone of age build their
+      own as before. **Tested:** mending (6, three new). A household of 67 and 7 with no home
+      and kin nearby has a home begun, on its own plot, and roofed within the year by its kin,
+      with the kin's materials, and owes them the work. With no kin, a neighbour whose elder
+      its elder holds a tie with builds it. One with someone of 30 builds its own and asks
+      nobody. The two asking scenes failed first, nothing roofed within the year with the ask
+      turned off, and the three mending scenes are unchanged. The replay `civ-host smoke
+      --years 10 --only core:worldgen/ria_coast:3 --identity
+      31400139183710429a9680e1a81232d2` passes (11 people, 13 buildings), where it failed before
+      ("only 3 of 4 households under a roof in year 8"). The whole civ-sim suite (88 targets),
+      the unit tests; smoke (all 10 pass); fmt, clippy and the schema check clean. Saves stay
+      220: nothing new is saved. **The notables' gate**, locally, against 6043ab5: passes, 0 of
+      40 runs changed, every difference, t and detects the same (fixture 1 proposals +53.8 %,
+      t +2.97, detects 54.3 %; enacted +28.2 %, +1.63, 51.9 %; offices +0.0 %, +0.00, 44.7 %;
+      food moved by the polity −4.6 %, −0.32, 42.3 %; fixture 2 +16.1 %, +0.71, 67.7 %;
+      +24.6 %, +1.45, 50.9 %; +7.1 %, +0.29, 74.6 %; +20.0 %, +0.89, 67.8 %). *Long run 121*
+      (node1, 0e778ee): smoke 10 of 10, Gate B and the notables' gate passed; the dashboard's
+      five worlds all lived their 50 years (at the end 141, 189, 194, 143 and 150 people), its one
+      red the known price convergence limit (world 4, Hazelford–Otterdale). **Not yet:** whether
+      a Detailed world saved between a helper's plan and its beginning the
+      plot goes on alike (`first_home_for` is derived and not saved, the same kind of gap as the
+      home site fixed the same day); untested.
     - *Research 12-12 (2026-11-19): what a sewage farm's produce and its workers carry* (§9,
       "Research 12-12"; §8 19, fifth; ADR-0044 §7's deferral, whose "Revisit when" ADR-0045 met):
       Berlin's Rieselfelder (1876-2010), Paris's Gennevilliers (from 1868-69) and England's
@@ -13217,6 +13261,7 @@ and M6a gives rivers a daily flow.
        household with none who may. **Next:** extend that help to a first home (the work owed
        as mending owes it), designed against research 11-04 §1.6 as help with mending was;
        or such a household joining kin. Either is a slice of its own, with its long run.
+       *Built 2026-11-23, the first* (§7 and §9, "Help with a first home"); long run 121 (node1, 0e778ee) passed: smoke 10 of 10, Gate B, the notables' gate, every world living its 50 years; the one red the known price convergence limit on world 4's Hazelford–Otterdale.
     7. *The 100,000-person bench workload 8.5× M9* (2026-11-23, bench run 118 on node3, cancelled
        at its six hours): living to the first midnight took 8,762 s on 9cf0512 against the M9
        base's 1,025 s on the same machine, where §9 "The bench after M11 and M12 (2026-10-31)"
@@ -15093,5 +15138,6 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **A field whose household is no more is vacant at home (2026-11-22; the founding entries' "Not yet"):** Decided by Claude under standing owner authority (2026-11-22). Home's vacant cropland (`vacant_cropland`, what founding weighs staying against) counts as cropped only fields the regime does not count as vacant (`vacant`, the land review's own test). **Reason:** a household that moves away goes as a new household and its old one ends, so its fields are vacant to the regime and given out at the settlement's next review (ADR-0007 §2); founding counted them as taken, so a village emptied by departures looked full to those weighing whether to stay. One rule for what is vacant, the regime's, rather than a second founding keeps. **Considered:** counting only fields between crops (a field whose crop is left standing is the gleaners' until it is in, but its ground is no less to be had next year, which is what founding weighs). Behaviour: founding may be weighed as less needed where people have left; no content, schema, wire or web change; saves stay 220. Its long run is to come.
 - **An exile told as sent away (2026-11-23; found reading run 112's departures):** Decided by Claude under standing owner authority (2026-11-23). Someone a finding sent away who goes to no kin is chronicled under a new kind, `Exiled` (saved code 75, appended), "X was sent from Y by a finding and left the valley", not as `Left`, a household that gave up. **Reason:** the words were wrong twice over (one person, not a household; sent, not giving up), and the renderer sees only the entry, so it could not tell them apart without a kind of its own; entries saved before keep their old words. No wire or web change.
 - **A household whose members change sees its options afresh (2026-11-23):** Decided by Claude under standing owner authority (2026-11-23). A birth, a death, an exile and people moving in or out of a household drop its kept view and the home site found for it that day. **Reason:** ADR-0011 §4 requires caches to be pure functions of saved state; the day's home site was sized to members no longer there, so a world saved after such a change went on differently from the one that was not (the exile scene's receipts, within the hour). **Considered:** dropping the site at every consequential step (`changed`), refused as costlier: the search for a site is the dear part, and a deposit or a day's work does not change the members it is sized to. Other inputs that can change within a day (ground another household takes) are left as the cache already treats them; none showed in the scenes run.
+- **Help with a first home (2026-11-23; §8 24, sixth item):** Decided by Claude under standing owner authority (2026-11-23), at the coordinator's direction. A household with no home standing or begun, and nobody of an age a build activity admits, asks for help as help with mending asks: its kin, then a neighbour its people hold a tie with, under the same refusal, worked out daily and not saved. The one asked, if housed itself and someone of it may build, begins the asker's home where and as the asker would, on the asker's ground, and builds it with its own materials, and the asker owes each stage's work as for mending. **Reason:** research 11-04 §1.6 has households recruit relatives or neighbours for building work, with reciprocal help making an obligation, which help with mending already models for upkeep. A household of an elder past the build ages and a child otherwise stays unroofed for good (a smoke world, three years). The age caps are part of that model and stay; raising them was tried and withdrawn. No new number. The gate: 0 of 40 runs changed.
 - **Flooding: water and walkability stay daily (2026-11-20; the owner's call; answers long run 67's and run 80's walking-grid question):** Decided by the owner (2026-11-20), relayed by the coordinator. The walking ground and its landmarks stay laid again for each day's flood depths. **Reason, the owner's words:** "Weekly walkability could leave flooded routes usable—or reopened routes blocked—for several days, changing travel, food access and survival." Option (a), the walking ground changing in coarser steps, is **declined**. Reducing or rebuilding the route structures incrementally, with today's water restrictions kept, is left for later (§8 22, third).
 - **"Moved" in the notables' gate means food moved by the polity (2026-11-20; the owner's acceptance criteria, relayed by the coordinator):** the notables' `moved` aggregate measures the polity's food collection and redistribution, not migration. In earlier entries, "moved" means food transfers. Its tolerance here is 95 %, recalibrated, against main's 25 %. From now on gate figures call it "food moved by the polity", and a change in behaviour is told apart from a changed acceptance criterion.

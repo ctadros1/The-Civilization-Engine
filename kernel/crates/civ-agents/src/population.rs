@@ -741,6 +741,10 @@ pub struct Population {
     /// The day's asks for help with mending: for each household asked, the households that
     /// asked it (research 11-04 §1.6). Derived each day, not saved.
     mend_asks: (Option<i64>, FastMap<PermanentId, Vec<PermanentId>>),
+    /// Per household helping another with a first home (help with mending's asks), the day and
+    /// the household whose home its plan begins, when its plan that day is to begin one: the
+    /// home its people set to work on is that household's. Derived, as `home_sites` is.
+    first_home_for: FastMap<PermanentId, (i64, PermanentId)>,
     /// Per building, what each of its stages needs (its design never changes). Derived.
     stage_needs: FastMap<PermanentId, Vec<StageNeeds>>,
     /// Per building, its expansion (its design never changes). Derived.
@@ -1684,6 +1688,7 @@ impl Population {
         self.priors.clear();
         self.sites.clear();
         self.home_sites.clear();
+        self.first_home_for.clear();
         self.stage_needs.clear();
         self.expansions.clear();
         self.at_hearth = None;
@@ -2936,16 +2941,25 @@ impl Population {
             let floor = build::floor_m2(&b.spec);
             home = Some(home.map_or(floor, |f| f.max(floor)));
         }
+        // The households that asked it for help with their building work (research 11-04 §1.6):
+        // a first home of theirs under way is worked on beside its own.
+        let asking = self.asking_to_mend(ctx, hh.id);
         // Its building under way that it can work on, a home first; one nobody in it can work on
-        // waits, and holds nothing else up.
+        // waits, and holds nothing else up. Then a home under way of a household that asked it,
+        // if someone of it may do the work.
         let under_way = ctx
             .land
             .buildings
             .iter()
             .filter(|b| {
-                b.household == hh.id && !b.finished() && self.can_build(catalog, &hh.members, b)
+                !b.finished()
+                    && self.can_build(catalog, &hh.members, b)
+                    && (b.household == hh.id
+                        || (asking.contains(&b.household)
+                            && dwelling(b)
+                            && self.someone_may_mend(ctx, &hh.members, b)))
             })
-            .min_by_key(|b| !dwelling(b));
+            .min_by_key(|b| (b.household != hh.id, !dwelling(b)));
         if let Some(b) = under_way {
             let def = catalog
                 .building_index(&b.spec.program)
@@ -2975,25 +2989,15 @@ impl Population {
             Reason::NoPlace
         };
         let day = ctx.now.day_index();
-        let found = match self.home_sites.get(&hh.id) {
-            Some((seen, site)) if *seen == day => site.clone(),
-            _ => {
-                let site = self.new_building(ctx, hh, hearth, field_key, labour_per_day, home);
-                // A home it meant to build and found no clear ground for (M8c slice CT).
-                if site.as_ref().err() == Some(&Unbuilt::NoGround) {
-                    self.see_ground(
-                        ctx,
-                        hh.settlement,
-                        hh.id,
-                        crate::polity::IssueKind::NoGround,
-                    );
-                }
-                let site = site.ok();
-                self.home_sites.insert(hh.id, (day, site.clone()));
-                site
-            }
-        };
-        let Some(site) = found else {
+        // A household housed itself that was asked by one with no home begun begins that one's
+        // first home (research 11-04 §1.6), where and as the household asking would.
+        if home.is_some()
+            && let Some(plan) = self.first_home_plan(ctx, hh, &asking)
+        {
+            return Ok(plan);
+        }
+        self.first_home_for.remove(&hh.id);
+        let Some(site) = self.site_today(ctx, hh, hearth, field_key, labour_per_day, home) else {
             return Err(unbuilt);
         };
         let def = catalog
@@ -3034,6 +3038,88 @@ impl Population {
         }
         drops.insert(key, drop);
         drop
+    }
+
+    /// The building household `hh` would begin and where, as found once a day ([`Self::home_plan`]):
+    /// for a home it meant to build and found no clear ground for, its polity sees it (M8c slice
+    /// CT).
+    fn site_today(
+        &mut self,
+        ctx: &Ctx,
+        hh: &Household,
+        hearth: Option<(f32, f32)>,
+        field_key: PermanentId,
+        labour_per_day: f64,
+        home: Option<f64>,
+    ) -> Option<NewHome> {
+        let day = ctx.now.day_index();
+        match self.home_sites.get(&hh.id) {
+            Some((seen, site)) if *seen == day => site.clone(),
+            _ => {
+                let site = self.new_building(ctx, hh, hearth, field_key, labour_per_day, home);
+                if site.as_ref().err() == Some(&Unbuilt::NoGround) {
+                    self.see_ground(
+                        ctx,
+                        hh.settlement,
+                        hh.id,
+                        crate::polity::IssueKind::NoGround,
+                    );
+                }
+                let site = site.ok();
+                self.home_sites.insert(hh.id, (day, site.clone()));
+                site
+            }
+        }
+    }
+
+    /// The first home household `hh` would begin for a household of `asking` (those that asked
+    /// it for help with their building work) that has none, standing or begun: the first such,
+    /// its home found where and as that household would find it ([`Self::site_today`]), of a
+    /// program someone of `hh` may build. Remembered as the household whose home it begins
+    /// ([`Population::first_home_for`]).
+    fn first_home_plan(
+        &mut self,
+        ctx: &Ctx,
+        hh: &Household,
+        asking: &[PermanentId],
+    ) -> Option<HomePlan> {
+        let catalog = ctx.catalog;
+        let day = ctx.now.day_index();
+        for &a in asking {
+            let housed = ctx.land.buildings.iter().any(|b| {
+                b.household == a
+                    && catalog.is_dwelling(&b.spec.program)
+                    && (!b.finished() || b.standing())
+            });
+            if housed {
+                continue;
+            }
+            let Some(ax) = self.household(a).cloned() else {
+                continue;
+            };
+            let (key, hearth) = self.walking_field_of(ctx, (ax.id, ax.settlement, ax.home));
+            let labour = self.labour_per_day(&ax.members, ctx.now, ctx.params);
+            let Some(site) = self.site_today(ctx, &ax, hearth, key, labour, None) else {
+                continue;
+            };
+            let Some(def) = catalog.building_index(&site.spec.program) else {
+                continue;
+            };
+            if !catalog.is_dwelling(&site.spec.program)
+                || !self.someone_may_build(ctx, &hh.members, &site.spec.program)
+            {
+                continue;
+            }
+            self.first_home_for.insert(hh.id, (day, a));
+            return Some(HomePlan {
+                building: None,
+                spec: site.spec,
+                work: HomeWork::begin(site.stages),
+                def,
+                deadline: build::roof_deadline(day, catalog.buildings[def].roof_by_day),
+            });
+        }
+        None
     }
 
     fn new_building(
@@ -6056,14 +6142,22 @@ impl Population {
         }
         if target == Target::NewBuilding {
             // Ground for a home is claimed when someone sets to work on it; the household's home
-            // moves there.
+            // moves there. A first home begun for a household that asked for help is that
+            // household's, on its ground (research 11-04 §1.6).
+            let owner = self
+                .first_home_for
+                .get(&hh_id)
+                .filter(|(day, _)| *day == now.day_index())
+                .map_or(hh_id, |&(_, a)| a);
             target = self
-                .begin_home(ctx, hh_id)
+                .begin_home(ctx, owner)
                 .map_or(Target::None, Target::Building);
             if let Some(r) = receipt.as_mut() {
                 r.chosen.target = target;
             }
-            if let Some(new_home) = self.household(hh_id).map(|x| x.home) {
+            if owner == hh_id
+                && let Some(new_home) = self.household(hh_id).map(|x| x.home)
+            {
                 for s in &mut steps {
                     if let Step::Walk { to } = s
                         && *to == hh.home
@@ -8352,10 +8446,13 @@ impl Population {
         let Some(bi) = ctx.land.buildings.iter().position(|b| b.id == building) else {
             return;
         };
-        // Its own, or one it was asked to mend (research 11-04 §1.6).
+        // Its own, or one it was asked to mend, or a home it was asked to build (research 11-04
+        // §1.6).
         let owner = ctx.land.buildings[bi].household;
         if owner != household
-            && !(ctx.land.buildings[bi].finished() && self.mends_for(ctx, household, owner))
+            && !((ctx.land.buildings[bi].finished()
+                || catalog.is_dwelling(&ctx.land.buildings[bi].spec.program))
+                && self.mends_for(ctx, household, owner))
         {
             return;
         }
@@ -8374,7 +8471,7 @@ impl Population {
             return;
         };
         let expansion = self.expansion_of(&ctx.land.buildings[bi], def);
-        let toward = self.hearth_toward(ctx.land, household);
+        let toward = self.hearth_toward(ctx.land, owner);
         let skill = def
             .skill
             .and_then(|k| ctx.catalog.skills.get(k).map(|s| (k, s)));
@@ -8457,14 +8554,39 @@ impl Population {
             p.set_skill(k, s.practised(p.skill(k), done.hours));
         }
         use_materials(x, def, &done.used_kg);
-        if done.finished == Some(Stage::Finish) {
-            // Its lofts and raised floors take goods from now on; stores were settled above.
-            (x.sheltered, x.keeping) =
-                shelter_with(&self.letting.lets, ctx.land, ctx.catalog, params, household);
+        // A stage of a home built for the household that asked: it owes the builder's household
+        // the stage's work, as for mending.
+        if owner != household && done.finished.is_some() {
+            self.mended_for(ctx, owner, household, stage.labour_h);
+        }
+        // The household whose building it is, its stores settled to now (the builder's were
+        // above) before they keep otherwise.
+        let Some(od) = self.hh_index.get(&owner).copied() else {
+            return;
+        };
+        if owner != household
+            && done
+                .finished
+                .is_some_and(|s| s == Stage::Finish || s == Stage::Roof)
+            && let Some(o) = self.households.get_mut(od)
+        {
+            let members = o.members.len().max(1);
+            o.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
+            o.stores.resize(goods.len(), 0.0);
+        }
+        if done.finished == Some(Stage::Finish)
+            && let Some(o) = self.households.get_mut(od)
+        {
+            // Its lofts and raised floors take goods from now on.
+            (o.sheltered, o.keeping) =
+                shelter_with(&self.letting.lets, ctx.land, ctx.catalog, params, owner);
         }
         if done.finished != Some(Stage::Roof) {
             return;
         }
+        let Some(x) = self.households.get_mut(od) else {
+            return;
+        };
         let settlement = x.settlement;
         // A household that built itself a new home moves in once its roof is on, and the home it
         // leaves is taken down and its ground given up; so is a ruin of the household's that the
@@ -8476,7 +8598,7 @@ impl Population {
             .buildings
             .iter()
             .filter(|b| {
-                b.household == household
+                b.household == owner
                     && b.id != building
                     && b.finished()
                     && ((is_home && dwelling(b))
@@ -8503,11 +8625,11 @@ impl Population {
         // Stores were settled to now above, so they keep under the new roof from here on.
         if let Some(x) = self
             .hh_index
-            .get(&household)
+            .get(&owner)
             .and_then(|&hd| self.households.get_mut(hd))
         {
             (x.sheltered, x.keeping) =
-                shelter_with(&self.letting.lets, ctx.land, ctx.catalog, params, household);
+                shelter_with(&self.letting.lets, ctx.land, ctx.catalog, params, owner);
         }
         let Some(bi) = ctx.land.buildings.iter().position(|b| b.id == building) else {
             return;

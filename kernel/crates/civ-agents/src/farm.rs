@@ -696,6 +696,24 @@ pub fn site_ground(map: &WorldMap, cells: &[(u32, f32)], params: &PeopleParams) 
     })
 }
 
+/// How far a home at `(hx, hy)` (metres) lies from `rect`, metres, measured on whole centimetres
+/// as [`find_site`] measures the gap a field keeps from a home.
+pub(crate) fn home_gap(rect: &RectCm, (hx, hy): (f32, f32)) -> f32 {
+    let x = (hx * 100.0) as i32;
+    let y = (hy * 100.0) as i32;
+    let dx = (rect.x - x).max(x - (rect.x + rect.w)).max(0) as f32 / 100.0;
+    let dy = (rect.y - y).max(y - (rect.y + rect.h)).max(0) as f32 / 100.0;
+    dx.hypot(dy)
+}
+
+/// Whether a home at `h` can bear on a search for a field on `ground` ([`site_ground`]): only a
+/// home nearer than the gap a field keeps from homes to the box round every candidate is checked
+/// ([`find_site`]), and that box lies within `ground`, so a home this far or farther from
+/// `ground` cannot change what the search finds.
+pub(crate) fn home_near_ground(ground: &RectCm, h: (f32, f32)) -> bool {
+    home_gap(ground, h) < HOME_GAP_M
+}
+
 /// Whether `rect` comes within `reach_cm` of a body's centre `at_cm`: onto its outcrop, or
 /// into the gap a field keeps from it.
 fn on_outcrop(rect: &RectCm, at_cm: (i64, i64), reach_cm: i64) -> bool {
@@ -769,13 +787,6 @@ pub fn find_site(
             h: (a.y + a.h).max(b.y + b.h) - y,
         }
     })?;
-    let home_gap = |rect: &RectCm, (hx, hy): (f32, f32)| {
-        let x = (hx * 100.0) as i32;
-        let y = (hy * 100.0) as i32;
-        let dx = (rect.x - x).max(x - (rect.x + rect.w)).max(0) as f32 / 100.0;
-        let dy = (rect.y - y).max(y - (rect.y + rect.h)).max(0) as f32 / 100.0;
-        dx.hypot(dy)
-    };
     let taken: Vec<RectCm> = land
         .fields
         .iter()

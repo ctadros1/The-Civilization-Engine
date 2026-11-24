@@ -1038,7 +1038,7 @@ type SiteStamp = (usize, usize, usize, usize, u64, Option<civ_land::RectCm>);
 /// What finding new ground for a field reads that can change within a day, as one number: the
 /// fields, plots, earthworks and bodies showing at the surface on `ground` (the ground the search
 /// looks at, [`farm::site_ground`]; elsewhere they cannot change what it finds) and the homes and
-/// hearth it keeps clear of. A site found earlier in the day is kept only while this is the same,
+/// hearth near enough to it to keep a field off ([`farm::home_near_ground`]). A site found earlier in the day is kept only while this is the same,
 /// so a world saved and loaded within a day finds the same ground as one lived straight on
 /// (ADR-0011 §5; a site kept from before a neighbour's field was marked out made the two differ
 /// about one world in a hundred).
@@ -1085,8 +1085,16 @@ fn site_inputs(
             mix(pair(r.w, r.h));
         }
     }
-    mix(homes.len() as u64);
-    for &(x, y) in homes {
+    // Only the homes near enough to bear on the search ([`farm::home_near_ground`]): one farther
+    // from the ground cannot change what it finds, so a home made or moved there keeps the site
+    // found (§8 24, seventh: an exact cut, ADR-0028 §1).
+    let near: Vec<(f32, f32)> = homes
+        .iter()
+        .copied()
+        .filter(|&h| ground.is_some_and(|g| farm::home_near_ground(&g, h)))
+        .collect();
+    mix(near.len() as u64);
+    for &(x, y) in &near {
         mix(u64::from(x.to_bits()) | (u64::from(y.to_bits()) << 32));
     }
     h

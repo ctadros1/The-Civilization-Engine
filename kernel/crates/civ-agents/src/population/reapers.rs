@@ -313,6 +313,11 @@ impl Population {
             return None;
         }
         short -= set_out(&ids);
+        // Hours are no more than those short, so none to offer once hired hands cover them: what
+        // it could spare, worked out only after (§8 24, seventh: an exact cut, ADR-0028 §1).
+        if short < 0.5 {
+            return None;
+        }
         let kg_per_hour = self.sow_wage(ctx, fi, day);
         if kg_per_hour <= 0.0 {
             return None;
@@ -502,6 +507,11 @@ impl Population {
         }
         // Hours hired reapers have already set out to give its fields.
         short -= set_out(&ids);
+        // Hours are no more than those short, so none to offer once hired reapers cover them:
+        // the wage and the grain held are read only after (an exact cut, as sowing's).
+        if short < 0.5 {
+            return None;
+        }
         let kg_per_hour = self.reap_wage(ctx, fi, day);
         let crop = ctx
             .catalog

@@ -75,9 +75,8 @@ the world already keeps.
    - *Feasible* if the walk there (`walk_hours`) can be made on the food it carries plus what its
      members' reserves allow before collapse. Distance therefore limits refuge through the
      household's own means, not through a fixed radius.
-   - *Value*: expected food access there against at home, support (kin, then those known, then
-     a stranger's help: how far a newcomer is given to by its new neighbours is to be read from
-     the giving code in slice 1, not assumed), safety (raids heard of),
+   - *Value*: expected food access there against at home, support (kin, then those known),
+     safety (raids heard of),
      land or work to be had there as the household knows it, less the move's real costs: the
      journey's food, and the home and fields abandoned (stake).
    - *The key change*, for a place known only by word: expected food there is not taken as "no
@@ -86,6 +85,12 @@ the world already keeps.
      seen none. A place is lived in because it mostly feeds its people, so a household starving at
      home expects better of a living village it has never seen, but less than of one it has seen
      fed, and nothing of one it has seen hungry.
+   - *A stranger is fed there as a neighbour is*: giving is need-based (research 08-11 §5.4).
+     Any household with food to spare gives to one that asks (`give_food`), refusing only one it
+     believes stole from it or from those it regards (`refuses`). Regard only makes an asker walk
+     further to someone it knows (`best_giver`, `ask_known_min`). So the support term needs no
+     separate stranger's penalty: a newcomer without ties loses only kin's and acquaintances'
+     pull, and its prospects there are the place's food, which the prior estimates.
 3. **Found a settlement.**
    - *Feasible* only with a site the household knows (`founding_sites`), seed for the site's
      need, and food, carried or to be had, to its first harvest; or by joining a coalition already
@@ -141,7 +146,6 @@ What is new:
 - One `giving_up_plan` function replacing `refuge`'s fixed order.
 - New content parameters, each documented as tuning and logged as a NUDGE:
   - the prior's fallback (the fed share expected of a lived-in place seen by nobody);
-  - the stranger's support relative to kin's;
   - the reserve days a worn household can walk on.
 
 No wire or schema change. The observer's chronicle already tells "moved to" and "gave up and

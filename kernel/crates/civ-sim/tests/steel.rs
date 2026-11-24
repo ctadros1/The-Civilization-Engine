@@ -334,6 +334,7 @@ fn sound(group: u32, now: civ_core::SimTime) -> civ_land::GroupCondition {
         group,
         quality: 1.0,
         loss: 0.0,
+        charred: 0.0,
         installed: now,
         repaired: now,
         state: civ_land::GroupState::Sound,

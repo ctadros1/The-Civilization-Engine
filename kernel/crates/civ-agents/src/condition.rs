@@ -102,6 +102,7 @@ pub fn install(
             group: g.id,
             quality: draw_quality(seed, b.id, g.id, skill, spread),
             loss: 0.0,
+            charred: 0.0,
             installed: now,
             repaired: now,
             state: GroupState::Sound,
@@ -490,7 +491,14 @@ pub fn mend(
     if let Some(q) = rebuilt {
         c.quality = q;
     }
-    c.loss = (c.loss - share).max(0.0);
+    // What is renewed takes its share of the charring with it.
+    let left = (c.loss - share).max(0.0);
+    c.charred = if c.loss > 0.0 {
+        c.charred * left / c.loss
+    } else {
+        0.0
+    };
+    c.loss = left;
     c.repaired = now;
     // Renewed, it stands by its wear until its load is next weighed.
     c.state = GroupKind::of_group(group)

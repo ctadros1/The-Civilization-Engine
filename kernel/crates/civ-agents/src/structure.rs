@@ -968,6 +968,7 @@ mod tests {
             group: 0,
             quality,
             loss: 0.0,
+            charred: 0.0,
             installed: SimTime::ZERO,
             repaired: SimTime::ZERO,
             state: GroupState::Sound,

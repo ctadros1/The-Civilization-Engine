@@ -84,6 +84,8 @@ pub(super) struct Fell {
     pub(super) kind: GroupKind,
     pub(super) quality: f32,
     pub(super) loss: f32,
+    /// The part of `loss` fire charred away.
+    pub(super) charred: f32,
 }
 
 impl Population {
@@ -426,6 +428,7 @@ impl Population {
                     kind: g.kind,
                     quality: c.quality,
                     loss: c.loss,
+                    charred: c.charred,
                 });
             }
         }
@@ -494,6 +497,7 @@ impl Population {
                         kind: GroupKind::LoftJoists,
                         quality: c.quality,
                         loss: c.loss,
+                        charred: c.charred,
                     });
                 }
             }
@@ -652,11 +656,21 @@ impl Population {
             words.push_str(" under snow");
         }
         if let Some(f) = fell.first() {
-            match (f.quality < 0.6, f.loss >= 0.25) {
-                (true, true) => words.push_str("; they were poorly made and had rotted"),
-                (true, false) => words.push_str("; they were poorly made"),
-                (false, true) => words.push_str("; they had rotted"),
-                (false, false) => {}
+            // Loss mostly charred by fire is told as charred, not rotted (backlog D's "Not yet").
+            let rot = f.loss - f.charred;
+            if f.charred >= 0.25 && f.charred > rot {
+                words.push_str(if f.quality < 0.6 {
+                    "; they were poorly made and the fire had charred them"
+                } else {
+                    "; the fire had charred them"
+                });
+            } else {
+                match (f.quality < 0.6, rot >= 0.25) {
+                    (true, true) => words.push_str("; they were poorly made and had rotted"),
+                    (true, false) => words.push_str("; they were poorly made"),
+                    (false, true) => words.push_str("; they had rotted"),
+                    (false, false) => {}
+                }
             }
         }
         let owner = self

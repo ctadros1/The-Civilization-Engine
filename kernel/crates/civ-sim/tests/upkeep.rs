@@ -524,6 +524,39 @@ fn a_full_loft_on_sound_joists_holds_and_on_poor_ones_gives_way() {
 }
 
 #[test]
+fn posts_charred_through_are_told_as_charred_not_rotted() {
+    // Backlog D's "Not yet": charred timber told as charred rather than rotted.
+    let (mut sim, _, hut) = housed(3);
+    let posts = group_of(building(&sim, hut), GroupKind::Posts);
+    for b in sim.land_mut_for_tests().buildings.iter_mut() {
+        if b.id == hut {
+            for c in &mut b.condition {
+                if c.group == posts {
+                    (c.loss, c.charred) = (0.9, 0.7);
+                    c.state = GroupState::Symptom;
+                }
+            }
+        }
+    }
+    sim.advance_minutes(24 * 60).expect("advances");
+    assert_eq!(building(&sim, hut).state, BuildingState::Ruin);
+    let entry = sim
+        .people()
+        .chronicle
+        .iter()
+        .rev()
+        .find(|e| e.kind == ChronicleKind::BuildingFailed)
+        .expect("in the chronicle")
+        .clone();
+    assert!(
+        entry.name.ends_with("the fire had charred them"),
+        "{}",
+        entry.name
+    );
+    assert!(!entry.name.contains("rotted"), "{}", entry.name);
+}
+
+#[test]
 fn posts_rotted_through_bring_a_hut_down_and_those_it_kills_die_of_its_collapse() {
     let (mut sim, household, hut) = housed(3);
     let posts = group_of(building(&sim, hut), GroupKind::Posts);

@@ -1033,13 +1033,23 @@ struct HomePlan {
 /// the count of moves of households' homes; and the ground the household looks over, which its
 /// home's view can redraw within a day (floodwater changes what ground it can break, M6b slice
 /// BF). While these stand, a site found earlier in the day stands.
-type SiteStamp = (usize, usize, usize, usize, u64, Option<civ_land::RectCm>);
+type SiteStamp = (
+    usize,
+    usize,
+    usize,
+    usize,
+    usize,
+    usize,
+    u64,
+    Option<civ_land::RectCm>,
+);
 
 /// What finding new ground for a field reads that can change within a day, as one number: the
-/// fields, plots, earthworks and bodies showing at the surface on `ground` (the ground the search
-/// looks at, [`farm::site_ground`]; elsewhere they cannot change what it finds) and the homes and
-/// hearth near enough to it to keep a field off ([`farm::home_near_ground`]). A site found earlier in the day is kept only while this is the same,
-/// so a world saved and loaded within a day finds the same ground as one lived straight on
+/// fields, plots, earthworks, wells, tips and bodies showing at the surface on `ground` (the
+/// ground the search looks at, [`farm::site_ground`]; elsewhere they cannot change what it
+/// finds) and the homes and hearth near enough to it to keep a field off
+/// ([`farm::home_near_ground`]). A site found earlier in the day is kept only while this is the
+/// same, so a world saved and loaded within a day finds the same ground as one lived straight on
 /// (ADR-0011 §5; a site kept from before a neighbour's field was marked out made the two differ
 /// about one world in a hundred).
 fn site_inputs(
@@ -1057,6 +1067,9 @@ fn site_inputs(
     let fields = land.fields.iter().map(|f| f.rect).filter(on);
     let plots = land.plots.iter().map(|p| p.rect).filter(on);
     let works = land.earthworks.iter().map(|w| w.rect).filter(on);
+    // Wells and tips, which a new field keeps clear of as of a field ([`farm::find_site`]).
+    let wells = land.wells.list.iter().map(|w| w.rect).filter(on);
+    let tips = land.tips.list.iter().map(|t| t.rect).filter(on);
     // Bodies showing at the surface, which fields keep off, by the square round each.
     let outcrops = land
         .deposits
@@ -1077,6 +1090,8 @@ fn site_inputs(
         (2, plots.collect()),
         (3, works.collect()),
         (4, outcrops.collect()),
+        (5, wells.collect()),
+        (6, tips.collect()),
     ] {
         mix(list);
         mix(rects.len() as u64);
@@ -1098,6 +1113,16 @@ fn site_inputs(
         mix(u64::from(x.to_bits()) | (u64::from(y.to_bits()) << 32));
     }
     h
+}
+
+/// What a field site kept for the day is keyed on ([`site_inputs`]): for tests.
+#[doc(hidden)]
+pub fn site_inputs_for_tests(
+    land: &civ_land::Land,
+    ground: Option<civ_land::RectCm>,
+    homes: &[(f32, f32)],
+) -> u64 {
+    site_inputs(land, ground, homes)
 }
 
 /// The share of the days of crop `crop`'s window for preparing and sowing the ground can usually
@@ -2697,6 +2722,8 @@ impl Population {
             land.plots.len(),
             land.earthworks.len(),
             land.deposits.len(),
+            land.wells.list.len(),
+            land.tips.list.len(),
             self.homes_moved,
             ground,
         );

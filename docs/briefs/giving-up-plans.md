@@ -58,7 +58,7 @@ weighed by a household that gives up, and "off the map" is a default rather than
 The trigger stays as it is: `leave_chance` decides *that* the household can no longer stay on its
 current footing, a hazard over the day as 05-06 §5.1 recommends. What changes is *where*: instead
 of the fixed order, the household compares every plan it can carry out, by one value, and takes the
-best (the same bounded choice, with its temperature, that `decide` uses, so that near-equal plans
+best (the same bounded choice, with its temperature, that `decide::choose` makes, so that near-equal plans
 split between households rather than all following one).
 
 ### 3.2 The plans
@@ -88,7 +88,7 @@ the world already keeps.
    - *A stranger is fed there as a neighbour is*: giving is need-based (research 08-11 §5.4).
      Any household with food to spare gives to one that asks (`give_food`), refusing only one it
      believes stole from it or from those it regards (`refuses`). Regard only makes an asker walk
-     further to someone it knows (`best_giver`, `ask_known_min`). So the support term needs no
+     further to someone it knows (`best_giver`, within the content's `ties.ask_known_min` minutes). So the support term needs no
      separate stranger's penalty: a newcomer without ties loses only kin's and acquaintances'
      pull, and its prospects there are the place's food, which the prior estimates.
 3. **Found a settlement.**
@@ -129,18 +129,23 @@ What exists:
 
 | Piece | Where | Use |
 |---|---|---|
-| Known places and food impressions | `known_places`, `KnownPlace.food` | knowledge, the prior's sample |
+| Known places and food impressions | the household's `Places` (`places.rs`), `KnownPlace.food` | knowledge, the prior's sample |
 | Kin and acquaintances by place | `draws` (`moving.rs`) | support term |
-| Walk time between settlements | `walk_hours` | feasibility, cost |
+| Walk time between settlements (hearth to hearth in a straight line, at the off-trail pace) | `walk_hours` (`moving.rs`) | feasibility, cost |
 | Founding sites and their worth | `founding_sites`, `found_parts` (`founding.rs`) | the founding plan |
 | Raids heard of | `raids_believed` | safety term |
 | Relocation, leaving the map | `relocate`, `leave` | carrying out the choice |
-| Bounded choice with temperature | `decide` | taking a plan |
+| Bounded choice with temperature | `decide::choose` | taking a plan |
 
 What is new:
 
-- A walk estimate from home to the map's edge, by the navigation grid as for a settlement, cached
-  per settlement per day.
+- A walk estimate from home to the map's nearest edge, measured as `walk_hours` measures a walk to
+  a settlement: a straight line at the off-trail pace. It is cheap, so nothing needs caching.
+  *A known limit, shared with moving today:* a straight line ignores water that no walk crosses
+  and the slopes on the way, so it reads some walks as shorter than they are, and feasibility is
+  optimistic there. Tracing the walk over the navigation grid would fix that for every move, not
+  only these; it is left for a later slice unless the scenes or the departure diagnostic show
+  households setting out for places they cannot reach.
 - The feasibility test: food carried and reserves against the walk's days.
 - The lived-in prior.
 - One `giving_up_plan` function replacing `refuge`'s fixed order.

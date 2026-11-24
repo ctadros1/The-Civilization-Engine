@@ -53,6 +53,19 @@ pub struct FieldHire {
     pub good: usize,
 }
 
+/// The field person `p` is out for hire on, if they are: work for hire (`Behavior::Hire`) on a
+/// field ([`Population::hired_set_out`]).
+fn hired_on_field(ctx: &Ctx, p: &Person) -> Option<PermanentId> {
+    let Target::Field(f) = p.act.target else {
+        return None;
+    };
+    ctx.catalog
+        .activities
+        .get(usize::from(p.act.def))
+        .is_some_and(|a| a.behavior == Behavior::Hire)
+        .then_some(f)
+}
+
 /// Whether someone `age` years old could earn the harvest wage (§8 17, fourth, slice 2; research
 /// 08-22 §1: the bylaws barred from gleaning anyone who could earn a penny a day): of an age to
 /// work for hire, as the content's work for hire allows.
@@ -373,16 +386,8 @@ impl Population {
     /// left of their work steps.
     pub(super) fn hired_set_out(&self, ctx: &Ctx) -> Vec<(PermanentId, f64)> {
         let mut out = Vec::new();
-        for (_, p) in self.people.iter() {
-            let Target::Field(f) = p.act.target else {
-                continue;
-            };
-            let hired = ctx
-                .catalog
-                .activities
-                .get(usize::from(p.act.def))
-                .is_some_and(|a| a.behavior == Behavior::Hire);
-            if hired {
+        let mut read = |p: &Person| {
+            if let Some(f) = hired_on_field(ctx, p) {
                 let left: u32 = p
                     .act
                     .steps
@@ -395,8 +400,64 @@ impl Population {
                     .sum();
                 out.push((f, f64::from(left) / 60.0));
             }
+        };
+        // Those who may be out for hire, in the order people are kept, else everyone (§8 24,
+        // seventh: an exact cut, ADR-0028 §1). One no longer out for hire, or no more, is passed
+        // over as a scan of everyone passes them over.
+        match &self.hired_hands {
+            Some(list) => {
+                for &h in list {
+                    if let Some(p) = self.people.get(h) {
+                        read(p);
+                    }
+                }
+            }
+            None => {
+                for (_, p) in self.people.iter() {
+                    read(p);
+                }
+            }
+        }
+        #[cfg(debug_assertions)]
+        if self.hired_hands.is_some() {
+            let every: Vec<PermanentId> = self
+                .people
+                .iter()
+                .filter_map(|(_, p)| hired_on_field(ctx, p))
+                .collect();
+            let listed: Vec<PermanentId> = out.iter().map(|&(f, _)| f).collect();
+            debug_assert_eq!(
+                listed, every,
+                "someone out for hire on a field is not listed"
+            );
         }
         out
+    }
+
+    /// Makes the list of those who may be out for hire on a field ([`Self::hired_hands`]) if it
+    /// is missing, by looking at everyone.
+    pub(super) fn index_hired(&mut self, ctx: &Ctx) {
+        if self.hired_hands.is_some() {
+            return;
+        }
+        let list: Vec<Handle<Person>> = self
+            .people
+            .iter()
+            .filter(|(_, p)| hired_on_field(ctx, p).is_some())
+            .map(|(h, _)| h)
+            .collect();
+        self.hired_hands = Some(list);
+    }
+
+    /// Person `h` has taken up hired field work: kept with those who may be out for hire, in
+    /// the order people are kept.
+    pub(super) fn note_hired(&mut self, h: Handle<Person>) {
+        if let Some(list) = self.hired_hands.as_mut() {
+            let key = |x: &Handle<Person>| (x.index(), x.generation());
+            if let Err(i) = list.binary_search_by_key(&key(&h), key) {
+                list.insert(i, h);
+            }
+        }
     }
 
     /// The reaping household `employer` would hire now ([`Self::reap_offer`]'s reaping).

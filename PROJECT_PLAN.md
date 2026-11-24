@@ -13241,6 +13241,11 @@ and M6a gives rivers a daily flow.
        2026-11-24:* `docs/briefs/giving-up-plans.md` (one comparison of feasible plans at giving
        up: stay, a known settlement, founding, the map; a feasibility screen on the household's
        food and reserves; a prior for a lived-in place known only by word), awaiting the owner.
+       *A second sample, the brief's baseline (2026-11-24, homelab run 124, the same diagnostic on
+       38ff89f, scratch branch `claude/w2-depart-diag3`):* in the 16th year 12 households of
+       Thornbank gave up and all 12 left the map: 3 knew no other place, and 9 knew Sedgestead,
+       lived in, only by a sight or word on day 5991 (no food seen, no kin, nobody known: pull
+       0.00, refused) while it fed about 80 for the 35 years after. World 2's checks passed.
     2. *Why new settlements fail within a year or two* (§7, the founding entries' "Not yet": run
        103's whole-village foundings came back home within two years; run 108's last six of
        Thornbank founded Alderbank and then Alderbrook, empty by the 50th year). Diagnosis

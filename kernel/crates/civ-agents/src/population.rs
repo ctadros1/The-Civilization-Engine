@@ -3176,6 +3176,15 @@ impl Population {
         }
     }
 
+    /// The first home household `a` would begin, found where and as it would find one
+    /// ([`Self::site_today`]), if it can find one.
+    fn first_home_site(&mut self, ctx: &Ctx, a: PermanentId) -> Option<NewHome> {
+        let ax = self.household(a).cloned()?;
+        let (key, hearth) = self.walking_field_of(ctx, (ax.id, ax.settlement, ax.home));
+        let labour = self.labour_per_day(&ax.members, ctx.now, ctx.params);
+        self.site_today(ctx, &ax, hearth, key, labour, None)
+    }
+
     /// The first home household `hh` would begin for a household of `asking` (those that asked
     /// it for help with their building work) that has none, standing or begun: the first such,
     /// its home found where and as that household would find it ([`Self::site_today`]), of a
@@ -3198,12 +3207,7 @@ impl Population {
             if housed {
                 continue;
             }
-            let Some(ax) = self.household(a).cloned() else {
-                continue;
-            };
-            let (key, hearth) = self.walking_field_of(ctx, (ax.id, ax.settlement, ax.home));
-            let labour = self.labour_per_day(&ax.members, ctx.now, ctx.params);
-            let Some(site) = self.site_today(ctx, &ax, hearth, key, labour, None) else {
+            let Some(site) = self.first_home_site(ctx, a) else {
                 continue;
             };
             let Some(def) = catalog.building_index(&site.spec.program) else {

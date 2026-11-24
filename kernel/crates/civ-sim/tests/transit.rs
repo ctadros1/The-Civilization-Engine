@@ -2034,3 +2034,104 @@ fn the_scan_for_neighbours_fields_reaches_as_far_as_the_fastest_walk_in_the_work
         "the scan's {scan_m:.0} m against the fastest walk's {fastest_m:.0} m"
     );
 }
+
+/// The seventeenth coverage pass (§8 24, seventh's cut, 6c3ca0a): where the grid of fields holds
+/// more 500 m squares than the work's line from home crosses, the fields near home are gathered
+/// square by square within that line, which no other scene's world reaches (each holds fewer
+/// squares, and every square held is looked at). The debug check sets each gathering against
+/// every field, and the job found is the one found once the grid is forgotten and every field
+/// is scanned.
+#[test]
+fn a_neighbours_field_is_found_alike_square_by_square_where_the_grid_holds_more_squares() {
+    let (mut sim, employer, _, a_hearth, c, hand) = neighbours_scene();
+    // A walk of 10 minutes, so that its line crosses fewer squares than the land's fields hold.
+    for a in &mut sim.rules_mut_for_tests().expect("rules").catalog.activities {
+        if a.behavior == civ_agents::params::Behavior::Hire {
+            a.max_walk_minutes = 10;
+        }
+    }
+    // To two minutes before a midnight, when the grid is brought up to the fields.
+    let into_day = sim.now().minutes().rem_euclid(24 * 60);
+    if into_day < 24 * 60 - 2 {
+        sim.advance_minutes(24 * 60 - 2 - into_day)
+            .expect("advances");
+    }
+    // The employer's field ripe longest set on the way from the hand's home toward `a`, where
+    // its walk is well within the 10 minutes.
+    let home = sim.people().household(hand).expect("the hand's").home;
+    let toward = |m: f32| {
+        let (dx, dy) = (a_hearth.0 - home.0, a_hearth.1 - home.1);
+        let d = dx.hypot(dy).max(1.0);
+        (home.0 + dx / d * m, home.1 + dy / d * m)
+    };
+    let at = [150.0, 100.0, 50.0, 0.0]
+        .into_iter()
+        .map(toward)
+        .find(|&p| {
+            sim.with_ctx_for_tests(|pop, ctx| pop.hire_walk_for_tests(ctx, hand, p))
+                .is_some_and(|w| w <= 8.0)
+        })
+        .expect("a place within the walk");
+    let near = ripe_at(&mut sim, employer, c, 13, at);
+    // A field of the employer's growing, not ripe, on each square of dry ground in the valley.
+    let template = sim
+        .land()
+        .fields
+        .iter()
+        .find(|f| f.id == near)
+        .cloned()
+        .expect("the field");
+    let (w, h) = sim.map().extent_m();
+    let mut spots = Vec::new();
+    for i in 0..(w / 500.0) as i32 {
+        for j in 0..(h / 500.0) as i32 {
+            let p = (i as f32 * 500.0 + 250.0, j as f32 * 500.0 + 250.0);
+            let cell = civ_agents::population::cell_of(sim.map(), p);
+            if sim.map().water[cell] == WATER_LAND && sim.nav().walkable(cell) {
+                spots.push(p);
+            }
+        }
+    }
+    let day = sim.now().day_index();
+    for p in spots {
+        let id = sim.allocate_id_for_tests();
+        let mut f = civ_land::Field {
+            id,
+            sown_day: day,
+            ..template.clone()
+        };
+        f.rect.x = (p.0 * 100.0) as i32 - f.rect.w / 2;
+        f.rect.y = (p.1 * 100.0) as i32 - f.rect.h / 2;
+        sim.land_mut_for_tests().fields.push(f);
+    }
+    // The squares held, against those the line from the hand's home crosses.
+    let scan_m = sim.with_ctx_for_tests(|pop, ctx| pop.hire_scan_m_for_tests(ctx));
+    let square = |v: f64| (v / 500.0).floor() as i64;
+    let held: std::collections::BTreeSet<(i64, i64)> = sim
+        .land()
+        .fields
+        .iter()
+        .map(|f| {
+            let c = f.rect.centre_m();
+            (square(f64::from(c.0)), square(f64::from(c.1)))
+        })
+        .collect();
+    let across = |v: f32| square(f64::from(v) + scan_m) - square(f64::from(v) - scan_m) + 3;
+    assert!(
+        held.len() as i64 > across(home.0) * across(home.1),
+        "{} squares held, {} crossed",
+        held.len(),
+        across(home.0) * across(home.1)
+    );
+    // Over midnight: the grid holds every field.
+    sim.advance_minutes(3).expect("advances");
+    let job = sim.with_ctx_for_tests(|pop, ctx| pop.best_job_for_tests(ctx, hand));
+    assert!(
+        job.is_some_and(|(firm, f, walk)| firm == employer && f == Some(near) && walk <= 10.0),
+        "the neighbour's reaping, within the walk: {job:?}"
+    );
+    // The grid forgotten, every field scanned: the same job.
+    sim.people_mut_for_tests().forget_views();
+    let scanned = sim.with_ctx_for_tests(|pop, ctx| pop.best_job_for_tests(ctx, hand));
+    assert_eq!(job, scanned);
+}

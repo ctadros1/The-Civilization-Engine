@@ -449,3 +449,119 @@ fn a_household_with_someone_of_age_builds_its_own_first_home() {
         "no help asked"
     );
 }
+
+/// The seventeenth coverage pass (§8 24, sixth's first-home slice, 5f721b6): once the kin roof the
+/// first home they began for a household that asked, the steps at its roof follow the building's
+/// owner, not the builder. From that hour the asker is sheltered under it with the room its own
+/// roof gives, as a load would derive it; and the kin's own home, which they had to have before
+/// beginning another's, stands where it stood, for it is no home the asker leaves.
+#[test]
+fn a_first_home_roofed_by_kin_shelters_the_asker_and_leaves_the_kins_own_home_standing() {
+    let (mut sim, asker, others) = unhoused(3, 67.0, 7.0);
+    let kin = others[0];
+    make_kin(&mut sim, asker, kin);
+    let catalog = &content().catalog;
+    let homes_of = |sim: &Sim, h: PermanentId| -> Vec<PermanentId> {
+        sim.land()
+            .buildings
+            .iter()
+            .filter(|b| {
+                b.household == h
+                    && b.finished()
+                    && b.standing()
+                    && catalog.is_dwelling(&b.spec.program)
+            })
+            .map(|b| b.id)
+            .collect()
+    };
+    // Lived until the asker's home is begun: the kin's own home then, and where they live.
+    let mut kins = None;
+    for _ in 0..365 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        if sim.land().buildings.iter().any(|b| b.household == asker) {
+            let home = sim.people().household(kin).expect("the kin").home;
+            kins = Some((homes_of(&sim, kin), home));
+            break;
+        }
+    }
+    let (kin_homes, kin_home) = kins.expect("the asker's home begun within the year");
+    assert!(
+        !kin_homes.is_empty(),
+        "the kin were housed when they began it"
+    );
+    // Lived an hour at a time until its roof is on, before the home is finished.
+    let mut home = None;
+    for _ in 0..365 * 24 {
+        sim.advance_minutes(60).expect("advances");
+        home = roofed_home(&sim, asker);
+        if home.is_some() {
+            break;
+        }
+    }
+    let home = home.expect("a home roofed within the year");
+    assert_eq!(building(&sim, home).household, asker);
+    assert!(!building(&sim, home).finished(), "roofed, not yet finished");
+    // Its shelter and the room its roof gives its goods are its own home's, as a load would
+    // derive them now, not its builder's.
+    let shelter = |sim: &Sim, h: PermanentId| {
+        let x = sim.people().household(h).expect("it");
+        (x.sheltered, x.keeping)
+    };
+    let (asker_now, kin_now) = (shelter(&sim, asker), shelter(&sim, kin));
+    assert!(asker_now.0, "the asker is under its roof");
+    sim.with_ctx_for_tests(|pop, ctx| pop.derive_shelter(ctx.land, ctx.catalog, ctx.params));
+    assert_eq!(asker_now, shelter(&sim, asker), "the asker's own roof");
+    assert_eq!(kin_now, shelter(&sim, kin), "the kin's own home");
+    let pop = sim.people();
+    for b in &kin_homes {
+        assert!(
+            sim.land().buildings.iter().any(|x| x.id == *b),
+            "the kin's home {b:?} stands"
+        );
+    }
+    assert_eq!(
+        pop.household(kin).expect("the kin").home,
+        kin_home,
+        "the kin live where they lived"
+    );
+}
+
+/// The seventeenth coverage pass (§8 24, sixth's first-home slice, 5f721b6): a household with no
+/// home and nobody of an age to build asks only a household with someone of that age. Its kin,
+/// all past the build ages themselves, are passed over for a neighbour its people hold a tie
+/// with, who builds it; were the kin asked, nobody would ever begin it.
+#[test]
+fn kin_with_nobody_of_an_age_to_build_are_passed_over_for_a_tied_neighbour() {
+    let (mut sim, asker, others) = unhoused(3, 67.0, 7.0);
+    let kin = others[0];
+    make_kin(&mut sim, asker, kin);
+    let now = sim.now();
+    let born = SimTime::from_minutes(now.minutes() - (66.0 * 525_600.0) as i64);
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.household == kin {
+            p.born = born;
+        }
+    }
+    let home = until_roofed(&mut sim, asker, 365).expect("a home roofed within the year");
+    assert_eq!(building(&sim, home).household, asker);
+    assert!(
+        tie(&sim, asker, kin).is_none_or(|t| t.reason.map(|r| r.act) != Some(Act::HelpedMend)),
+        "not built by the kin"
+    );
+    let me = sim
+        .people()
+        .household(asker)
+        .and_then(|x| x.members.first().copied())
+        .expect("someone");
+    let pop = sim.people();
+    let helped: Vec<PermanentId> = pop
+        .ties
+        .of(me)
+        .iter()
+        .filter(|t| t.reason.map(|r| r.act) == Some(Act::HelpedMend))
+        .filter_map(|t| pop.person(t.to).map(|p| p.household))
+        .collect();
+    assert_eq!(helped.len(), 1, "one household built it: {helped:?}");
+    assert_ne!(helped[0], kin);
+    assert_ne!(helped[0], asker);
+}

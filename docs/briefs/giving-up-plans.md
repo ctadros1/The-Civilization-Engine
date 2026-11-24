@@ -30,6 +30,17 @@ kin and nobody known there. Its pull was exactly 0.00, so they left the map. The
 households that gave up, leaving new settlements, went home to kin, as designed. Founding is never
 weighed by a household that gives up, and "off the map" is a default rather than a choice.
 
+A second sample on current code (homelab run 124: the same diagnostic on verification 38ff89f,
+after founding's vacant fields, help with a first home and the exact hire cut) shows the same
+pattern, earlier in the world's life. In the 16th year (days 5985 to 6011), 12 households gave up,
+all of them in Thornbank, and all 12 left the map. The first 3 knew no other place. The other 9 had
+learned of Sedgestead by sight or word on day 5991. They knew it was lived in, but nobody had seen
+its food, and none had kin or anyone known there. It looked better than home, where the fed share
+was 0.04 to 0.44, yet its pull was 0.00, so it was refused as a refuge. Thornbank kept 3 or 4
+people from then on, while Sedgestead fed about 80 for the 35 years after (its median food days
+276 to 729). So it had room for at least some of them. Under this design the 3 who knew nowhere
+would still leave the map; the 9 would weigh Sedgestead.
+
 ## 2. What the research asks (05-06, migration; 10-01, site selection)
 
 - **Compare feasible plans, "stay" among them** (05-06 §5.1: consider → compare feasible plans →

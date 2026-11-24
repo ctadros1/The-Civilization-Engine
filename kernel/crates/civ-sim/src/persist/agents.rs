@@ -16415,4 +16415,21 @@ mod tests {
             Err(LoadError::Malformed(_))
         ));
     }
+
+    /// The seventeenth coverage pass (96d79ef): each chronicle code a save may hold reads back as
+    /// the kind written under it and no other, so an appended kind never takes an older one's
+    /// code; an exile told as sent away is saved as 75.
+    #[test]
+    fn each_chronicle_code_reads_back_as_the_kind_written_under_it() {
+        let mut seen = 0;
+        for code in 0..=u16::from(u8::MAX) {
+            if let Some(kind) = chronicle_kind(code) {
+                assert_eq!(chronicle_code(kind), code, "{kind:?}");
+                seen += 1;
+            }
+        }
+        assert_eq!(chronicle_code(ChronicleKind::Exiled), 75);
+        assert_eq!(chronicle_kind(75), Some(ChronicleKind::Exiled));
+        assert_eq!(seen, 75, "codes 1 to 75, each read");
+    }
 }

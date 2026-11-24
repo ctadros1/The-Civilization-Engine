@@ -1403,6 +1403,43 @@ fn an_exile_goes_where_kin_live_and_one_drawn_nowhere_leaves_the_map() {
     saves_and_goes_on_alike(&mut sim, 60);
 }
 
+/// The seventeenth coverage pass (96d79ef's `members_changed`): a household that loses someone
+/// to a death sees its options afresh and looks again for the site of a home it found that day,
+/// sized to its members' work (ADR-0011 §4), so a world saved after the deaths goes on as the
+/// unsaved one does. The exile scene shows the same for an exile.
+#[test]
+fn a_world_saved_after_deaths_goes_on_as_the_unsaved_one_does() {
+    let mut sim = world_knowing(3, 50, &[50], true).expect("generates");
+    let a = sim.land().settlements[0].id;
+    // An adult of each household of `a` of three or more dies.
+    let dying: Vec<civ_core::PermanentId> = {
+        let pop = sim.people();
+        let mut out: Vec<_> = pop
+            .households
+            .iter()
+            .map(|(_, x)| x)
+            .filter(|x| x.settlement == Some(a) && x.members.len() >= 3)
+            .filter_map(|x| {
+                x.members.iter().copied().find(|m| {
+                    pop.person(*m)
+                        .is_some_and(|p| p.age_years(sim.now()) >= 16.0)
+                })
+            })
+            .collect();
+        out.sort();
+        out
+    };
+    assert!(dying.len() >= 2, "{dying:?}");
+    for &p in &dying {
+        sim.die_for_tests(p);
+    }
+    sim.advance_minutes(60).expect("goes on");
+    let pop = sim.people();
+    assert!(dying.iter().all(|p| pop.person(*p).is_none()));
+    assert!(pop.problems(u64::MAX, usize::MAX).is_empty());
+    saves_and_goes_on_alike(&mut sim, 60);
+}
+
 /// Saves `sim`, loads it, and checks every section of the loaded world is the same, and that the
 /// two go on alike for `minutes`.
 fn saves_and_goes_on_alike(sim: &mut Sim, minutes: i64) {

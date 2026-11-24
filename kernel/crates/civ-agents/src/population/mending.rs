@@ -145,28 +145,62 @@ impl Population {
             if wanting.is_empty() && !unhoused {
                 continue;
             }
+            let nothing_begun = begun.is_empty();
             let wanting: Vec<&Building> = wanting.into_iter().chain(begun).collect();
             let Some(elder) = self.elder_of(id, ctx.now, ctx.params) else {
                 continue;
             };
-            let helper = self.mend_candidates(ctx, x).into_iter().find(|&h| {
-                self.household(h).is_some_and(|hx| {
-                    wanting
-                        .iter()
-                        .all(|b| self.someone_may_mend(ctx, &hx.members, b))
-                        && (!unhoused
-                            || hx
-                                .members
-                                .iter()
-                                .filter_map(|m| self.person(*m))
-                                .any(|p| Self::of_building_age(ctx, p)))
-                }) && !self.refuses(ctx, h, elder)
-            });
+            let candidates = self.mend_candidates(ctx, x);
+            let mut helper = candidates
+                .iter()
+                .copied()
+                .find(|&h| self.may_be_asked(ctx, h, &wanting, unhoused, elder));
+            // With no home begun, the one asked must also be able to build the home it would
+            // begin (§8 25, second; as [`Population::first_home_plan`] requires of it), or the
+            // same one is asked every day and builds nothing. Found only once someone may be
+            // asked, where that one's own plan would look for it.
+            if unhoused
+                && nothing_begun
+                && helper.is_some()
+                && let Some(site) = self.first_home_site(ctx, id)
+            {
+                let program = site.spec.program;
+                helper = candidates.iter().copied().find(|&h| {
+                    self.may_be_asked(ctx, h, &wanting, unhoused, elder)
+                        && self
+                            .household(h)
+                            .is_some_and(|hx| self.someone_may_build(ctx, &hx.members, &program))
+                });
+            }
             if let Some(h) = helper {
                 asks.entry(h).or_default().push(id);
             }
         }
         self.mend_asks = (Some(day), asks);
+    }
+
+    /// Whether household `h` may be asked to do the building work `wanting` for a household whose
+    /// elder is `elder`: someone of it may work on each, someone of it is of an age to build if
+    /// the one asking is `unhoused`, and it does not refuse that elder.
+    fn may_be_asked(
+        &self,
+        ctx: &Ctx,
+        h: PermanentId,
+        wanting: &[&Building],
+        unhoused: bool,
+        elder: PermanentId,
+    ) -> bool {
+        self.household(h).is_some_and(|hx| {
+            wanting
+                .iter()
+                .all(|b| self.someone_may_mend(ctx, &hx.members, b))
+                && (!unhoused
+                    || hx
+                        .members
+                        .iter()
+                        .filter_map(|m| self.person(*m))
+                        .any(|p| Self::of_building_age(ctx, p)))
+        }) && !self.refuses(ctx, h, elder)
     }
 
     /// Whom household `x` would ask to mend, in order: its people's close kin's households of

@@ -565,3 +565,43 @@ fn kin_with_nobody_of_an_age_to_build_are_passed_over_for_a_tied_neighbour() {
     assert_ne!(helped[0], kin);
     assert_ne!(helped[0], asker);
 }
+
+/// §8 25's second item: the one asked for a first home must be able to build the home the asker
+/// would begin, as it must be of an age to. Its kin know no way to build the hut its ground
+/// calls for (the roundhouse technique, forgotten here), so they are passed over for a
+/// neighbour its people hold a tie with, who knows it and builds it; were the kin asked, they
+/// would be asked every day and nobody would ever begin it.
+#[test]
+fn kin_who_cannot_build_the_home_asked_for_are_passed_over_for_a_tied_neighbour() {
+    let (mut sim, asker, others) = unhoused(3, 67.0, 7.0);
+    let kin = others[0];
+    make_kin(&mut sim, asker, kin);
+    let roundhouse = sim
+        .rules()
+        .catalog
+        .technique_index("core:technique/roundhouse")
+        .expect("the hut's technique");
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.household == kin {
+            p.knows.retain(|k| usize::from(k.technique) != roundhouse);
+        }
+    }
+    let home = until_roofed(&mut sim, asker, 365).expect("a home roofed within the year");
+    assert_eq!(building(&sim, home).household, asker);
+    let me = sim
+        .people()
+        .household(asker)
+        .and_then(|x| x.members.first().copied())
+        .expect("someone");
+    let pop = sim.people();
+    let helped: Vec<PermanentId> = pop
+        .ties
+        .of(me)
+        .iter()
+        .filter(|t| t.reason.map(|r| r.act) == Some(Act::HelpedMend))
+        .filter_map(|t| pop.person(t.to).map(|p| p.household))
+        .collect();
+    assert_eq!(helped.len(), 1, "one household built it: {helped:?}");
+    assert_ne!(helped[0], kin, "not the kin, who cannot build it");
+    assert_ne!(helped[0], asker);
+}

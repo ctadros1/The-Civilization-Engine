@@ -2895,7 +2895,8 @@ impl Population {
         self.fields_moved();
     }
 
-    /// A field has changed hands: [`Self::fields_of`] looks at every field until midnight.
+    /// A field has changed hands: [`Self::fields_of`] looks at every field until the index is
+    /// brought up to date again, at the next decision or midnight ([`Self::index_fields`]).
     pub(crate) fn fields_moved(&mut self) {
         if self.fields_indexed > 0 {
             self.field_index.clear();
@@ -4304,6 +4305,11 @@ impl Population {
         }
         let now = ctx.now;
         let params = ctx.params;
+        // Who works what, brought up to the fields as they stand: emptied when a field changes
+        // hands (`fields_moved`), it was otherwise found afresh only at midnight, and every
+        // decision until then read every field in the world instead (§8 24, seventh: an exact
+        // cut, ADR-0028 §1; a function of the fields alone, and nothing when it is current).
+        self.index_fields(ctx.land);
         let Some(p) = self.people.get_mut(h) else {
             return;
         };

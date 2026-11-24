@@ -801,6 +801,11 @@ pub struct Population {
     /// emptied when a field changes hands. Derived.
     field_index: FastMap<PermanentId, Vec<u32>>,
     fields_indexed: usize,
+    /// The first `fields_celled` fields by the square of [`FIELD_CELL_M`] their centre lies in
+    /// ([`Self::fields_near`]): a field never moves or goes, so this is only added to, at
+    /// midnight. Derived.
+    field_cells: FastMap<(i64, i64), Vec<u32>>,
+    fields_celled: usize,
     /// Everyone's children on record, in id order, as of the first `children_indexed` records
     /// ([`Self::refresh_kin`]). Derived.
     children: FastMap<PermanentId, Vec<PermanentId>>,
@@ -1107,6 +1112,10 @@ fn manure_grain_per_kg(params: &PeopleParams, land: &LandParams, crop: &CropPara
     }
     params.midden.n_per_kg() * land.soil.manure_first_year() * land.soil.uptake_share / crop.crop_n
 }
+
+/// The side of the squares fields are kept by for finding those near a point
+/// ([`Population::fields_near`]), metres.
+const FIELD_CELL_M: f64 = 500.0;
 
 /// Field work a capable adult gives on a day at a peak, against an ordinary day's.
 fn peak_ratio(params: &PeopleParams) -> f64 {
@@ -2381,6 +2390,8 @@ impl Population {
         self.at_hearth = None;
         self.known_pruned.clear();
         self.fields_moved();
+        self.field_cells.clear();
+        self.fields_celled = 0;
         self.children_indexed = usize::MAX;
         self.settled_stale = true;
     }
@@ -2752,8 +2763,101 @@ impl Population {
         )
     }
 
+    /// The indices among the land's fields of those household `household` works, in the order
+    /// [`Self::fields_of`] gives them.
+    pub(crate) fn field_indices(&self, land: &civ_land::Land, household: PermanentId) -> Vec<u32> {
+        let indexed = self.fields_indexed.min(land.fields.len());
+        self.indexed_fields(land, household)
+            .iter()
+            .copied()
+            .chain(
+                (indexed..land.fields.len())
+                    .filter(|&i| land.fields[i].household == household)
+                    .map(|i| i as u32),
+            )
+            .collect()
+    }
+
+    /// The indices of the fields household `household` works among the first `fields_indexed`,
+    /// in order: all of them while [`Self::fields_all_indexed`].
+    pub(crate) fn indexed_fields(&self, land: &civ_land::Land, household: PermanentId) -> &[u32] {
+        if self.fields_indexed.min(land.fields.len()) == 0 {
+            return &[];
+        }
+        self.field_index
+            .get(&household)
+            .map_or(&[][..], Vec::as_slice)
+    }
+
+    /// Whether [`Self::fields_of`]'s index holds every field now.
+    pub(crate) fn fields_all_indexed(&self, land: &civ_land::Land) -> bool {
+        self.fields_indexed == land.fields.len()
+    }
+
+    /// The indices, ascending, of the fields whose centre lies within `within_m` of `at`: those
+    /// the cells near `at` hold, and any marked out since they were last brought up to date.
+    /// Checked against every field whenever debug checks are on.
+    pub(crate) fn fields_near(
+        &self,
+        land: &civ_land::Land,
+        at: (f32, f32),
+        within_m: f64,
+    ) -> Vec<usize> {
+        let near = |i: usize| {
+            let c = land.fields[i].rect.centre_m();
+            f64::from((c.0 - at.0).hypot(c.1 - at.1)) <= within_m
+        };
+        let celled = self.fields_celled.min(land.fields.len());
+        let cell = |v: f64| (v / FIELD_CELL_M).floor() as i64;
+        // A cell more on every side than the distance reaches, so rounding loses none.
+        let (x0, x1) = (
+            cell(f64::from(at.0) - within_m) - 1,
+            cell(f64::from(at.0) + within_m) + 1,
+        );
+        let (y0, y1) = (
+            cell(f64::from(at.1) - within_m) - 1,
+            cell(f64::from(at.1) + within_m) + 1,
+        );
+        let mut out: Vec<usize> = Vec::new();
+        if (x1 - x0 + 1).saturating_mul(y1 - y0 + 1) as usize > self.field_cells.len() {
+            // More cells in reach than are held: each cell held is looked at once.
+            for (&(cx, cy), list) in &self.field_cells {
+                if (x0..=x1).contains(&cx) && (y0..=y1).contains(&cy) {
+                    out.extend(list.iter().map(|&i| i as usize).filter(|&i| near(i)));
+                }
+            }
+        } else {
+            for cx in x0..=x1 {
+                for cy in y0..=y1 {
+                    if let Some(list) = self.field_cells.get(&(cx, cy)) {
+                        out.extend(list.iter().map(|&i| i as usize).filter(|&i| near(i)));
+                    }
+                }
+            }
+        }
+        out.extend((celled..land.fields.len()).filter(|&i| near(i)));
+        out.sort_unstable();
+        debug_assert_eq!(
+            out,
+            (0..land.fields.len())
+                .filter(|&i| near(i))
+                .collect::<Vec<_>>(),
+            "a field moved since its cell was noted"
+        );
+        out
+    }
+
     /// Brings [`Self::fields_of`]'s index up to the fields marked out so far.
     fn index_fields(&mut self, land: &civ_land::Land) {
+        for (i, f) in land.fields.iter().enumerate().skip(self.fields_celled) {
+            let c = f.rect.centre_m();
+            let key = (
+                (f64::from(c.0) / FIELD_CELL_M).floor() as i64,
+                (f64::from(c.1) / FIELD_CELL_M).floor() as i64,
+            );
+            self.field_cells.entry(key).or_default().push(i as u32);
+        }
+        self.fields_celled = land.fields.len();
         for (i, f) in land.fields.iter().enumerate().skip(self.fields_indexed) {
             self.field_index
                 .entry(f.household)
@@ -2951,13 +3055,13 @@ impl Population {
             .land
             .buildings
             .iter()
+            // Whose it is first: the cheapest test, of every building in the world.
+            .filter(|b| b.household == hh.id || asking.contains(&b.household))
             .filter(|b| {
                 !b.finished()
                     && self.can_build(catalog, &hh.members, b)
                     && (b.household == hh.id
-                        || (asking.contains(&b.household)
-                            && dwelling(b)
-                            && self.someone_may_mend(ctx, &hh.members, b)))
+                        || (dwelling(b) && self.someone_may_mend(ctx, &hh.members, b)))
             })
             .min_by_key(|b| (b.household != hh.id, !dwelling(b)));
         if let Some(b) = under_way {

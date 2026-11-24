@@ -154,9 +154,26 @@ impl Population {
     /// quarter of its crop (the grace of [`crate::farm::FarmView::urgency`]), less the hours of
     /// hired reapers already set out for them, and no more than the grain it holds pays for.
     pub(super) fn reap_offer(&self, ctx: &Ctx, employer: PermanentId) -> Option<ReapOffer> {
-        self.reaping_offer(ctx, employer)
-            .or_else(|| self.thresh_offer(ctx, employer))
-            .or_else(|| self.sowing_offer(ctx, employer))
+        let fields = self.field_indices(ctx.land, employer);
+        self.reap_offer_with(ctx, employer, &fields, &|ids| {
+            self.hired_hours_set_out(ctx, ids)
+        })
+    }
+
+    /// [`Self::reap_offer`], reading household `employer`'s fields from `fields` (their indices
+    /// among the land's, in the order [`Self::fields_of`] gives them) and the hours hired hands
+    /// have set out to give from `set_out` ([`Self::hired_hours_set_out`]): one who weighs many
+    /// employers at a moment gathers both once (§8 24, seventh; an exact cut, ADR-0028 §1).
+    pub(super) fn reap_offer_with(
+        &self,
+        ctx: &Ctx,
+        employer: PermanentId,
+        fields: &[u32],
+        set_out: &dyn Fn(&[PermanentId]) -> f64,
+    ) -> Option<ReapOffer> {
+        self.reaping_offer(ctx, employer, fields, set_out)
+            .or_else(|| self.thresh_offer(ctx, employer, fields, set_out))
+            .or_else(|| self.sowing_offer(ctx, employer, fields, set_out))
     }
 
     /// Hired threshing (§8 21, twelfth; research 08-10 §1.3: a household allocates its hands
@@ -167,7 +184,13 @@ impl Population {
     /// offers the threshing short, less what hired threshers already set out to give. The wage is
     /// the custom's share (`firm.wage_share`) of the grain an hour threshes, in that grain, paid
     /// from the grain once it is threshed.
-    fn thresh_offer(&self, ctx: &Ctx, employer: PermanentId) -> Option<ReapOffer> {
+    fn thresh_offer(
+        &self,
+        ctx: &Ctx,
+        employer: PermanentId,
+        fields: &[u32],
+        set_out: &dyn Fn(&[PermanentId]) -> f64,
+    ) -> Option<ReapOffer> {
         let (now, params) = (ctx.now, ctx.params);
         let day = now.day_index();
         let x = self.household(employer)?;
@@ -178,7 +201,9 @@ impl Population {
         let (mut thresh, mut sow) = (0.0, 0.0);
         let mut first: Option<(PermanentId, usize)> = None;
         let mut ids: Vec<PermanentId> = Vec::new();
-        for f in self.fields_of(ctx.land, employer) {
+        for &fi in fields {
+            let fi = fi as usize;
+            let f = &ctx.land.fields[fi];
             if usize::from(f.crop) != params.farm.crop {
                 continue;
             }
@@ -191,7 +216,6 @@ impl Population {
                 sow += crate::farm::to_sow_h(&fallow, crop);
                 ids.push(f.id);
                 if first.is_none_or(|(id, _)| f.id < id) {
-                    let fi = ctx.land.fields.iter().position(|g| g.id == f.id)?;
                     first = Some((f.id, fi));
                 }
             } else {
@@ -207,7 +231,7 @@ impl Population {
         if short < 0.5 {
             return None;
         }
-        short -= self.hired_hours_set_out(ctx, &ids);
+        short -= set_out(&ids);
         let kg_per_hour = params.firm.wage_share / crop.thresh_h_per_kg.max(1e-9);
         (short >= 0.5).then_some(ReapOffer {
             task: FieldTask::Thresh,
@@ -227,7 +251,13 @@ impl Population {
     /// already set out to give, as far as the grain it holds pays for. The wage is the custom's
     /// share of what an hour of the field's work brings (its expected crop over the hours still
     /// needed to bring it in), as reaping's is before it is bid up.
-    fn sowing_offer(&self, ctx: &Ctx, employer: PermanentId) -> Option<ReapOffer> {
+    fn sowing_offer(
+        &self,
+        ctx: &Ctx,
+        employer: PermanentId,
+        fields: &[u32],
+        set_out: &dyn Fn(&[PermanentId]) -> f64,
+    ) -> Option<ReapOffer> {
         let (now, params) = (ctx.now, ctx.params);
         let day = now.day_index();
         let x = self.household(employer)?;
@@ -238,7 +268,9 @@ impl Population {
         let (mut thresh, mut sow) = (0.0, 0.0);
         let mut first: Option<(PermanentId, usize)> = None;
         let mut ids: Vec<PermanentId> = Vec::new();
-        for f in self.fields_of(ctx.land, employer) {
+        for &fi in fields {
+            let fi = fi as usize;
+            let f = &ctx.land.fields[fi];
             if usize::from(f.crop) != params.farm.crop {
                 continue;
             }
@@ -252,7 +284,6 @@ impl Population {
                     sow += crate::farm::to_sow_h(f, crop);
                     ids.push(f.id);
                     if first.is_none_or(|(id, _)| f.id < id) {
-                        let fi = ctx.land.fields.iter().position(|g| g.id == f.id)?;
                         first = Some((f.id, fi));
                     }
                 }
@@ -268,7 +299,7 @@ impl Population {
         if short < 0.5 {
             return None;
         }
-        short -= self.hired_hours_set_out(ctx, &ids);
+        short -= set_out(&ids);
         let kg_per_hour = self.sow_wage(ctx, fi, day);
         if kg_per_hour <= 0.0 {
             return None;
@@ -324,7 +355,24 @@ impl Population {
     /// Hours of hired field work already set out for fields `ids`: what is left of the work steps
     /// of those out for hire on them.
     fn hired_hours_set_out(&self, ctx: &Ctx, ids: &[PermanentId]) -> f64 {
+        Self::hours_on(&self.hired_set_out(ctx), ids)
+    }
+
+    /// The hours on fields `ids` of `set_out` ([`Self::hired_set_out`]), summed in its order.
+    pub(super) fn hours_on(set_out: &[(PermanentId, f64)], ids: &[PermanentId]) -> f64 {
         let mut hours = 0.0;
+        for &(f, h) in set_out {
+            if ids.contains(&f) {
+                hours += h;
+            }
+        }
+        hours
+    }
+
+    /// Each hand out for hire on a field, in the order people are kept: the field and the hours
+    /// left of their work steps.
+    pub(super) fn hired_set_out(&self, ctx: &Ctx) -> Vec<(PermanentId, f64)> {
+        let mut out = Vec::new();
         for (_, p) in self.people.iter() {
             let Target::Field(f) = p.act.target else {
                 continue;
@@ -334,7 +382,7 @@ impl Population {
                 .activities
                 .get(usize::from(p.act.def))
                 .is_some_and(|a| a.behavior == Behavior::Hire);
-            if hired && ids.contains(&f) {
+            if hired {
                 let left: u32 = p
                     .act
                     .steps
@@ -345,14 +393,20 @@ impl Population {
                         _ => 0,
                     })
                     .sum();
-                hours += f64::from(left) / 60.0;
+                out.push((f, f64::from(left) / 60.0));
             }
         }
-        hours
+        out
     }
 
     /// The reaping household `employer` would hire now ([`Self::reap_offer`]'s reaping).
-    fn reaping_offer(&self, ctx: &Ctx, employer: PermanentId) -> Option<ReapOffer> {
+    fn reaping_offer(
+        &self,
+        ctx: &Ctx,
+        employer: PermanentId,
+        fields: &[u32],
+        set_out: &dyn Fn(&[PermanentId]) -> f64,
+    ) -> Option<ReapOffer> {
         let (now, params) = (ctx.now, ctx.params);
         let day = now.day_index();
         let x = self.household(employer)?;
@@ -361,7 +415,9 @@ impl Population {
         // The field ripe longest is reaped first: (ripe day, field id, index).
         let mut first: Option<(i64, PermanentId, usize)> = None;
         let mut ids: Vec<PermanentId> = Vec::new();
-        for f in self.fields_of(ctx.land, employer) {
+        for &fi in fields {
+            let fi = fi as usize;
+            let f = &ctx.land.fields[fi];
             let Some(crop) = ctx.catalog.crops.get(usize::from(f.crop)) else {
                 continue;
             };
@@ -374,7 +430,6 @@ impl Population {
             days = days.min((grace - (day - ripe) as f64).max(1.0));
             ids.push(f.id);
             if first.is_none_or(|(r, id, _)| (ripe, f.id) < (r, id)) {
-                let fi = ctx.land.fields.iter().position(|g| g.id == f.id)?;
                 first = Some((ripe, f.id, fi));
             }
         }
@@ -385,7 +440,7 @@ impl Population {
             return None;
         }
         // Hours hired reapers have already set out to give its fields.
-        short -= self.hired_hours_set_out(ctx, &ids);
+        short -= set_out(&ids);
         let kg_per_hour = self.reap_wage(ctx, fi, day);
         let crop = ctx
             .catalog

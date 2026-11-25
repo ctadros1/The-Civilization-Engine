@@ -806,6 +806,11 @@ pub struct Population {
     /// midnight. Derived.
     field_cells: FastMap<(i64, i64), Vec<u32>>,
     fields_celled: usize,
+    /// Everyone who may be out for hire on a field, by row: those found so at midnight or when
+    /// the list was found missing, and whoever has taken up hired field work since
+    /// ([`Self::hired_set_out`] reads these in place of every person). `None` until made.
+    /// Derived.
+    hired_hands: Option<Vec<Handle<Person>>>,
     /// Everyone's children on record, in id order, as of the first `children_indexed` records
     /// ([`Self::refresh_kin`]). Derived.
     children: FastMap<PermanentId, Vec<PermanentId>>,
@@ -2425,6 +2430,7 @@ impl Population {
         self.fields_moved();
         self.field_cells.clear();
         self.fields_celled = 0;
+        self.hired_hands = None;
         self.children_indexed = usize::MAX;
         self.settled_stale = true;
     }
@@ -4337,6 +4343,7 @@ impl Population {
         // decision until then read every field in the world instead (§8 24, seventh: an exact
         // cut, ADR-0028 §1; a function of the fields alone, and nothing when it is current).
         self.index_fields(ctx.land);
+        self.index_hired(ctx);
         let Some(p) = self.people.get_mut(h) else {
             return;
         };
@@ -6352,6 +6359,15 @@ impl Population {
             .is_some_and(|a| a.behavior == Behavior::Rounds)
         {
             self.start_rounds(ctx, who);
+        }
+        // Hired field work taken up is kept with those `hired_set_out` reads (§8 24, seventh).
+        if let Target::Field(_) = target
+            && catalog
+                .activities
+                .get(usize::from(def))
+                .is_some_and(|a| a.behavior == Behavior::Hire)
+        {
+            self.note_hired(h);
         }
         // Someone who sets off to work on a crossing is one of its crew that day, counted as
         // they choose it, so that those choosing after them see the room taken (M5c slice AW;
@@ -9130,6 +9146,9 @@ impl Population {
         self.views.clear();
         self.switched.clear();
         self.index_fields(ctx.land);
+        // Those out for hire on a field, found afresh, letting go of those no longer.
+        self.hired_hands = None;
+        self.index_hired(ctx);
         // On the first of each month, ties to those no longer here are let go and standing is
         // worked out afresh (ADR-0014 §1, §3).
         if now.date().day == 1 {

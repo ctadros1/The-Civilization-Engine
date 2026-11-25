@@ -1619,6 +1619,23 @@ fn a_world_saved_after_a_marriage_goes_on_as_the_unsaved_one_does() {
     saves_and_goes_on_alike(&mut sim, 120);
 }
 
+/// §8 25, fifth: a world saved at seven in the morning, nothing staged, goes on as the unsaved one
+/// does for eight hours. A home site a household found earlier that day is kept only while what
+/// it was found from stands (ADR-0011 §4): here household 68 takes plot 158 at 06:55 beside the
+/// hut site household 63 had found, and a kept site that ignored it failed at 10:36 where a world
+/// loaded after 06:55 found the site afresh and began hut 171.
+#[test]
+fn a_world_saved_at_seven_goes_on_as_the_unsaved_one_does() {
+    let mut sim = world_knowing(3, 50, &[50], true).expect("generates");
+    let to_seven = (7 * 60 - sim.now().minute_of_day()).rem_euclid(24 * 60);
+    sim.advance_minutes(to_seven).expect("goes on");
+    assert_eq!(
+        (sim.now().day_index(), sim.now().minute_of_day()),
+        (59, 7 * 60)
+    );
+    saves_and_goes_on_alike(&mut sim, 480);
+}
+
 /// Saves `sim`, loads it, and checks every section of the loaded world is the same, and that the
 /// two go on alike for `minutes`.
 fn saves_and_goes_on_alike(sim: &mut Sim, minutes: i64) {

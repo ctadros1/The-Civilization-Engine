@@ -13345,6 +13345,18 @@ and M6a gives rivers a daily flow.
        village of 500 showed no step from 77f1d9d to 6c3ca0a (two interleaved rounds) and a flat
        profile, so its 1.44× has no one cut, and an amendment to the figure reached (ADR-0028 §1)
        is the likely end there.
+       *Bench run 127 (2026-11-25, node3, c4ec5f0 with the four cuts, against the M9 base):
+       better, not resolved.* The 100k workload 269,206 against 172,257 ms a day, **1.56×**
+       (2.49× before the cuts); a village of 500 1,223 against 889, **1.38×**; three of 400
+       1,031 against 785, **1.31×**; ten of 60 0.88×. Nothing is promoted. A profile of the cut
+       build's 100k day leaves `best_job` a third of the samples, nearly all of it each
+       employer's offer worked out on every decision (`reap_offer_with`'s own loops), and trade
+       (`find_deal`) a seventh. A fifth exact cut (one pass over an employer's fields for its
+       three offers) is under way. **For the owner:** what remains is the hiring design itself
+       (every one seeking work weighs every employer of the settlement each time) and, in the
+       Detailed worlds, cost spread over many features; closing it needs a bound on the employers
+       weighed (a behaviour change), or ADR-0028 §1's amendment to the figure reached once exact
+       cuts are spent (the owner's call, given "Ensure the performance regression is resolved").
     Still waiting from 23: its 14 to 21 (the owner's or an ADR's), 23 (the owner's) and 24
     (Unreal).
 25. **What is open next, ranked (2026-11-24, found during the seventeenth coverage pass; 24's

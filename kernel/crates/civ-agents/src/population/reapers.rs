@@ -86,7 +86,8 @@ impl Population {
     /// The pay household `employer`'s field `fi` offers for an hour of a capable adult's reaping
     /// on day `day`: `firm.wage_share` of the grain the field is expected to give over the hours
     /// of work still needed to bring it in, bid up by [`HARVEST_BID_PER_DAY`] for each day the
-    /// crop has stood ripe, while hours go untaken (§8 21, twelfth; research 08-10 §5.6: faster
+    /// crop has stood ripe, a clock on the standing crop, not a count of hours left untaken
+    /// (§8 21, twelfth; research 08-10 §5.6: faster
     /// wage review for urgent seasonal tasks, harvest bidding), never past all of what the hour
     /// brings (0 when it is not ripe standing).
     fn reap_wage(&self, ctx: &Ctx, fi: usize, day: i64) -> f64 {

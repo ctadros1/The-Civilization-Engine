@@ -352,7 +352,10 @@ impl Population {
         (sick.len() as f64 / here as f64).clamp(0.0, 1.0)
     }
 
-    /// Hours' walk from `from`'s hearth to `to`'s, at the pace people walk off trails.
+    /// Hours' walk from `from`'s hearth to `to`'s, as the straight line between them at the walking
+    /// grid's top speed (`NavParams::top_speed_ms`): a lower bound on the walk, not a route. It
+    /// reads an off-trail walk on the flat as about half as long as it is, and sees no water,
+    /// flood or detour.
     fn walk_hours(&self, ctx: &Ctx, from: PermanentId, to: PermanentId) -> f64 {
         let at = |s: PermanentId| {
             ctx.land

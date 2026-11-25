@@ -20,6 +20,11 @@ fn content() -> &'static ContentRegistry {
 
 /// Two settlements founded apart.
 fn world() -> Sim {
+    world_of([7; 16])
+}
+
+/// [`world`] of identity `identity`.
+fn world_of(identity: [u8; 16]) -> Sim {
     let sim = Sim::create_for_tests(
         &NewWorld {
             name: "Telegraph".to_owned(),
@@ -32,7 +37,7 @@ fn world() -> Sim {
             regime_id: String::new(),
         },
         content(),
-        [7; 16],
+        identity,
     )
     .expect("generates");
     assert_eq!(sim.land().settlements.len(), 2);
@@ -979,10 +984,20 @@ fn an_office_to_be_short_of_copper_looks_for_it_and_finds_an_outcrop_nobody_pass
 }
 
 /// A household that wants an instrument and holds what it is made of builds it (M11d, fourth
-/// part): until the recipe had a work that made it, an instrument wanted was never built.
+/// part): until the recipe had a work that made it, an instrument wanted was never built. It lives
+/// in a finished home, the first it would have built, so the making does not wait on that home's
+/// building: the scene once lived its household through its first hut, and whether it made an
+/// instrument before the hut took its timber came down to who began a hut when (§9, "A home site
+/// is planned afresh at every call"). What it made is accounted for, and a world saved as it
+/// begins goes on as the unsaved one does.
 #[test]
 fn an_office_to_be_holding_its_copper_iron_and_timber_builds_its_instrument() {
-    let mut sim = world();
+    an_office_to_be_builds_its_instrument(world());
+}
+
+/// [`an_office_to_be_holding_its_copper_iron_and_timber_builds_its_instrument`] in `sim` (of any
+/// identity, [`world_of`]).
+fn an_office_to_be_builds_its_instrument(mut sim: Sim) {
     let [(a, _, _), (b, _, _)] = pair(&sim);
     let [instrument, copper, timber, iron] = [
         "core:good/telegraph_instrument",
@@ -997,16 +1012,94 @@ fn an_office_to_be_holding_its_copper_iron_and_timber_builds_its_instrument() {
     for (g, kg) in [(copper, 20.0), (timber, 10.0), (iron, 16.0)] {
         set(&mut sim, a, g, kg);
     }
-    let held = |sim: &Sim, g: usize| sim.people().household(a).expect("household").stores[g];
-    for _ in 0..10 {
-        sim.advance_minutes(24 * 60).expect("advances");
-    }
+    // Its first home, where and as it would lay it out now, built whole: begun, then put up
+    // finished in its place.
+    let spec = sim
+        .with_ctx_for_tests(|pop, ctx| {
+            let id = pop.begin_home_for_tests(ctx, a)?;
+            let begun = ctx.land.buildings.iter().find(|b| b.id == id)?.clone();
+            ctx.land.buildings.retain(|b| b.id != id);
+            ctx.land.plots.retain(|p| p.id != begun.plot);
+            ctx.land.earthworks.retain(|w| w.plot != Some(begun.plot));
+            Some(begun.spec)
+        })
+        .expect("a first home");
+    let home = sim
+        .place_building_for_tests(a, spec, civ_grammar::Stage::ALL.len() as u8)
+        .expect("placed");
+    // What the scene stands on: a finished home of its own and nothing of its under way, an
+    // instrument wanted, and what the recipe asks of each good held.
+    let catalog = sim.rules().catalog.clone();
+    let mine: Vec<_> = sim
+        .land()
+        .buildings
+        .iter()
+        .filter(|x| x.household == a)
+        .collect();
     assert!(
-        held(&sim, instrument) > 0.0,
-        "building it: {} of an instrument",
-        held(&sim, instrument)
+        mine.iter().any(|x| x.id == home
+            && x.finished()
+            && x.standing()
+            && catalog.is_dwelling(&x.spec.program)),
+        "it lives in a finished home"
     );
-    assert!(held(&sim, iron) < 16.0, "its iron went into it");
+    assert!(
+        mine.iter().all(|x| x.finished()),
+        "nothing of it is under way"
+    );
+    assert!(
+        sim.with_ctx_for_tests(|pop, ctx| pop.keep_for_tests(ctx, a)[instrument]) >= 1.0,
+        "it wants an instrument"
+    );
+    let hh = sim.people().household(a).expect("household");
+    assert!(hh.sheltered, "its stores are under its roof");
+    let recipe = catalog
+        .recipes
+        .iter()
+        .find(|r| r.id == "core:recipe/build_telegraph_instrument")
+        .expect("the recipe");
+    assert_eq!(recipe.outputs, vec![(instrument, 1.0)]);
+    let before = hh.stores.clone();
+    for &(g, kg) in &recipe.inputs {
+        assert!(
+            before[g] >= kg,
+            "it holds the {kg} kg of {g} an instrument takes"
+        );
+    }
+    let mut loaded = saves_alike(&mut sim);
+    for s in [&mut sim, &mut loaded] {
+        for _ in 0..10 {
+            s.advance_minutes(24 * 60).expect("advances");
+        }
+    }
+    for s in [&sim, &loaded] {
+        let held = |g: usize| s.people().household(a).expect("household").stores[g];
+        let made = held(instrument);
+        assert!(made > 0.0, "building it: {made} of an instrument");
+        assert!(held(iron) < 16.0, "its iron went into it");
+        // What was made took the recipe's copper and iron for it from the household's stores (at
+        // least: a tool made by a hand new to the work is less than a whole one, its quality).
+        for g in [copper, iron] {
+            let per = recipe
+                .inputs
+                .iter()
+                .find(|i| i.0 == g)
+                .map(|i| i.1)
+                .expect("an input");
+            let used = before[g] - held(g);
+            assert!(
+                used >= per * made - 1e-9,
+                "{used} kg of good {g} used for {made} of an instrument"
+            );
+        }
+    }
+    let (x, y) = (
+        persist::encode_sections(&sim),
+        persist::encode_sections(&loaded),
+    );
+    for (x, y) in x.iter().zip(&y) {
+        assert!(x.bytes == y.bytes, "section `{}` differs", x.tag);
+    }
 }
 
 /// A material made toward a tool is worth a session whatever its length, and its effort grows

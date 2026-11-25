@@ -1615,6 +1615,75 @@ impl Sim {
         self.dirty = true;
     }
 
+    /// `mother` gives birth now (for a test that needs a birth into her household at a given
+    /// instant; see [`Population::give_birth_for_tests`]). The child, if one was born.
+    #[doc(hidden)]
+    pub fn give_birth_for_tests(
+        &mut self,
+        mother: civ_core::PermanentId,
+    ) -> Option<civ_core::PermanentId> {
+        let now = self.now();
+        let approx = self.approximations_now();
+        let mut pending = Vec::new();
+        let child = {
+            let mut ctx = Ctx {
+                now,
+                seed: self.meta.seed,
+                map: &self.map,
+                nav: &self.nav,
+                land: &mut self.land,
+                land_params: &self.rules.land,
+                params: &self.rules.people,
+                catalog: &self.rules.catalog,
+                regime: &self.regime,
+                ids: &mut self.ids,
+                schedule: &mut pending,
+                approx,
+            };
+            self.people.give_birth_for_tests(&mut ctx, mother)
+        };
+        for (at, event) in pending {
+            let _ = self
+                .scheduler
+                .schedule(at, PHASE_AGENT, SimEvent::Agent(event));
+        }
+        self.dirty = true;
+        child
+    }
+
+    /// `woman` and `man` marry now and settle as a couple does (for a test that needs a marriage,
+    /// and someone moving between households, at a given instant; see
+    /// [`Population::marry_for_tests`]).
+    #[doc(hidden)]
+    pub fn marry_for_tests(&mut self, woman: civ_core::PermanentId, man: civ_core::PermanentId) {
+        let now = self.now();
+        let approx = self.approximations_now();
+        let mut pending = Vec::new();
+        {
+            let mut ctx = Ctx {
+                now,
+                seed: self.meta.seed,
+                map: &self.map,
+                nav: &self.nav,
+                land: &mut self.land,
+                land_params: &self.rules.land,
+                params: &self.rules.people,
+                catalog: &self.rules.catalog,
+                regime: &self.regime,
+                ids: &mut self.ids,
+                schedule: &mut pending,
+                approx,
+            };
+            self.people.marry_for_tests(&mut ctx, woman, man);
+        }
+        for (at, event) in pending {
+            let _ = self
+                .scheduler
+                .schedule(at, PHASE_AGENT, SimEvent::Agent(event));
+        }
+        self.dirty = true;
+    }
+
     /// The world's rules, to set up a situation in a test (a tuning value pushed to an extreme,
     /// say); `None` once they are shared. A world's rules otherwise come only from its content.
     #[doc(hidden)]

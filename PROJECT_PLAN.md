@@ -13396,6 +13396,9 @@ and M6a gives rivers a daily flow.
        `#[doc(hidden)]` hooks as `die_for_tests` and `exile_for_tests` are. Then scenes that
        pin `members_changed` at a birth and at people moving at a marriage (`move_people`), as
        the death and exile scenes pin it. No test notices today if either call is dropped.
+       *Done 2026-11-25*: `give_birth_for_tests` and `marry_for_tests` (through `birth` and
+       `unite`); two settlements scenes fail with the call dropped at the birth, or at either of
+       `move_people`'s; a world saved at 07:00 already diverges 225 minutes on, birth or not.
     4. *The seventeenth coverage pass* (backlog E): the code added 2026-11-23 and 24 (the
        vacant field, the exile's chronicle kind, `members_changed`, help with a first home, the
        exact hire-scan cut) read against its tests. Gate-neutral. *Done 2026-11-24* (§9, "The

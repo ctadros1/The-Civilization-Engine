@@ -605,3 +605,210 @@ fn kin_who_cannot_build_the_home_asked_for_are_passed_over_for_a_tied_neighbour(
     assert_ne!(helped[0], kin, "not the kin, who cannot build it");
     assert_ne!(helped[0], asker);
 }
+
+/// Saves `sim`, loads it, and lives the two side by side an hour at a time for `hours`, every
+/// section of their saves alike after each (ADR-0011 §4: who asks whom for help with building
+/// work is derived, worked out once a day and not saved, so a world loaded that day works it out
+/// afresh from what holds then, and must find what the unsaved one kept).
+fn saves_and_goes_on_alike(sim: &mut Sim, hours: u32) {
+    use civ_sim::persist;
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved =
+        persist::save(sim, &saves, commons_persist::SaveKind::Manual, "mid-day").expect("saves");
+    let mut loaded = persist::load(&saved.path, content()).expect("loads");
+    let differing = |a: &Sim, b: &Sim| -> Vec<String> {
+        let (a, b) = (persist::encode_sections(a), persist::encode_sections(b));
+        assert_eq!(a.len(), b.len());
+        a.iter()
+            .zip(&b)
+            .filter(|(x, y)| x.bytes != y.bytes)
+            .map(|(x, _)| x.tag.to_string())
+            .collect()
+    };
+    assert_eq!(differing(sim, &loaded), Vec::<String>::new(), "as loaded");
+    for h in 1..=hours {
+        sim.advance_minutes(60).expect("advances");
+        loaded.advance_minutes(60).expect("advances");
+        let d = differing(sim, &loaded);
+        assert!(d.is_empty(), "{h} h after the save these differ: {d:?}");
+    }
+}
+
+/// Household `household`'s dwellings, with the stage each is at.
+fn dwellings(sim: &Sim, household: PermanentId) -> Vec<(PermanentId, u8)> {
+    let catalog = &sim.rules().catalog;
+    sim.land()
+        .buildings
+        .iter()
+        .filter(|b| b.household == household && catalog.is_dwelling(&b.spec.program))
+        .map(|b| (b.id, b.stage))
+        .collect()
+}
+
+/// Whether household `household` lives in a finished home of its own.
+fn housed(sim: &Sim, household: PermanentId) -> bool {
+    let catalog = &sim.rules().catalog;
+    sim.land().buildings.iter().any(|b| {
+        b.household == household
+            && b.finished()
+            && b.standing()
+            && catalog.is_dwelling(&b.spec.program)
+    })
+}
+
+/// Lives `sim` an hour at a time, at most `hours`, until `done` holds of it.
+fn hour_by_hour(sim: &mut Sim, hours: u32, done: impl Fn(&Sim) -> bool) -> bool {
+    for _ in 0..hours {
+        sim.advance_minutes(60).expect("advances");
+        if done(sim) {
+            return true;
+        }
+    }
+    false
+}
+
+/// §8 25's first item: a household asks its kin for a first home at the day's first need, and
+/// the ask is kept until midnight. Saved on the hour its kin put the roof on, and again on the
+/// hour they finish it (when it no longer asks), the world goes on as the unsaved one does for
+/// two days each time: what the kin do for it is read against the home as it stands, a roof
+/// already on or a home already finished, not against the morning's ask alone.
+#[test]
+fn a_first_home_saved_the_hour_kin_roof_it_and_the_hour_they_finish_it_goes_on_alike() {
+    let (mut sim, asker, others) = unhoused(3, 67.0, 7.0);
+    let kin = others[0];
+    make_kin(&mut sim, asker, kin);
+    for _ in 0..365 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        if !dwellings(&sim, asker).is_empty() {
+            break;
+        }
+    }
+    assert_eq!(
+        dwellings(&sim, asker).len(),
+        1,
+        "its home begun within the year"
+    );
+    assert!(
+        hour_by_hour(&mut sim, 365 * 24, |s| roofed_home(s, asker).is_some()),
+        "roofed within the year"
+    );
+    assert!(sim.now().minute_of_day() != 0, "roofed mid-day");
+    assert!(!housed(&sim, asker), "roofed, not yet finished");
+    saves_and_goes_on_alike(&mut sim, 48);
+    assert!(!housed(&sim, asker), "not finished in those two days");
+    assert!(
+        hour_by_hour(&mut sim, 365 * 24, |s| housed(s, asker)),
+        "finished within the year"
+    );
+    assert!(sim.now().minute_of_day() != 0, "finished mid-day");
+    let t = tie(&sim, asker, kin).expect("a tie to the kin");
+    assert_eq!(
+        t.reason.map(|r| r.act),
+        Some(Act::HelpedMend),
+        "built by the kin"
+    );
+    saves_and_goes_on_alike(&mut sim, 48);
+}
+
+/// A household with a home begun and its kin housed, whose one member of an age to build;
+/// lived to 10:00 of the next day: the world, the household, its kin, that member and its home.
+fn about_to_lose_its_builder() -> (Sim, PermanentId, PermanentId, PermanentId, PermanentId) {
+    let (mut sim, asker, others) = unhoused(3, 67.0, 30.0);
+    let kin = others[0];
+    make_kin(&mut sim, asker, kin);
+    for _ in 0..365 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        if housed(&sim, kin) {
+            break;
+        }
+    }
+    assert!(housed(&sim, kin), "the kin housed within the year");
+    assert!(!housed(&sim, asker), "the asker not yet");
+    let home = dwellings(&sim, asker);
+    assert_eq!(home.len(), 1, "its own home begun: {home:?}");
+    hour_by_hour(&mut sim, 24, |s| s.now().minute_of_day() == 10 * 60);
+    let now = sim.now();
+    let pop = sim.people();
+    let builders: Vec<PermanentId> = pop
+        .household(asker)
+        .expect("it")
+        .members
+        .iter()
+        .copied()
+        .filter(|m| {
+            pop.person(*m)
+                .is_some_and(|p| (12.0..=65.0).contains(&p.age_years(now)))
+        })
+        .collect();
+    assert_eq!(builders.len(), 1, "{builders:?}");
+    (sim, asker, kin, builders[0], home[0].0)
+}
+
+/// §8 25's first item: a household whose one member of an age to build dies mid-day is from
+/// then on a household with a home begun that nobody of it may work on, and asks its kin
+/// (`members_changed`). A world saved the hour it dies goes on as the unsaved one does: before,
+/// the unsaved world kept the morning's asks, in which it asked nobody, until midnight, while
+/// the loaded one had its kin at work on its home that afternoon.
+#[test]
+fn a_world_saved_the_hour_an_askers_last_builder_dies_goes_on_alike() {
+    let (mut sim, asker, kin, builder, home) = about_to_lose_its_builder();
+    sim.die_for_tests(builder);
+    assert!(sim.people().person(builder).is_none());
+    assert!(
+        sim.people().household(asker).is_some(),
+        "the elder lives on"
+    );
+    let done = |sim: &Sim| {
+        let b = building(sim, home);
+        (b.stage, b.work_h)
+    };
+    let before = done(&sim);
+    saves_and_goes_on_alike(&mut sim, 48);
+    // Nobody of it may work on its home now: the work done on it is its kin's.
+    assert!(done(&sim) > before, "{before:?} → {:?}", done(&sim));
+    assert!(sim.people().household(kin).is_some());
+}
+
+/// §8 25's first item: who is of an age to build changes as the hours pass, not at midnight. A
+/// household whose people of 30 are made to pass the build ages at noon, its home begun, is
+/// saved at 13:00: the loaded world goes on as the unsaved one does, for the day's asks read
+/// everyone's age as it was at the day's start, as a world loaded that day reads it.
+#[test]
+fn a_world_saved_after_an_askers_builders_pass_the_build_ages_mid_day_goes_on_alike() {
+    let (mut sim, asker, _, builder, _) = about_to_lose_its_builder();
+    hour_by_hour(&mut sim, 24, |s| s.now().minute_of_day() == 60);
+    let noon = sim.now().day_index() * 1440 + 12 * 60;
+    let past = build_hut_max_age_minutes() + 1;
+    let pop = sim.people_mut_for_tests();
+    let p = pop
+        .people
+        .iter_mut()
+        .map(|(_, p)| p)
+        .find(|p| p.id == builder)
+        .expect("alive");
+    p.born = SimTime::from_minutes(noon - past);
+    hour_by_hour(&mut sim, 24, |s| s.now().minute_of_day() == 13 * 60);
+    let age = sim
+        .people()
+        .person(builder)
+        .expect("alive")
+        .age_years(sim.now());
+    assert!(age > 65.0, "past the build ages now: {age}");
+    assert!(sim.people().household(asker).is_some());
+    saves_and_goes_on_alike(&mut sim, 48);
+}
+
+/// The oldest a build activity admits, in minutes of age.
+fn build_hut_max_age_minutes() -> i64 {
+    let catalog = &content().catalog;
+    let max = catalog
+        .activities
+        .iter()
+        .filter(|a| a.behavior == civ_agents::params::Behavior::Build)
+        .map(|a| a.max_age_years)
+        .fold(0.0_f64, f64::max);
+    assert_eq!(max, 65.0, "core's build ages");
+    (max * 525_600.0) as i64
+}

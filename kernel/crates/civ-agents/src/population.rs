@@ -2380,11 +2380,13 @@ impl Population {
     }
 
     /// Household `household`'s members changed (a birth, a death, someone sent away or moving
-    /// in or out): it sees its options afresh, and the site it found for a home today, sized to
-    /// its members' work, is looked for again (ADR-0011 §4), as a save made now would have it.
+    /// in or out): it sees its options afresh, the site it found for a home today, sized to its
+    /// members' work, is looked for again, and so are the day's asks for help with building work,
+    /// which turn on who of it may build (ADR-0011 §4), as a save made now would have them.
     pub(super) fn members_changed(&mut self, household: PermanentId) {
         self.changed(household);
         self.home_sites.remove(&household);
+        self.mend_asks.0 = None;
     }
 
     /// Goods moved between household `household` and the party its step was with (`with`): the

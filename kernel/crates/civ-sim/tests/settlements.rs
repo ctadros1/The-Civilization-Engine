@@ -3026,3 +3026,76 @@ fn vacant_cropland_follows_the_regime_s_own_vacancy() {
         );
     }
 }
+
+/// A field site kept for the day is keyed on the wells and tips on its ground, as the search
+/// keeps a new field clear of them (`farm::find_site`). Before, the key held fields, plots,
+/// earthworks and outcrops only, so a site kept from before a well was dug or a tip laid that
+/// day there was used still, where a world loaded after would search afresh (ADR-0011 §5). One
+/// made far off, which the search cannot meet, leaves the key as it was.
+#[test]
+fn a_kept_field_site_is_keyed_on_the_wells_and_tips_on_its_ground() {
+    use civ_agents::population::site_inputs_for_tests as key;
+    use civ_core::PermanentId;
+    use civ_land::RectCm;
+    let sim = world(3, 50, &[30]).expect("generates");
+    let ground = RectCm {
+        x: 100_000,
+        y: 100_000,
+        w: 20_000,
+        h: 20_000,
+    };
+    let on = RectCm {
+        x: 105_000,
+        y: 105_000,
+        w: 400,
+        h: 400,
+    };
+    let far = RectCm {
+        x: 10_000_000,
+        y: 10_000_000,
+        w: 400,
+        h: 400,
+    };
+    let homes = [(1_100.0_f32, 1_100.0_f32)];
+    let before = key(sim.land(), Some(ground), &homes);
+    let id = PermanentId::from_raw(999_999).expect("an id");
+    let with_tip = |rect: RectCm| {
+        let mut land = sim.land().clone();
+        land.tips.list.push(civ_land::tips::TipGround { id, rect });
+        key(&land, Some(ground), &homes)
+    };
+    assert_ne!(with_tip(on), before, "a tip laid on the ground");
+    assert_eq!(with_tip(far), before, "a tip laid far off");
+    let with_well = |rect: RectCm| {
+        let mut land = sim.land().clone();
+        let at = SimTime::from_minutes(0);
+        land.wells.list.push(civ_land::wells::Well {
+            id,
+            system: 0,
+            cell: 0,
+            rect,
+            household: id,
+            polity: None,
+            ground_m: 0.0,
+            depth_m: 0.0,
+            target_m: 0.0,
+            work_h: 0.0,
+            skill_h: 0.0,
+            quality: 0.0,
+            loss: 0.0,
+            mend_h: 0.0,
+            cover_h: 0.0,
+            covered: false,
+            worth: 0.0,
+            level_m: 0.0,
+            level_at: at,
+            drawn_l: 0.0,
+            begun: at,
+            state: civ_land::wells::WellState::Digging,
+            crew: (0, 0),
+        });
+        key(&land, Some(ground), &homes)
+    };
+    assert_ne!(with_well(on), before, "a well begun on the ground");
+    assert_eq!(with_well(far), before, "a well begun far off");
+}

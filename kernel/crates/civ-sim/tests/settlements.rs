@@ -3305,3 +3305,45 @@ fn a_kept_field_site_is_keyed_on_the_wells_and_tips_on_its_ground() {
     assert_ne!(with_well(on), before, "a well begun on the ground");
     assert_eq!(with_well(far), before, "a well begun far off");
 }
+
+/// The eighteenth coverage pass (§8 24, seventh's exact cut, 3407e5a): a field site kept for the
+/// day is keyed only on the homes near enough to its ground to keep a field off, nearer than the
+/// 15 m gap `farm::find_site` keeps a field from a home, measured on whole centimetres from the
+/// ground's box. A home inside the ground or nearer than the gap, square on or at a corner,
+/// changes the key; one at the gap exactly, or far off, cannot change what the search finds and
+/// leaves it as it was. Were the gap measured short of the search's, a home that bears on the
+/// search would leave a kept site standing that a world loaded after would not find.
+#[test]
+fn a_kept_field_site_is_keyed_on_the_homes_nearer_its_ground_than_a_field_keeps_from_one() {
+    use civ_agents::population::site_inputs_for_tests as key;
+    use civ_land::RectCm;
+    let sim = world(3, 50, &[30]).expect("generates");
+    // The ground from 1,000 m to 1,200 m each way.
+    let ground = RectCm {
+        x: 100_000,
+        y: 100_000,
+        w: 20_000,
+        h: 20_000,
+    };
+    let none = key(sim.land(), Some(ground), &[]);
+    let with = |home: (f32, f32)| key(sim.land(), Some(ground), &[home]);
+    // Bearing on the search: within the ground, 14.5 m short of its west edge, and 14.5 m from
+    // its south-west corner (9 m and 11.5 m off).
+    for home in [(1_100.0, 1_100.0), (985.5, 1_100.0), (991.0, 988.5)] {
+        assert_ne!(with(home), none, "a home at {home:?} bears on the search");
+    }
+    // Not bearing on it: 15 m from its west edge, 15 m from its south-west corner (9 m and
+    // 12 m off), and far off.
+    for home in [(985.0, 1_100.0), (991.0, 988.0), (5_000.0, 5_000.0)] {
+        assert_eq!(
+            with(home),
+            none,
+            "a home at {home:?} cannot bear on the search"
+        );
+    }
+    // With no ground to look over, no home bears on it.
+    assert_eq!(
+        key(sim.land(), None, &[(1_100.0, 1_100.0)]),
+        key(sim.land(), None, &[])
+    );
+}

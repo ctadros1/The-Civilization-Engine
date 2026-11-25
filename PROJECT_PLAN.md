@@ -13360,7 +13360,13 @@ and M6a gives rivers a daily flow.
        *Proposed 2026-11-25:* `docs/briefs/bounded-hire.md`, a seeker of work weighing only the
        offers of employers it knows of (kin, ties, and the `hire_seen` nearest fields within the
        walk), as research 08-10 §5.3 asks ("workers inspect a small set of reachable offers"),
-       awaiting the owner.
+       awaiting the owner. *The fifth exact cut, tried and not landed (2026-11-25):* one pass over
+       an employer's fields for its three offers, hoisted lookups, no field cloned to price it,
+       and a lazy count of hands, with every save section's digest unchanged on the three worlds,
+       saved about 1.4 % of the 100k day (214.1 → 211.2 s locally), under the 5 % worth landing.
+       What `reap_offer_with` costs is the first reading of each employer's fields and people on
+       every decision, which no exact rearrangement avoids; only weighing fewer employers would
+       (the brief above). The patch is kept in the session's scratchpad, not pushed.
     Still waiting from 23: its 14 to 21 (the owner's or an ADR's), 23 (the owner's) and 24
     (Unreal).
 25. **What is open next, ranked (2026-11-24, found during the seventeenth coverage pass; 24's

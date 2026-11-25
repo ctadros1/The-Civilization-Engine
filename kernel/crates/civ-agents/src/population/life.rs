@@ -465,6 +465,45 @@ impl Population {
         self.emptied.clear();
     }
 
+    /// `mother` gives birth now, as a pregnancy come to term ends at a day's end (the father the
+    /// one she conceived by, else her partner): for tests that need a birth into her household
+    /// at a given instant. Births in a world come from conceptions. The child, if one was born.
+    #[doc(hidden)]
+    pub fn give_birth_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        mother: PermanentId,
+    ) -> Option<PermanentId> {
+        let m = self.person(mother)?;
+        let father = match m.repro {
+            Repro::Pregnant { father, .. } => father,
+            _ => m.partner,
+        };
+        let household = m.household;
+        let before: Vec<PermanentId> = self.household(household)?.members.clone();
+        self.birth(ctx, mother, father, ctx.now.day_index());
+        self.care_for_households(ctx);
+        self.emptied.clear();
+        self.household(household)?
+            .members
+            .iter()
+            .copied()
+            .find(|c| !before.contains(c))
+    }
+
+    /// `woman` and `man` become partners now and settle as the pairing at a day's end has a
+    /// couple settle ([`Population::unite`]): for tests that need a marriage, and someone moving
+    /// between households, at a given instant. Unions in a world come from people finding each
+    /// other.
+    #[doc(hidden)]
+    pub fn marry_for_tests(&mut self, ctx: &mut Ctx, woman: PermanentId, man: PermanentId) {
+        self.unmatched.remove(&woman);
+        self.unmatched.remove(&man);
+        self.unite(ctx, woman, man);
+        self.care_for_households(ctx);
+        self.emptied.clear();
+    }
+
     /// Someone dies: they leave their household (what they carried stays with it), their partner
     /// is widowed, a mother nursing them can conceive again soon, and the chronicle notes it.
     pub(crate) fn die(&mut self, ctx: &mut Ctx, id: PermanentId, cause: Cause) {

@@ -13357,6 +13357,10 @@ and M6a gives rivers a daily flow.
        Detailed worlds, cost spread over many features; closing it needs a bound on the employers
        weighed (a behaviour change), or ADR-0028 §1's amendment to the figure reached once exact
        cuts are spent (the owner's call, given "Ensure the performance regression is resolved").
+       *Proposed 2026-11-25:* `docs/briefs/bounded-hire.md`, a seeker of work weighing only the
+       offers of employers it knows of (kin, ties, and the `hire_seen` nearest fields within the
+       walk), as research 08-10 §5.3 asks ("workers inspect a small set of reachable offers"),
+       awaiting the owner.
     Still waiting from 23: its 14 to 21 (the owner's or an ADR's), 23 (the owner's) and 24
     (Unreal).
 25. **What is open next, ranked (2026-11-24, found during the seventeenth coverage pass; 24's

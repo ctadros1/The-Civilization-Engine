@@ -1729,6 +1729,104 @@ fn a_household_short_of_hands_at_the_harvest_hires_reapers() {
     );
 }
 
+/// The eighteenth coverage pass (§8 24, seventh's exact cuts, 63baac5 and 8a3ac2b): those out
+/// for hire on a field are read from a list made at a decision or midnight and added to as each
+/// takes such work up. A hand put out for hire by hand, as a test does, is not among those added,
+/// so the list is let go with what else is derived (`forget_derived`) and made again. After an
+/// hour of decisions has made the list, a neighbour set to do employer's `task` for hire on the
+/// field its offer is for is counted against the offer as a look at everyone counts them: set out
+/// for an hour less than it is short, an hour is offered still; for more than it is short, none.
+/// Were the list kept, the hand would go unseen (the debug check fails) and the hours they give
+/// offered again; were the offer cut short of half an hour left, the last hour would not be
+/// offered.
+fn a_hand_set_out_by_hand_is_counted_against_the_offer(
+    mut sim: Sim,
+    employer: PermanentId,
+    neighbours: &[PermanentId],
+    hire: usize,
+    task: civ_land::FieldTask,
+) {
+    use civ_agents::person::{Step, Target};
+    sim.advance_minutes(60).expect("advances");
+    let offer = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.field_hire(ctx, employer))
+            .filter(|o| o.task == task)
+    };
+    let first = offer(&mut sim).expect("it offers the work");
+    let short = first.hours;
+    assert!(short >= 2.0, "{short} hours offered");
+    let now = sim.now();
+    let hand = sim
+        .people()
+        .people
+        .iter()
+        .filter(|(_, p)| neighbours.contains(&p.household))
+        .filter(|(_, p)| (20.0..=50.0).contains(&p.age_years(now)))
+        .filter(|(_, p)| !matches!(p.act.target, Target::Field(_)))
+        .map(|(h, _)| h)
+        .next()
+        .expect("a grown neighbour");
+    let set_out = |sim: &mut Sim, minutes: u32| {
+        let p = sim
+            .people_mut_for_tests()
+            .people
+            .get_mut(hand)
+            .expect("alive");
+        p.act.def = hire as u16;
+        p.act.target = Target::Field(first.field);
+        p.act.steps = vec![Step::Work { minutes }];
+        p.act.step = 0;
+        p.act.started = now;
+        p.act.step_started = now;
+    };
+    let minutes = ((short - 1.0) * 60.0).round() as u32;
+    set_out(&mut sim, minutes);
+    let left = offer(&mut sim)
+        .expect("the last hour is offered still")
+        .hours;
+    assert!(
+        (left - (short - f64::from(minutes) / 60.0)).abs() < 1e-6,
+        "{left} hours offered of {short} short, the hand giving {minutes} minutes"
+    );
+    set_out(&mut sim, (short * 60.0) as u32 + 120);
+    assert_eq!(
+        offer(&mut sim),
+        None,
+        "the hand set out covers the {short} hours short"
+    );
+}
+
+/// `a_hand_set_out_by_hand_is_counted_against_the_offer` at the harvest, with grain enough that
+/// the offer is all the hours short, not what it can pay for.
+#[test]
+fn a_reaper_set_out_by_hand_after_the_list_was_made_is_counted_against_the_offer() {
+    let (sim, employer, neighbours, _, hire) = short_of_hands_at_the_harvest(5000.0);
+    a_hand_set_out_by_hand_is_counted_against_the_offer(
+        sim,
+        employer,
+        &neighbours,
+        hire,
+        civ_land::FieldTask::Reap,
+    );
+}
+
+/// `a_hand_set_out_by_hand_is_counted_against_the_offer` at the sowing, as at the harvest.
+#[test]
+fn a_hand_set_out_to_sow_by_hand_after_the_list_was_made_is_counted_against_the_offer() {
+    let (sim, employer, neighbours, _, hire) = short_of_hands_at_the_sowing(|x, grain| {
+        if let Some(kg) = x.stores.get_mut(grain) {
+            *kg = 50_000.0;
+        }
+    });
+    a_hand_set_out_by_hand_is_counted_against_the_offer(
+        sim,
+        employer,
+        &neighbours,
+        hire,
+        civ_land::FieldTask::Sow,
+    );
+}
+
 /// The harvest wage bid up while hours go untaken (§8 21, twelfth; research 08-10 §5.6: faster
 /// wage review for urgent seasonal tasks): a household whose crop has stood ripe all but a day and
 /// a half of its grace, short of hands, offers more than the custom's share of what an hour of

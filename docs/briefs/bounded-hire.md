@@ -3,8 +3,9 @@
 Status: **proposed, revised for the owner's second review** (2026-11-25). Plan §8 24, seventh
 item (the 100k bench workload). The owner's review of 2026-11-25 approved the direction only
 (bounded, reachable employment information in place of every employer on every decision); this
-revision answers its points 1, 2 and the hiring parts of 5. Nothing here is built, and nothing in
-it authorizes an implementation, a parameter change, a limit amendment or a promotion.
+revision answers its points 1, 2 and the hiring parts of 5, and the owner's review of the revision
+(every input of the kept list, the most offers a decision works out, the rotation's limits,
+provisional settings). Nothing here is built, and nothing in it authorizes an implementation, a parameter change, a limit amendment or a promotion.
 
 ## 1. What happens now (read from the code)
 
@@ -106,32 +107,90 @@ as today's check. Unreachable fields therefore never take a slot. If the offer, 
 names a place that is not reachable (its first field cut off, another not), it is passed over, as
 now, without spending a slot, and the search goes on; a hard stop at twice the budget bounds that
 cost. Reachable employers of neighbouring settlements stay eligible on the same footing as the
-seeker's own. The seen-ground pool depends only on the travel field, the fields and the day, so it
-is built once per travel field and day and kept as derived, unsaved state, let go when fields are
-marked out or move, or the travel revision changes. Such a kept list is what went stale in §8 25's
-fifth (a kept home site): it is keyed on everything it reads (the fields' count and last id, the
-travel revision, the day), checked in debug builds against a list built afresh at every read, and
-covered by the mid-day save sweep (`a_world_saved_at_ordinary_hours_goes_on_alike_for_four_hours_after_each`)
-run at the harvest as well as in spring.
+seeker's own.
+
+**4.2a What is kept, and how each change is seen.** Contacts are never kept: they are read afresh
+at every decision, as ties move at every hearth session, hire, trade and fade, and kin change at
+births, deaths, marriages and moves between households. Only the seen-ground pool is kept: per
+travel field (the hearth's, or a cut-off home's own, `walking_field_of`), the reachable employers
+and, for each, whether a field of it and its home are in reach. It is derived, never saved, and
+reads these inputs, each with how a change is seen:
+
+- *The travel field:* its origin cell and its revision (`home_field`'s `cell` and `rev`, the
+  land's `route_revision`: crossings built or lost, worn ground, and the walking grid's
+  `travel_revision`, which a flood's depths or a closed ford move). The pool keeps the pair it was
+  built on and is rebuilt when either differs.
+- *Which fields exist and where they lie:* fields are only appended in play (marking out) and their
+  ground is fixed once marked; a load rebuilds every derived table. The pool keeps the fields'
+  count; a new field rebuilds it.
+- *Who works each field* (`Field::household`, which `best_job` reads, not its holder): every
+  change in play (a regime's review, a let field, a forfeit, succession, a crop brought in for a
+  household that left) goes through `fields_moved`, which drops the field index today. It would
+  also count a new derived revision, kept by the pool; a change that missed it is caught below.
+- *Employers' homes, settlements and existence* (threshing's place, the walk cap for another
+  settlement's, a household founded, emptied or gone): `homes_moved`, already counted at a
+  household added or taken away, a home moved or rebuilt, and a household moving settlement
+  (`insert_household`, `life.rs`, `moving.rs`, `letting.rs`), as the field-site cache reads it
+  (`site_for`'s stamp). The pool keeps it.
+- *The day:* the pool is rebuilt each day, with the rotation's window.
+- *Content* (the work's walk, the walking pace) does not change while a world lives.
+
+Field state is not an input: sown, ripe, reaped, threshed, idle, reserved or left (`left_by`)
+change daily and are read live by the offer at every decision (`reap_offer_with`), so they cannot
+go stale in the pool; `keeps_ground` (`build.rs`) is building's, not read here. The pool holds no
+offer, wage or hours. A kept list of this kind is what went stale in §8 25's first and fifth (the
+day's asks for help, a kept home site), so: in debug builds (the simcheck profile) every read of
+the pool is checked against one built afresh (`debug_assert_eq!`, as `fields_near` and `site_for`
+do), and the mid-day save sweep (`settlements.rs`
+`a_world_saved_at_ordinary_hours_goes_on_alike_for_four_hours_after_each`, on the home-site fix's
+branch and not yet on verification: saved at five ordinary hours and compared section by section
+four hours on, in spring) gains proposed runs at the harvest, the threshing and the sowing.
+
+**4.2b The most work a decision does.** With `B = hire_search` and `C = floor(B / 2)` contact
+slots, a seeker's household works out at most `min(2B, E)` offers at a decision, where `E` is the
+eligible employers it reads: up to `C` contacts and `B` less the contacts weighed from seen
+ground, each spending a slot (an employer with no work, or unable to pay, spends one too), plus
+those passed over because the offer's place proved unreachable, which spend none, until `2B`
+offers in all. At `B = 8`: at most 16 offers, 8 of them counted. Each offer is `reap_offer_with`:
+up to three passes over that employer's fields. Reachability lookups (`TravelField::seconds_to`,
+one table read each) are at most one per offer worked out (its place), plus, for contacts, one per
+field and one for the home of each contact employer read until `C` are eligible: at worst
+`Σ (fields + 1)` over the contacts, which number at most `48 × members` tied households plus the
+kin households. Seen ground costs no lookup at a decision; building the pool costs one per field
+within the straight line of the travel field's origin and one per employer home, once per travel
+field and day or change above, shared by every household on that field.
 
 **4.3 The budget.** `hire_search` (the first brief's `hire_seen`) is the number of distinct
 employers whose offer one seeker's household works out at a decision: an attention budget, not a
 limit on whom it can know. Employers are deduplicated first, so owning several fields takes one
 slot. It is a content tuning value in the people profile, logged as a `NUDGE:` design choice in §9,
-not a historical constant; 08-10 §5.6's and 08-04's 3–8 is where it starts (remaining choice 1).
-At most half the slots go to contacts; the rest, and any contacts leave unused, go to seen ground.
+not a historical constant. Contacts take at most `C` slots; the rest, and any contacts leave
+unused, go to seen ground. The value and the contacts' share are provisional design settings, to
+be set from the scenes of §6 (remaining choices 1 and 2): the scenes start from 8 and at most
+half, the top of 08-10 §5.6's and 08-04's 3–8, and are to hold across that range.
 
 **4.4 The rotation, and why it excludes nobody for good.** This is an explicit approximation of a
 search that renews. Contacts and seen ground are each listed by employer id; each list is read as a
 window starting at `(k + day × w) mod n`, where `n` is the list's length, `w` the slots it has and
 `k` a keyed draw on the world seed, a new purpose tag and the seeker's household id
 (`Rng64::from_key`). The result is a function of saved state alone (day, ids, fields, ties, the
-walking grid), so a save lives on as if never saved (ADR-0011 §4). While a list stands unchanged, each seeker reaches every
-employer on it within `ceil(n / w)` days, and seekers start at different places, so on any day
-about `seekers × w / n` of them weigh each employer: with as many seekers as employers and four
-exploration slots, about four a day. A newcomer employer joins the seen-ground list the day its
+walking grid), so a save lives on as if never saved (ADR-0011 §4).
+
+The guarantee is narrow. **Only while a list stands unchanged and the seeker searches every day**
+does it reach every employer on it within `ceil(n / w)` days; seekers start at different places, so
+on such days about `seekers × w / n` of them weigh each employer (as many seekers as employers and
+four exploration slots: about four a day). Where the list changes daily (fields marked out or
+changing hands, ties made and lost), `n` and every position after a change move, so an employer
+can be passed over on a cycle and no bound holds; coverage then rests on the spread of seekers and
+is measured (days from an employer's first offer to its first weighing), not promised. The window
+is keyed on the day, not on searches made, so a seeker that searches only on some days sees only
+those days' windows: one searching every `d` days steps `d × w` a time and, where `d × w` and `n`
+share a factor, cycles through a part of the list only (remaining choice 4). A household-resolved
+day searches once (ADR-0032 §2), and an Accelerated view keeps the day's window until midnight or a
+consequential step, which re-reads the same window (ADR-0011 §4): both are daily searchers when
+they seek work at all, and neither when they do not. A newcomer employer joins the seen-ground list the day its
 fields are marked out; a newcomer seeker without kin or ties puts every slot to exploration. Those
-figures are arithmetic, to be checked by the counts in §6, not promised. The window moves daily,
+figures are arithmetic, to be checked by the counts in §6. The window moves daily,
 so within a day a Detailed seeker sees the same employers at each decision, as an Accelerated view
 does: both modes read the same candidates from the same state.
 
@@ -165,8 +224,8 @@ household-resolved worlds and the 100k workload within 10 %: §9, "M10's bench c
 nearly all in `reap_offer_with`.
 
 The saving is an estimate. Offers worked out per decision would fall from every employer (some
-2,000 in a settlement of 10,000 at about five to a household; not counted) to at most twice
-`hire_search`, beside the pool's lookups and up to 48 ties a member read for contacts. To reach
+2,000 in a settlement of 10,000 at about five to a household; not counted) to at most `2 × hire_search`
+(§4.2b), beside the reachability lookups and up to 48 ties a member read for contacts. To reach
 1.10× from 1.563×, a cut of 29.6 % of the day is needed: about 89 % of a one-third share, with
 nothing added. A fifth of the hiring cost left, or the home-site determinism fix's own cost, would
 miss it; the Detailed worlds' profile is flat, so no figure is claimed for them.
@@ -222,6 +281,11 @@ Scenes are proposed names in `kernel/crates/civ-sim/tests/`.
   `a_household_short_of_hands_at_the_harvest_hires_reapers`,
   `a_household_whose_sheaves_wait_into_the_sowing_hires_threshers` and
   `a_household_short_of_hands_at_the_sowing_hires_them` stay passing, or each change is named.
+- [ ] *Kept pool:* the debug check of §4.2a on in every scene; a scene for each input (a field
+  changing hands, an employer's home moved or rebuilt, a household founded and one gone, a ford
+  closed by a flood, a new field) in which the pool is rebuilt and the same decision follows as
+  in a world loaded at that hour; the mid-day save sweep at the harvest, threshing and sowing.
+- [ ] *Search cost:* no decision works out more than `2 × hire_search` offers (counted, §4.2b).
 - [ ] *Saves and modes:* `people.rs` `a_detailed_save_mid_morning_at_the_harvest_lives_on_alike`
   (saved at an ordinary hour mid-search, loaded, lived on: every section digest as the unsaved
   world's); an Accelerated midnight save and the Detailed, Accelerated and household-resolved
@@ -239,18 +303,22 @@ Scenes are proposed names in `kernel/crates/civ-sim/tests/`.
 
 ## 7. Remaining choices for the owner
 
-1. **`hire_search`'s value.** Recommended 8, the top of the research's 3–8, since 08-04 says
-   agriculture needs its own policy and harvest work is urgent. Lower is cheaper and leaves more
-   work unfilled; higher costs more and finds more.
-2. **Contacts' share.** Recommended at most half. More favours remembered employers (08-04's
-   persistence) but finds newcomers more slowly; less does the reverse.
+1. **`hire_search`'s value.** A provisional design setting (`NUDGE:`), not settled: the scenes
+   start from 8, the top of the research's 3–8 (08-04: agriculture needs its own policy, and
+   harvest work is urgent), and the value is to be set from what they and the long run show of
+   unfilled work. Lower is cheaper and leaves more work unfilled; higher costs more and finds more.
+2. **Contacts' share.** Provisional in the same way: the scenes start from at most half. More
+   favours remembered employers (08-04's persistence) but finds newcomers more slowly; less does
+   the reverse.
 3. **Vacancy word.** Recommended not in this slice: "hands wanted" reports told at the hearth as
    price reports are would close the loop faster for threshing and sowing, which have no wage
    signal, but add saved state, a schema step and likely an ADR-0019 amendment. Proposed only if
    unfilled hours rise.
 4. **The rotation's step.** Recommended by day: Detailed and Accelerated agree, saves are simple;
    a window that moves each session would search faster within a harvest day at the cost of
-   keying on the time of day.
+   keying on the time of day. Against a seeker searching every few days cycling through a part of
+   the list (§4.4), the offset could instead be a fresh keyed draw each day: no such cycles, but
+   coverage only by chance (`1 − (1 − w / n)^searches`), with no bound at all.
 5. **An offer whose place is cut off.** Recommended unchanged (passed over, no slot spent);
    choosing the first reachable field instead would change `reaping_offer` and the observer's
    `field_hire`.

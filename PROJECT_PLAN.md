@@ -13438,6 +13438,31 @@ and M6a gives rivers a daily flow.
        the wells and tips on its ground) read against its tests. Gate-neutral. *Done 2026-11-25*
        (§9, "The eighteenth coverage pass"): three tests added, four gaps logged.
 
+26. **What is open next, ranked (2026-11-25, made as 16 to 25 were; 25's fifth item is being
+    fixed, 24's first and seventh wait on the owner):**
+    1. *A kept home site keyed on what it was found from* (25's fifth; in progress on
+       `claude/home-sites-fresh`): the fail-before scenes are
+       `a_world_saved_at_seven_goes_on_as_the_unsaved_one_does` and the sweep below; then its
+       chain and long run.
+    2. *A sweep of mid-day saves* (gate-neutral, tests only). *Built 2026-11-25* on
+       `claude/midday-sweep`: `a_world_saved_at_ordinary_hours_goes_on_alike_for_four_hours_after_each`
+       saves the plain world of `world_knowing(3, 50, &[50], true)` at 07:30, 12:00 and 19:00
+       of its first day (day 59 of the calendar), 03:00 of the second and 07:00 sixty days on,
+       each run on four hours beside the unsaved world. On verification it fails at 07:30 (the
+       clock section, the stale home site of 25's fifth) and passes 12:00 to 03:00; it lands
+       with item 1's fix. It closes the gap 25's fifth logged.
+    3. *The speed clause* (24's seventh): the owner's call between the bounded-hire brief
+       (`docs/briefs/bounded-hire.md`), an ADR-0028 §1 amendment for Detailed worlds, or an
+       offer cache. Promotion to development waits on it.
+    4. *Where a household that gives up goes* (24's first): the owner's review of
+       `docs/briefs/giving-up-plans.md`. Nothing is built before it.
+    5. *The eighteenth pass's gaps* (backlog E): a tip laid within the day on a kept site's
+       ground (the tips count in the stamp), and a refusal in the asks' second look, have no
+       scene; the speed-only cuts are seen only by timing.
+    Audited and closed 2026-11-25: `views` and `switched` are Accelerated-only and set aside
+    at midnight, and ADR-0011 lets Accelerated mode save only at midnight, so neither can make
+    a load diverge.
+
 ---
 
 ## 9. Decisions log

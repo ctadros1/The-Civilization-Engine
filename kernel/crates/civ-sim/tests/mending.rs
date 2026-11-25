@@ -606,6 +606,393 @@ fn kin_who_cannot_build_the_home_asked_for_are_passed_over_for_a_tied_neighbour(
     assert_ne!(helped[0], asker);
 }
 
+/// The one who stands for household `household` (the population's elder): its first
+/// member of an age to keep a household, or else its first.
+fn elder(sim: &Sim, household: PermanentId) -> PermanentId {
+    let (pop, now) = (sim.people(), sim.now());
+    let grown = sim.rules().people.family.independent_age;
+    let x = pop.household(household).expect("the household");
+    x.members
+        .iter()
+        .copied()
+        .find(|&m| pop.person(m).is_some_and(|p| p.age_years(now) >= grown))
+        .or_else(|| x.members.first().copied())
+        .expect("someone")
+}
+
+/// Whether someone of household `household` is of an age a build activity admits now, and
+/// whether someone of it may build the hut (of that age and knowing `technique`).
+fn builders(sim: &Sim, household: PermanentId, technique: usize) -> (bool, bool) {
+    let (pop, now) = (sim.people(), sim.now());
+    let ages: Vec<(f64, f64)> = content()
+        .catalog
+        .activities
+        .iter()
+        .filter(|a| a.behavior == civ_agents::params::Behavior::Build)
+        .map(|a| (a.min_age_years, a.max_age_years))
+        .collect();
+    let of_age = |p: &civ_agents::Person| {
+        let age = p.age_years(now);
+        ages.iter().any(|&(lo, hi)| age >= lo && age <= hi)
+    };
+    let people: Vec<&civ_agents::Person> = pop
+        .household(household)
+        .expect("the household")
+        .members
+        .iter()
+        .filter_map(|&m| pop.person(m))
+        .collect();
+    (
+        people.iter().any(|p| of_age(p)),
+        people.iter().any(|p| of_age(p) && p.knows(technique)),
+    )
+}
+
+/// The households of `asker`'s settlement, other than `asker` and `kin`, whose elders `asker`'s
+/// people hold a tie with, in the order a household asks them for help (`mend_candidates`'s
+/// order: the best regarded first, ties broken by the lower id), with that regard.
+fn tied_in_order(sim: &Sim, asker: PermanentId, kin: PermanentId) -> Vec<(PermanentId, f64)> {
+    let pop = sim.people();
+    let (day, tp) = (sim.now().day_index(), &sim.rules().people.ties);
+    let x = pop.household(asker).expect("the asker");
+    let mut tied: Vec<(PermanentId, f64)> = Vec::new();
+    for &m in &x.members {
+        for t in pop.ties.of(m) {
+            let Some(h) = pop.person(t.to).map(|p| p.household) else {
+                continue;
+            };
+            let near = pop
+                .household(h)
+                .is_some_and(|o| !o.members.is_empty() && o.settlement == x.settlement);
+            if h == asker || h == kin || !near || elder(sim, h) != t.to {
+                continue;
+            }
+            let regard = t.regard_at(day, tp);
+            match tied.iter_mut().find(|(o, _)| *o == h) {
+                Some(e) => e.1 = e.1.max(regard),
+                None => tied.push((h, regard)),
+            }
+        }
+    }
+    tied.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+    tied
+}
+
+/// The eighteenth coverage pass (§9; §8 26): the one asked for a first home must both be able to
+/// build the home the asker would begin and not refuse the asker (research 11-04 §1.6: help is
+/// given as food is, unless the helper believes the asker took from it). The kin, who cannot
+/// build the hut, are passed over; the best regarded neighbour, who could build it, believes the
+/// asker's elder took from its store and refuses; the next, who can build it and does not
+/// refuse, is asked, begins the home, builds its first stage and is owed the work. Were the
+/// refuser asked, it would begin the home of one it holds a thief.
+#[test]
+fn a_tied_neighbour_who_could_build_a_first_home_but_refuses_the_asker_is_passed_over_for_the_next()
+{
+    use civ_agents::crime::{Belief, Incident, KnownAmount, Outcome, Source};
+    let (mut sim, asker, others) = unhoused(3, 67.0, 7.0);
+    let kin = others[0];
+    make_kin(&mut sim, asker, kin);
+    let roundhouse = sim
+        .rules()
+        .catalog
+        .technique_index("core:technique/roundhouse")
+        .expect("the hut's technique");
+    assert_eq!(hut_def().technique, Some(roundhouse), "the hut needs it");
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.household == kin {
+            p.knows.retain(|k| usize::from(k.technique) != roundhouse);
+        }
+    }
+    let program = sim
+        .with_ctx_for_tests(|pop, ctx| pop.first_home_for_tests(ctx, asker))
+        .expect("a first home it would lay out")
+        .program;
+    assert_eq!(
+        program, "core:building/hut",
+        "the asker's ground calls for a hut"
+    );
+    assert_eq!(
+        builders(&sim, asker, roundhouse),
+        (false, false),
+        "nobody of the asker of an age to build"
+    );
+    assert_eq!(
+        builders(&sim, kin, roundhouse),
+        (true, false),
+        "the kin are of an age to build, so would be asked, but cannot build the hut"
+    );
+    // The first two other neighbours who can build the hut: the first is made the best regarded
+    // of those the asker's elder holds a tie with, the second the next.
+    let able: Vec<PermanentId> = others[1..]
+        .iter()
+        .copied()
+        .filter(|&h| builders(&sim, h, roundhouse).1)
+        .collect();
+    assert!(able.len() >= 2, "two neighbours who can build it: {able:?}");
+    let (refuser, helper) = (able[0], able[1]);
+    // Both housed from the first day, in a finished hut at their homes: either, asked, would
+    // begin the asker's home at once (a household begins another's first home only once it is
+    // housed itself).
+    for h in [refuser, helper] {
+        let home = sim.people().household(h).expect("it").home;
+        let spec = build::design_shape(
+            hut_def(),
+            &content().catalog.goods,
+            Shape::Round { radius: 310 },
+            home,
+            None,
+        )
+        .expect("a hut");
+        sim.place_building_for_tests(h, spec, Stage::ALL.len() as u8)
+            .expect("placed");
+        assert!(housed(&sim, h), "{h:?} housed");
+    }
+    let me = elder(&sim, asker);
+    assert_eq!(
+        Some(me),
+        sim.people()
+            .household(asker)
+            .and_then(|x| x.members.first().copied()),
+        "the asker's elder is its first, of 67"
+    );
+    let (refuser_elder, helper_elder) = (elder(&sim, refuser), elder(&sim, helper));
+    let (tp, day) = (sim.rules().people.ties.clone(), sim.now().day_index());
+    {
+        let pop = sim.people_mut_for_tests();
+        pop.ties
+            .record(me, refuser_elder, Act::Hearth, 800.0, 0.0, day, &tp);
+        pop.ties
+            .record(me, helper_elder, Act::Hearth, 400.0, 0.0, day, &tp);
+    }
+    // The refuser's elder saw the asker's elder take from its store today.
+    let now = sim.now();
+    let incident = {
+        let order = &mut sim.people_mut_for_tests().order;
+        let id = order.incidents.last().map_or(1, |i| i.id + 1);
+        order.incidents.push(Incident {
+            id,
+            at: now,
+            actor: me,
+            actor_household: asker,
+            target: refuser,
+            place: (0.0, 0.0),
+            outcome: Outcome::Taken,
+            goods: Vec::new(),
+            kcal: 1_500.0,
+            seen_by: vec![refuser_elder],
+            noticed: true,
+            food_days: f32::NAN,
+            richer: f32::NAN,
+            across: None,
+        });
+        order.amounts.push(KnownAmount {
+            household: refuser,
+            incident: id,
+            kcal: 1_500.0,
+            lost: true,
+            day,
+        });
+        id
+    };
+    sim.with_ctx_for_tests(|pop, ctx| {
+        pop.come_to_believe_for_tests(
+            ctx,
+            Belief {
+                holder: refuser_elder,
+                incident,
+                taker: Some(me),
+                source: Source::Saw,
+                from: None,
+                origin: Some(refuser_elder),
+                day,
+            },
+        );
+    });
+    // Who believes the asker's elder took, and from whom: someone of household `h`, that it took
+    // from `from` within the days remembered.
+    let believes = |sim: &Sim, h: PermanentId, from: &dyn Fn(PermanentId) -> bool| {
+        let pop = sim.people();
+        let since = sim.now().day_index() - i64::from(sim.rules().people.crime.remember_days);
+        pop.household(h)
+            .expect("it")
+            .members
+            .iter()
+            .any(|&m| pop.order.believes_took(m, me, since, from))
+    };
+    // Whether household `h` refuses the asker's elder, as the engine has it: someone of it
+    // believes that elder took from it, or from a household whose elder they regard enough.
+    let refuses = |sim: &Sim, h: PermanentId| {
+        let pop = sim.people();
+        let (day, tp) = (sim.now().day_index(), &sim.rules().people.ties);
+        let cp = &sim.rules().people.crime;
+        let since = day - i64::from(cp.remember_days);
+        pop.household(h).expect("it").members.iter().any(|&m| {
+            pop.order.believes_took(m, me, since, &|target| {
+                target == h
+                    || pop.household(target).is_some_and(|x| !x.members.is_empty())
+                        && pop.ties.regard(m, elder(sim, target), day, tp) >= cp.refuse_regard
+            })
+        })
+    };
+    // At first nobody but the refuser's elder knows of it.
+    assert!(
+        believes(&sim, refuser, &|t| t == refuser),
+        "the refuser's elder saw it"
+    );
+    assert!(
+        !believes(&sim, helper, &|_| true),
+        "the helper knows nothing of it"
+    );
+    assert!(
+        !believes(&sim, kin, &|_| true),
+        "the kin know nothing of it"
+    );
+    let ordered = |sim: &Sim| {
+        let tied = tied_in_order(sim, asker, kin);
+        assert!(tied.len() >= 2, "two tied neighbours: {tied:?}");
+        assert_eq!(
+            (tied[0].0, tied[1].0),
+            (refuser, helper),
+            "after the kin, the refuser is asked first, then the helper: {tied:?}"
+        );
+    };
+    let prerequisites = |sim: &Sim| {
+        ordered(sim);
+        assert!(
+            believes(sim, refuser, &|t| t == refuser),
+            "the refuser believes the asker's elder took from its store"
+        );
+        assert!(refuses(sim, refuser), "so it refuses the asker");
+        assert!(!refuses(sim, helper), "the helper does not refuse it");
+        assert!(!refuses(sim, kin), "nor do the kin");
+        assert_eq!(
+            builders(sim, kin, roundhouse),
+            (true, false),
+            "the kin of an age to build, but not knowing how"
+        );
+        assert!(
+            builders(sim, refuser, roundhouse).1,
+            "the refuser could build it"
+        );
+        assert!(
+            builders(sim, helper, roundhouse).1,
+            "the helper can build it"
+        );
+    };
+    prerequisites(&sim);
+    // Lived an hour at a time until its home is begun: as things stood when it was begun, and
+    // begun by the helper, whose people set to work on it (a home is begun when someone of the
+    // household asked sets to work on it).
+    assert!(
+        hour_by_hour(&mut sim, 365 * 24, |s| !dwellings(s, asker).is_empty()),
+        "its home begun within the year"
+    );
+    prerequisites(&sim);
+    let begun = dwellings(&sim, asker);
+    assert_eq!(begun.len(), 1, "one home begun: {begun:?}");
+    let at_work: Vec<PermanentId> = {
+        let pop = sim.people();
+        let mut v: Vec<PermanentId> = pop
+            .people
+            .iter()
+            .map(|(_, p)| p)
+            .filter(|p| p.act.target == civ_agents::person::Target::Building(begun[0].0))
+            .map(|p| p.household)
+            .collect();
+        v.sort_unstable();
+        v.dedup();
+        v
+    };
+    assert_eq!(
+        at_work,
+        vec![helper],
+        "begun by the helper, not the refuser ({refuser:?}) nor the kin ({kin:?})"
+    );
+    // The kin, known once the day has worked out who is kin, come before every tied neighbour.
+    assert_eq!(
+        sim.people().kin_households_for_tests(asker),
+        vec![kin],
+        "its only kin, asked first"
+    );
+    // Lived until its first stage is done: the stage built by the one asked when nothing was
+    // begun, which the asker then owes.
+    let mut staged = false;
+    for _ in 0..365 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        if dwellings(&sim, asker).iter().any(|&(_, stage)| stage >= 1) {
+            staged = true;
+            break;
+        }
+    }
+    assert!(staged, "its first stage built within the year");
+    let owed = |sim: &Sim, a: PermanentId, b: PermanentId| {
+        let (day, tp) = (sim.now().day_index(), &sim.rules().people.ties);
+        sim.people().ties.tie(a, b, day, tp).map(|t| t.help_h)
+    };
+    let built = |sim: &Sim, h: PermanentId| {
+        let x = sim.people().household(h).expect("it");
+        (0..sim.rules().catalog.goods.len())
+            .map(|g| x.flows.get(civ_agents::person::Flow::Built, g))
+            .sum::<f64>()
+    };
+    // Asked: the helper, through the tie the asker's elder holds to its elder; not the refuser,
+    // nor the kin.
+    let pop = sim.people();
+    let helped: Vec<(PermanentId, PermanentId)> = pop
+        .ties
+        .of(me)
+        .iter()
+        .filter(|t| t.reason.map(|r| r.act) == Some(Act::HelpedMend))
+        .filter_map(|t| pop.person(t.to).map(|p| (p.household, t.to)))
+        .collect();
+    assert_eq!(
+        helped,
+        vec![(helper, helper_elder)],
+        "the helper built it, not the refuser ({refuser:?}) nor the kin ({kin:?})"
+    );
+    assert!(
+        owed(&sim, me, helper_elder).is_some_and(|h| h > 0.0),
+        "the asker owes the helper the work: {:?}",
+        owed(&sim, me, helper_elder)
+    );
+    assert!(
+        owed(&sim, helper_elder, me).is_some_and(|h| h < 0.0),
+        "the helper is owed: {:?}",
+        owed(&sim, helper_elder, me)
+    );
+    assert!(
+        owed(&sim, me, refuser_elder).is_none_or(|h| h <= 0.0),
+        "nothing owed the refuser: {:?}",
+        owed(&sim, me, refuser_elder)
+    );
+    assert_eq!(built(&sim, asker), 0.0, "nobody of the asker did the work");
+    assert!(
+        built(&sim, helper) > 0.0,
+        "the helper brought the materials"
+    );
+    // And so on until it is roofed, by whoever is asked for each stage once it is begun (any but
+    // the refuser, who is never asked).
+    let home = until_roofed(&mut sim, asker, 365).expect("a home roofed within the year");
+    assert_eq!(
+        building(&sim, home).household,
+        asker,
+        "the asker's own home"
+    );
+    assert!(
+        owed(&sim, me, refuser_elder).is_none_or(|h| h <= 0.0),
+        "nothing owed the refuser: {:?}",
+        owed(&sim, me, refuser_elder)
+    );
+    assert_eq!(built(&sim, asker), 0.0, "nobody of the asker did the work");
+    let pop = sim.people();
+    let problems = pop.problems(sim.ids().peek_next(), sim.rules().catalog.activities.len());
+    assert!(problems.is_empty(), "{problems:?}");
+    saves_and_goes_on_alike(&mut sim, 48);
+    let pop = sim.people();
+    let problems = pop.problems(sim.ids().peek_next(), sim.rules().catalog.activities.len());
+    assert!(problems.is_empty(), "{problems:?}");
+}
+
 /// Saves `sim`, loads it, and lives the two side by side an hour at a time for `hours`, every
 /// section of their saves alike after each (ADR-0011 §4: who asks whom for help with building
 /// work is derived, worked out once a day and not saved, so a world loaded that day works it out

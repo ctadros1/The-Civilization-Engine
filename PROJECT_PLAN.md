@@ -13440,17 +13440,17 @@ and M6a gives rivers a daily flow.
 
 26. **What is open next, ranked (2026-11-25, made as 16 to 25 were; 25's fifth item is being
     fixed, 24's first and seventh wait on the owner):**
-    1. *A kept home site keyed on what it was found from* (25's fifth; in progress on
-       `claude/home-sites-fresh`): the fail-before scenes are
+    1. *A kept home site keyed on what it was found from* (25's fifth). *Fixed 2026-11-25* on
+       `claude/home-sites-fresh`: the fail-before scenes are
        `a_world_saved_at_seven_goes_on_as_the_unsaved_one_does` and the sweep below; then its
-       chain and long run.
+       chain, long run and a bench on node3; two chance-sensitive scenes it tipped (telegraph, water) reworked at the owner's direction (§9).
     2. *A sweep of mid-day saves* (gate-neutral, tests only). *Built 2026-11-25* on
        `claude/midday-sweep`: `a_world_saved_at_ordinary_hours_goes_on_alike_for_four_hours_after_each`
        saves the plain world of `world_knowing(3, 50, &[50], true)` at 07:30, 12:00 and 19:00
        of its first day (day 59 of the calendar), 03:00 of the second and 07:00 sixty days on,
        each run on four hours beside the unsaved world. On verification it fails at 07:30 (the
-       clock section, the stale home site of 25's fifth) and passes 12:00 to 03:00; it lands
-       with item 1's fix. It closes the gap 25's fifth logged.
+       clock section, the stale home site of 25's fifth) and passes 12:00 to 03:00; with item
+       1's fix it passes at every hour. It closes the gap 25's fifth logged.
     3. *The speed clause* (24's seventh): the owner's call between the bounded-hire brief
        (`docs/briefs/bounded-hire.md`), an ADR-0028 §1 amendment for Detailed worlds, or an
        offer cache. Promotion to development waits on it.
@@ -13459,6 +13459,13 @@ and M6a gives rivers a daily flow.
     5. *The eighteenth pass's gaps* (backlog E): a tip laid within the day on a kept site's
        ground (the tips count in the stamp), and a refusal in the asks' second look, have no
        scene; the speed-only cuts are seen only by timing.
+    6. *A spring gives more than it flows when many set out at once* (diagnosis; found 2026-11-25
+       reworking the spring-then-river scene). Whether a load is left is checked when a person sets
+       off (`spring_or_bank`), not against those already on the way, so households emptied of water
+       together sent 46 loads, 690 L of a 500 L flow, past the scene's bound of five loads over. The
+       reworked scene staggers the households' water and so does not reach it; nothing is changed.
+       To check: whether lived worlds ever overdraw (a counter of loads past the flow), then, if they
+       do, whether a spring should count loads promised as taken.
     Audited and closed 2026-11-25: `views` and `switched` are Accelerated-only and set aside
     at midnight, and ADR-0011 lets Accelerated mode save only at midnight, so neither can make
     a load diverge.

@@ -1440,6 +1440,185 @@ fn a_world_saved_after_deaths_goes_on_as_the_unsaved_one_does() {
     saves_and_goes_on_alike(&mut sim, 60);
 }
 
+/// The households of settlement `s` that planned today the building they would begin, oldest
+/// id first, each with its members.
+fn planning_households(
+    sim: &Sim,
+    s: civ_core::PermanentId,
+) -> Vec<(civ_core::PermanentId, Vec<civ_core::PermanentId>)> {
+    let pop = sim.people();
+    let mut out: Vec<_> = pop
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .filter(|x| x.settlement == Some(s) && pop.planned_home(x.id).is_some())
+        .map(|x| (x.id, x.members.clone()))
+        .collect();
+    out.sort();
+    out
+}
+
+/// Members of `members` who are unpartnered adults of `sex`.
+fn unpartnered(
+    sim: &Sim,
+    members: &[civ_core::PermanentId],
+    sex: civ_agents::Sex,
+) -> Vec<civ_core::PermanentId> {
+    let pop = sim.people();
+    members
+        .iter()
+        .copied()
+        .filter(|m| {
+            pop.person(*m).is_some_and(|p| {
+                p.sex == sex && p.partner.is_none() && p.age_years(sim.now()) >= 16.0
+            })
+        })
+        .collect()
+}
+
+/// §8 25 (the seventeenth coverage pass, 96d79ef's `members_changed`): a household a child is
+/// born into mid-day, which had found the site of a home that day sized to its members (ADR-0011
+/// §4), looks for it again, so a world saved after the birth goes on as the unsaved one does.
+/// The household is the smallest of those planning one: a large household's first home is
+/// already as large as its means allow, and one more member leaves it the same.
+#[test]
+fn a_world_saved_after_a_birth_goes_on_as_the_unsaved_one_does() {
+    let mut sim = world_knowing(3, 50, &[50], true).expect("generates");
+    let a = sim.land().settlements[0].id;
+    sim.advance_minutes(60).expect("goes on");
+    // A woman of the smallest household that planned a home today gives birth.
+    let (household, mother) = planning_households(&sim, a)
+        .into_iter()
+        .filter_map(|(h, members)| {
+            let n = members.len();
+            members
+                .into_iter()
+                .find(|m| {
+                    sim.people().person(*m).is_some_and(|p| {
+                        p.sex == civ_agents::Sex::Female
+                            && (16.0..40.0).contains(&p.age_years(sim.now()))
+                    })
+                })
+                .map(|m| (n, h, m))
+        })
+        .min()
+        .map(|(_, h, m)| (h, m))
+        .expect("a household planning a home, with a woman of an age to bear");
+    let members = sim
+        .people()
+        .household(household)
+        .expect("lives")
+        .members
+        .len();
+    assert!(members <= 5, "{members} members");
+    let child = sim.give_birth_for_tests(mother).expect("a child is born");
+    let pop = sim.people();
+    assert!(pop.person(mother).is_some(), "she lives through it");
+    let born = pop.person(child).expect("the child lives");
+    assert_eq!(born.household, household);
+    assert_eq!(pop.records[&child].mother, Some(mother));
+    assert_eq!(
+        pop.household(household).expect("lives").members.len(),
+        members + 1
+    );
+    assert!(pop.problems(u64::MAX, usize::MAX).is_empty());
+    saves_and_goes_on_alike(&mut sim, 60);
+}
+
+/// §8 25 (the seventeenth coverage pass): a marriage mid-day moves someone between two
+/// households that had each found the site of a home that day sized to its members (ADR-0011
+/// §4); both look for it again, so a world saved after the marriage goes on as the unsaved one
+/// does. A widow who keeps her household alone marries a man of another household, and he comes
+/// to live in hers: one person moving between two households, neither a merge nor a household
+/// of their own.
+#[test]
+fn a_world_saved_after_a_marriage_goes_on_as_the_unsaved_one_does() {
+    use civ_agents::Sex;
+    use civ_core::PermanentId;
+    let mut sim = world_knowing(3, 50, &[50], true).expect("generates");
+    let a = sim.land().settlements[0].id;
+    sim.advance_minutes(60).expect("goes on");
+    let grown = |sim: &Sim, m: PermanentId| {
+        let grown = sim.rules().people.family.independent_age;
+        sim.people()
+            .person(m)
+            .is_some_and(|p| p.age_years(sim.now()) >= grown)
+    };
+    // The smallest household of `a` planning a home whose only grown members are a couple: the
+    // husband dies, and the widow keeps it alone.
+    let (hw, woman, husband) = planning_households(&sim, a)
+        .into_iter()
+        .filter_map(|(h, ms)| {
+            let adults: Vec<_> = ms.iter().copied().filter(|&m| grown(&sim, m)).collect();
+            let [x, y] = adults[..] else {
+                return None;
+            };
+            let px = sim.people().person(x)?;
+            (px.partner == Some(y)).then_some(())?;
+            let (w, m) = if px.sex == Sex::Female {
+                (x, y)
+            } else {
+                (y, x)
+            };
+            Some((ms.len(), h, w, m))
+        })
+        .min()
+        .map(|(_, h, w, m)| (h, w, m))
+        .expect("a household planning a home, of a couple and their children");
+    sim.die_for_tests(husband);
+    sim.advance_minutes(60).expect("goes on");
+    assert!(
+        sim.people().planned_home(hw).is_some(),
+        "it plans its home again, for those left"
+    );
+    // An unpartnered man of the smallest other household planning a home, with another grown
+    // member besides him, of no parent in common with her.
+    let parents = |x: PermanentId| {
+        let r = &sim.people().records[&x];
+        [r.mother, r.father]
+    };
+    let kin = |x: PermanentId, y: PermanentId| {
+        let (px, py) = (parents(x), parents(y));
+        px.iter()
+            .flatten()
+            .any(|p| py.contains(&Some(*p)) || *p == y)
+            || py.iter().flatten().any(|p| *p == x)
+    };
+    let (hm, man) = planning_households(&sim, a)
+        .into_iter()
+        .filter(|(h, ms)| *h != hw && ms.iter().filter(|&&m| grown(&sim, m)).count() >= 2)
+        .filter_map(|(h, ms)| {
+            unpartnered(&sim, &ms, Sex::Male)
+                .into_iter()
+                .find(|&m| !kin(woman, m))
+                .map(|m| (ms.len(), h, m))
+        })
+        .min()
+        .map(|(_, h, m)| (h, m))
+        .expect("an unpartnered man of another household planning a home");
+    let size = |sim: &Sim, h| sim.people().household(h).map(|x| x.members.len());
+    let (wn, mn) = (size(&sim, hw), size(&sim, hm));
+    sim.marry_for_tests(woman, man);
+    let pop = sim.people();
+    let (w, m) = (
+        pop.person(woman).expect("lives"),
+        pop.person(man).expect("lives"),
+    );
+    assert_eq!((w.partner, m.partner), (Some(man), Some(woman)));
+    assert_eq!((w.household, m.household), (hw, hw), "he lives in hers");
+    assert_eq!(size(&sim, hw), wn.map(|n| n + 1));
+    assert_eq!(size(&sim, hm), mn.map(|n| n - 1));
+    assert!(
+        pop.chronicle
+            .iter()
+            .any(|e| e.kind == ChronicleKind::Paired && e.people == [woman, man]),
+        "the chronicle tells it"
+    );
+    assert!(pop.problems(u64::MAX, usize::MAX).is_empty());
+    // Two hours: either household's site, kept as found before, shows within an hour and a half.
+    saves_and_goes_on_alike(&mut sim, 120);
+}
+
 /// Saves `sim`, loads it, and checks every section of the loaded world is the same, and that the
 /// two go on alike for `minutes`.
 fn saves_and_goes_on_alike(sim: &mut Sim, minutes: i64) {

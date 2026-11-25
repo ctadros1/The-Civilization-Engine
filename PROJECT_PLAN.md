@@ -13400,6 +13400,20 @@ and M6a gives rivers a daily flow.
        vacant field, the exile's chronicle kind, `members_changed`, help with a first home, the
        exact hire-scan cut) read against its tests. Gate-neutral. *Done 2026-11-24* (§9, "The
        seventeenth coverage pass"): five tests added, four gaps logged.
+    5. *A home site kept for the day goes stale when another takes the ground beside it*
+       (found 2026-11-25 by the birth and marriage scenes' work; a determinism fault, ADR-0011
+       §4). `home_sites` (`site_today`) keeps each household's next home site for the day and
+       is not saved, but holds nothing of the land it was found against, unlike field sites'
+       `sites` with its stamp and key. In `world_knowing(3, 50, &[50], true)` household 63 keeps
+       a hut site before 06:55 of day 59; at 06:55 household 68 takes plot 158 beside it; a
+       world saved after that finds the site afresh, and at 10:36 the unsaved world's stale site
+       fails `plot_clear` and nothing is begun while the loaded world begins hut 171. Saves from
+       06:56 to 10:35 all diverge by 10:40. It predates this survey, so development carries it.
+       Not the day's help asks (the scene fails alike with their fix). **Next:** key the kept
+       site on what it was found from, as field sites are, with this scene as the fail-before;
+       a behaviour change, with its long run. Also missing: no test before these saved at an
+       ordinary hour and ran on beside the unsaved world for hours (the round-trip fixture saves
+       at 00:07 and compares the reload only).
 
 ---
 

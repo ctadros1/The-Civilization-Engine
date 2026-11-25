@@ -216,7 +216,7 @@ impl<'a> Nearby<'a> {
 
 /// Whether a field keeps its ground from building: a field a plan reserved that lies idle keeps
 /// none (M8c slice CU, fifth part).
-fn keeps_ground(f: &civ_land::Field) -> bool {
+pub(crate) fn keeps_ground(f: &civ_land::Field) -> bool {
     !(f.reserved.is_some() && f.lies_idle())
 }
 

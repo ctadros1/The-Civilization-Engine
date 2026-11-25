@@ -736,8 +736,13 @@ pub struct Population {
     /// moved ([`SiteStamp`]). Derived.
     homes_moved: u64,
     /// Per household with nothing under way, the building it would begin and where (a home, or a
-    /// store or a workshop beside it), as found on a day.
+    /// store or a workshop beside it), as found at its last plan ([`Population::site_today`]),
+    /// on the day it was found. Derived.
     home_sites: FastMap<PermanentId, (i64, Option<NewHome>)>,
+    /// The day's searches for a building's ground, each under all it reads but the land's
+    /// obstacles ([`Mix`]) and a mark of those ([`LandMark`]), with the day they were made
+    /// ([`Population::home_ground`]). Derived, never saved.
+    home_grounds: std::sync::Mutex<HomeGrounds>,
     /// The day's asks for help with mending: for each household asked, the households that
     /// asked it (research 11-04 §1.6). Derived each day, not saved.
     mend_asks: (Option<i64>, FastMap<PermanentId, Vec<PermanentId>>),
@@ -1128,6 +1133,165 @@ pub fn site_inputs_for_tests(
     homes: &[(f32, f32)],
 ) -> u64 {
     site_inputs(land, ground, homes)
+}
+
+/// What a search for a building's ground found ([`Population::home_ground`]): its design, what
+/// each stage needs, and the hours of levelling its plot takes.
+type HomeGround = (BuildingSpec, Vec<StageNeeds>, f64);
+
+/// The day's searches for a building's ground, by the digest of what each reads, each with all
+/// it reads, a mark of the land it was made on and what it found, and the day
+/// ([`Population::home_ground`]).
+type HomeGrounds = (i64, FastMap<u64, (Vec<u64>, LandMark, Option<HomeGround>)>);
+
+/// Everything a search for a building's ground reads, word by word, and a digest of it
+/// ([`Population::home_ground`]). Two keys are the same only when every word is.
+#[derive(Clone)]
+struct Mix {
+    words: Vec<u64>,
+    digest: u64,
+}
+
+impl Mix {
+    fn new() -> Self {
+        Mix {
+            words: Vec::new(),
+            digest: 0x9e37_79b9_7f4a_7c15,
+        }
+    }
+
+    fn word(&mut self, v: u64) {
+        self.words.push(v);
+        let h = (self.digest ^ v).wrapping_mul(0xff51_afd7_ed55_8ccd);
+        self.digest = h ^ (h >> 33);
+    }
+
+    fn f64(&mut self, v: f64) {
+        self.word(v.to_bits());
+    }
+
+    fn f64_opt(&mut self, v: Option<f64>) {
+        match v {
+            Some(v) => {
+                self.word(1);
+                self.f64(v);
+            }
+            None => self.word(0),
+        }
+    }
+
+    fn point(&mut self, p: Option<(f32, f32)>) {
+        match p {
+            Some((x, y)) => {
+                self.word(1);
+                self.word(u64::from(x.to_bits()) | (u64::from(y.to_bits()) << 32));
+            }
+            None => self.word(0),
+        }
+    }
+
+    fn rects(&mut self, rects: &[civ_land::RectCm]) {
+        self.word(rects.len() as u64);
+        for r in rects {
+            self.word(u64::from(r.x as u32) | (u64::from(r.y as u32) << 32));
+            self.word(u64::from(r.w as u32) | (u64::from(r.h as u32) << 32));
+        }
+    }
+
+    fn hash<T: std::hash::Hash + ?Sized>(&mut self, v: &T) {
+        let mut bytes = Bytes(Vec::new());
+        v.hash(&mut bytes);
+        self.word(bytes.0.len() as u64);
+        for chunk in bytes.0.chunks(8) {
+            let mut w = [0u8; 8];
+            w[..chunk.len()].copy_from_slice(chunk);
+            self.word(u64::from_le_bytes(w));
+        }
+    }
+}
+
+/// The bytes a value hashes as, for [`Mix::hash`].
+struct Bytes(Vec<u8>);
+
+impl std::hash::Hasher for Bytes {
+    fn write(&mut self, bytes: &[u8]) {
+        self.0.extend_from_slice(bytes);
+    }
+
+    fn finish(&self) -> u64 {
+        0
+    }
+}
+
+/// How far each of the land's lists of what keeps a plot off reached when a search for a
+/// building's ground was made ([`Population::home_ground`]): the fields, plots, earthworks, wells
+/// and tips' ground, each by its length and the id of its last. These lists are only added to,
+/// but for a plot let go when a plan clears its building; while each still holds its last of then
+/// at the same place, all the search read is still there, at the same place, and what lies
+/// beyond it was added since.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct LandMark([(usize, Option<PermanentId>); 5]);
+
+impl LandMark {
+    fn of(land: &civ_land::Land) -> Self {
+        LandMark([
+            (land.fields.len(), land.fields.last().map(|x| x.id)),
+            (land.plots.len(), land.plots.last().map(|x| x.id)),
+            (land.earthworks.len(), land.earthworks.last().map(|x| x.id)),
+            (land.wells.list.len(), land.wells.list.last().map(|x| x.id)),
+            (land.tips.list.len(), land.tips.list.last().map(|x| x.id)),
+        ])
+    }
+
+    /// Whether every list of `land` still holds what it held at this mark, at the same place.
+    fn holds(&self, land: &civ_land::Land) -> bool {
+        let now = Self::of(land);
+        let ids: [&dyn Fn(usize) -> Option<PermanentId>; 5] = [
+            &|i| land.fields.get(i).map(|x| x.id),
+            &|i| land.plots.get(i).map(|x| x.id),
+            &|i| land.earthworks.get(i).map(|x| x.id),
+            &|i| land.wells.list.get(i).map(|x| x.id),
+            &|i| land.tips.list.get(i).map(|x| x.id),
+        ];
+        self.0
+            .iter()
+            .zip(now.0)
+            .zip(ids)
+            .all(|((&(n, last), (len, _)), id)| n <= len && (n == 0 || id(n - 1) == last))
+    }
+}
+
+/// Whether nothing added to the land since `since` keeps a plot off `rect` ([`build::plot_clear`]):
+/// no field that keeps its ground, plot, pit or heap, well or tip's ground within the gap a plot
+/// keeps; and, for a home that keeps its midden `midden_m` from open wells, no open well so near.
+fn clear_since(
+    land: &civ_land::Land,
+    since: &LandMark,
+    rect: &civ_land::RectCm,
+    midden_m: Option<f64>,
+) -> bool {
+    let gap = build::PLOT_GAP_CM;
+    let [f, p, e, w, t] = since.0.map(|(n, _)| n);
+    let tail = |list_len: usize, n: usize| n.min(list_len);
+    land.fields[tail(land.fields.len(), f)..]
+        .iter()
+        .all(|x| !(build::keeps_ground(x) && x.rect.near(rect, gap)))
+        && land.plots[tail(land.plots.len(), p)..]
+            .iter()
+            .all(|x| !x.rect.near(rect, gap))
+        && land.earthworks[tail(land.earthworks.len(), e)..]
+            .iter()
+            .all(|x| x.kind == civ_land::earth::EarthKind::Platform || !x.rect.near(rect, gap))
+        && land.wells.list[tail(land.wells.list.len(), w)..]
+            .iter()
+            .all(|x| {
+                !x.rect.near(rect, gap)
+                    && midden_m
+                        .is_none_or(|m| !x.is_open() || crate::rules::gap_m(rect, &x.rect) >= m)
+            })
+        && land.tips.list[tail(land.tips.list.len(), t)..]
+            .iter()
+            .all(|x| !x.rect.near(rect, gap))
 }
 
 /// The share of the days of crop `crop`'s window for preparing and sowing the ground can usually
@@ -1735,6 +1899,11 @@ impl Population {
         self.priors.clear();
         self.sites.clear();
         self.home_sites.clear();
+        self.home_grounds
+            .get_mut()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .1
+            .clear();
         self.first_home_for.clear();
         self.stage_needs.clear();
         self.expansions.clear();
@@ -3188,9 +3357,13 @@ impl Population {
         drop
     }
 
-    /// The building household `hh` would begin and where, as found once a day ([`Self::home_plan`]):
-    /// for a home it meant to build and found no clear ground for, its polity sees it (M8c slice
-    /// CT).
+    /// The building household `hh` would begin and where, as it plans it now ([`Self::home_plan`]),
+    /// kept until it is begun ([`Self::begin_home`]): for a home it meant to build and found no
+    /// clear ground for, its polity sees it (M8c slice CT). Planned afresh at every call, from the
+    /// world as it stands, so a world loaded at any moment plans as one lived straight on (§8 25,
+    /// fifth; ADR-0011 §4): a site kept from earlier in the day went stale when a neighbour took
+    /// the ground beside it. Only the search for ground is kept for the day, under everything it
+    /// reads ([`Self::home_ground`]).
     fn site_today(
         &mut self,
         ctx: &Ctx,
@@ -3201,23 +3374,93 @@ impl Population {
         home: Option<f64>,
     ) -> Option<NewHome> {
         let day = ctx.now.day_index();
-        match self.home_sites.get(&hh.id) {
-            Some((seen, site)) if *seen == day => site.clone(),
-            _ => {
-                let site = self.new_building(ctx, hh, hearth, field_key, labour_per_day, home);
-                if site.as_ref().err() == Some(&Unbuilt::NoGround) {
-                    self.see_ground(
-                        ctx,
-                        hh.settlement,
-                        hh.id,
-                        crate::polity::IssueKind::NoGround,
-                    );
-                }
-                let site = site.ok();
-                self.home_sites.insert(hh.id, (day, site.clone()));
-                site
-            }
+        let site = self.new_building(ctx, hh, hearth, field_key, labour_per_day, home);
+        if site.as_ref().err() == Some(&Unbuilt::NoGround) {
+            self.see_ground(
+                ctx,
+                hh.settlement,
+                hh.id,
+                crate::polity::IssueKind::NoGround,
+            );
         }
+        let site = site.ok();
+        self.home_sites.insert(hh.id, (day, site.clone()));
+        site
+    }
+
+    /// What `search` finds, a search for a building's ground on `land` on day `day`, kept for the
+    /// day under `key` (all it reads but the land's obstacles) and a mark of the land then
+    /// ([`LandMark`]). A kept answer stands while the land holds all it held then and nothing
+    /// added since keeps a plot off the ground found (`still_clear`): obstacles only added can
+    /// only take ground the search had found clear, so the first plot it found clear, or the one
+    /// needing least levelling, is still the one it finds, and none where none was. Otherwise it
+    /// searches again. So it is the same as a search made now (in a build with debug assertions,
+    /// each kept answer is checked against the search made afresh).
+    fn home_ground(
+        &self,
+        land: &civ_land::Land,
+        day: i64,
+        key: Mix,
+        still_clear: impl Fn(&BuildingSpec, &LandMark) -> bool,
+        search: impl FnOnce() -> Option<HomeGround>,
+    ) -> Option<HomeGround> {
+        /// Searches kept at most before the store is emptied (a bound on memory, not on what is
+        /// found: a search not kept is made again).
+        const MOST_KEPT: usize = 1 << 14;
+        let Mix { words, digest } = key;
+        let kept = {
+            // A poisoned lock still holds only searches, each as true as when it was kept.
+            let mut grounds = self
+                .home_grounds
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let today = grounds.0 == day;
+            grounds
+                .1
+                .get_mut(&digest)
+                .filter(|(w, mark, found)| {
+                    today
+                        && *w == words
+                        && mark.holds(land)
+                        && found.as_ref().is_none_or(|f| still_clear(&f.0, mark))
+                })
+                .map(|(_, mark, found)| {
+                    // What it found stands on the land as it is now.
+                    *mark = LandMark::of(land);
+                    found.clone()
+                })
+        };
+        if let Some(found) = kept {
+            #[cfg(debug_assertions)]
+            {
+                let fresh = search();
+                let same = |a: &Option<HomeGround>, b: &Option<HomeGround>| match (a, b) {
+                    (None, None) => true,
+                    (Some(a), Some(b)) => {
+                        a.0 == b.0 && a.1 == b.1 && a.2.to_bits() == b.2.to_bits()
+                    }
+                    _ => false,
+                };
+                debug_assert!(
+                    same(&found, &fresh),
+                    "a kept search for ground differs from one made afresh: {found:?} {fresh:?}"
+                );
+            }
+            return found;
+        }
+        let found = search();
+        let mut grounds = self
+            .home_grounds
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if grounds.0 != day || grounds.1.len() >= MOST_KEPT {
+            grounds.1.clear();
+            grounds.0 = day;
+        }
+        grounds
+            .1
+            .insert(digest, (words, LandMark::of(land), found.clone()));
+        found
     }
 
     /// The first home household `a` would begin, found where and as it would find one
@@ -3362,6 +3605,75 @@ impl Population {
         let kept_plans = self.plans_kept(ctx, hh);
         // And the parcels whose district allows only some uses (M8c slice CW).
         let zoned = self.zoned_kept(ctx, hh);
+        // What every search for ground below reads of the household and the world besides its
+        // own arguments and the land's obstacles, word by word ([`Mix`]): the walking times it is
+        // reached by (its field home's cell and route revision) on the walking grid of these
+        // revisions, the hearth, the rules and plans its builders keep, the districts, the plots
+        // of the buildings and homes a rule keeps it from, and the marks on obstacles that change.
+        let searched = {
+            let mut m = Mix::new();
+            m.word(hh.id.get());
+            m.word(day as u64);
+            match self.homes.get(&field_key) {
+                Some(f) => {
+                    m.word(1);
+                    m.word(f.cell as u64);
+                    m.word(f.rev);
+                }
+                None => m.word(0),
+            }
+            m.word(u64::from(ctx.nav.revision()));
+            m.word(u64::from(ctx.nav.flood_revision()));
+            m.word(u64::from(ctx.nav.barrier_revision()));
+            m.word(ctx.nav.travel_revision());
+            m.point(hearth);
+            let rules::Kept {
+                roof_within,
+                walls,
+                gap,
+                fire_from,
+                midden_from,
+                storeys,
+                tied,
+                cased_min,
+            } = kept_rules;
+            for v in [roof_within, gap, fire_from, midden_from, cased_min] {
+                m.f64_opt(v);
+            }
+            m.hash(&(walls, storeys, tied));
+            m.word(kept_plans.len() as u64);
+            for l in &kept_plans {
+                m.rects(&l.streets);
+                m.rects(&l.sites.iter().map(|s| s.rect).collect::<Vec<_>>());
+            }
+            m.word(zoned.len() as u64);
+            for (r, uses) in &zoned {
+                m.rects(std::slice::from_ref(r));
+                m.word(u64::from(*uses));
+            }
+            m.rects(&rule_rects);
+            m.rects(&others_homes);
+            // The marks on the land's obstacles that change: whether each field a plan reserved
+            // keeps its ground, and whether each well is open, which a home's midden keeps from
+            // (the obstacles themselves are read by [`Population::home_ground`]).
+            let reserved: Vec<u64> = ctx
+                .land
+                .fields
+                .iter()
+                .enumerate()
+                .filter(|(_, f)| f.reserved.is_some())
+                .map(|(i, f)| ((i as u64) << 1) | u64::from(build::keeps_ground(f)))
+                .collect();
+            m.word(reserved.len() as u64);
+            for w in reserved {
+                m.word(w);
+            }
+            m.word(ctx.land.wells.list.len() as u64);
+            for (i, w) in ctx.land.wells.list.iter().enumerate() {
+                m.word(((i as u64) << 1) | u64::from(w.is_open()));
+            }
+            m
+        };
         // Where `choice` would stand, its door toward `toward`, if there is clear ground for it
         // within `max_m` of `from`: keeping the rules and plans its builders keep, if there is
         // ground for that, else as they would without them.
@@ -3437,125 +3749,165 @@ impl Population {
                     })
                 }),
             };
-            let design_at = |at: (f32, f32)| {
-                let reachable = reach.is_none_or(|r| r.seconds_to(cell_of(ctx.map, at)).is_some());
-                let design = |shape: build::Shape| {
-                    build::design_cautious(
-                        program,
-                        goods,
-                        shape,
-                        at,
-                        toward,
-                        caution,
-                        Some(style),
-                        Some(fire_design),
-                    )
-                };
-                reachable
-                    .then(|| {
-                        let spec = design(shape)?;
-                        // Built lower where a height or ties rule its builders keep allows no
-                        // more storeys on its walls (M8d slice DB).
-                        let most = rules.most_storeys(
-                            crate::rules::wall_kind(&spec, &program.rules),
-                            crate::rules::tied(&spec),
-                        );
-                        match shape {
-                            build::Shape::Bays {
-                                bays,
-                                storeys,
-                                lofts,
-                            } if storeys > most && most >= 1 => design(build::Shape::Bays {
-                                bays,
-                                storeys: most,
-                                lofts,
-                            }),
-                            _ => Some(spec),
-                        }
-                    })
-                    .flatten()
-                    // A skeleton is cased where a protection rule its builders keep asks it
-                    // (ADR-0037 §5), if its program cases one so long.
-                    .map(|mut spec| {
-                        if let Some(minutes) = rules.cased_min {
-                            build::case_skeleton(&mut spec, program, goods, minutes);
-                        }
-                        spec
-                    })
-                    .filter(|spec| {
-                        !rules.too_tall(spec, crate::rules::wall_kind(spec, &program.rules))
-                    })
-                    // A roof that burns is not put within a roof rule's reach of another building,
-                    // walls are of a kind the rules allow, and a plot keeps the least gap.
-                    .filter(|spec| {
-                        let nearest = || {
-                            let rect = build::plot_rect(spec, program);
-                            rule_rects
-                                .iter()
-                                .map(|r| crate::rules::gap_m(&rect, r))
-                                .fold(f64::INFINITY, f64::min)
-                        };
-                        rules.roof_within.is_none_or(|within| {
-                            crate::rules::roof_unburnt(spec) || nearest() >= within
-                        }) && rules.walls.is_none_or(|kinds| {
-                            kinds & (1 << crate::rules::wall_kind(spec, &program.rules)) != 0
-                        }) && rules.gap.is_none_or(|gap| nearest() >= gap)
-                    })
-                    // A home keeps its midden from open wells, and one where fire is worked keeps
-                    // from others' homes (M8c slice CW).
-                    .filter(|spec| {
-                        program.use_ != civ_land::PlotUse::Dwelling || {
-                            let rect = build::plot_rect(spec, program);
-                            rules.midden_from.is_none_or(|m| {
-                                !crate::rules::near_open_well(&rect, m, &ctx.land.wells)
-                            }) && rules.fire_from.is_none_or(|m| {
-                                others_homes
+            // What the search below reads beside the land's obstacles, word by word: its
+            // arguments and what the household brings to it (`searched`). What it finds is kept
+            // for the day under this, while the land holds all it held then and nothing added
+            // since keeps a plot off what it found ([`Population::home_ground`]).
+            let key = {
+                let mut m = searched.clone();
+                m.word(p as u64);
+                m.hash(&shape);
+                m.point(toward);
+                m.point(Some(from));
+                m.f64(max_m);
+                m.word(u64::from(obey_rules));
+                m.f64(caution);
+                m.hash(&style);
+                m.f64(fire_design.caution_thatch);
+                m.f64(fire_design.caution_wattle);
+                m.hash(&(
+                    fire_design.knows_rubble,
+                    fire_design.knows_mud_brick,
+                    fire_design.knows_firing,
+                    fire_design.knows_lime,
+                    fire_design.knows_systems,
+                ));
+                m
+            };
+            // A home keeps its midden from open wells (M8c slice CW), as the search below asks.
+            let midden_m = rules
+                .midden_from
+                .filter(|_| program.use_ == civ_land::PlotUse::Dwelling);
+            let still_clear = |spec: &BuildingSpec, since: &LandMark| {
+                clear_since(ctx.land, since, &build::plot_rect(spec, program), midden_m)
+            };
+            let search = || {
+                let design_at = |at: (f32, f32)| {
+                    let reachable =
+                        reach.is_none_or(|r| r.seconds_to(cell_of(ctx.map, at)).is_some());
+                    let design = |shape: build::Shape| {
+                        build::design_cautious(
+                            program,
+                            goods,
+                            shape,
+                            at,
+                            toward,
+                            caution,
+                            Some(style),
+                            Some(fire_design),
+                        )
+                    };
+                    reachable
+                        .then(|| {
+                            let spec = design(shape)?;
+                            // Built lower where a height or ties rule its builders keep allows no
+                            // more storeys on its walls (M8d slice DB).
+                            let most = rules.most_storeys(
+                                crate::rules::wall_kind(&spec, &program.rules),
+                                crate::rules::tied(&spec),
+                            );
+                            match shape {
+                                build::Shape::Bays {
+                                    bays,
+                                    storeys,
+                                    lofts,
+                                } if storeys > most && most >= 1 => design(build::Shape::Bays {
+                                    bays,
+                                    storeys: most,
+                                    lofts,
+                                }),
+                                _ => Some(spec),
+                            }
+                        })
+                        .flatten()
+                        // A skeleton is cased where a protection rule its builders keep asks it
+                        // (ADR-0037 §5), if its program cases one so long.
+                        .map(|mut spec| {
+                            if let Some(minutes) = rules.cased_min {
+                                build::case_skeleton(&mut spec, program, goods, minutes);
+                            }
+                            spec
+                        })
+                        .filter(|spec| {
+                            !rules.too_tall(spec, crate::rules::wall_kind(spec, &program.rules))
+                        })
+                        // A roof that burns is not put within a roof rule's reach of another
+                        // building, walls are of a kind the rules allow, and a plot keeps the
+                        // least gap.
+                        .filter(|spec| {
+                            let nearest = || {
+                                let rect = build::plot_rect(spec, program);
+                                rule_rects
                                     .iter()
-                                    .all(|r| crate::rules::gap_m(&rect, r) >= m)
-                            })
-                        }
-                    })
-                    // Nor on ground a plan its builders keep reserves.
-                    .filter(|spec| {
-                        plans.is_empty() || {
-                            let rect = build::plot_rect(spec, program);
-                            plans.iter().all(|l| !l.reserves(&rect, 0))
-                        }
-                    })
-                    // Nor on a parcel whose district allows another use (M8c slice CW).
-                    .filter(|spec| {
-                        !obey_rules || zoned.is_empty() || {
-                            let rect = build::plot_rect(spec, program);
-                            let bit = crate::polity::use_bit(program.use_);
-                            zoned
-                                .iter()
-                                .all(|(r, uses)| uses & bit != 0 || !r.near(&rect, 0))
-                        }
-                    })
+                                    .map(|r| crate::rules::gap_m(&rect, r))
+                                    .fold(f64::INFINITY, f64::min)
+                            };
+                            rules.roof_within.is_none_or(|within| {
+                                crate::rules::roof_unburnt(spec) || nearest() >= within
+                            }) && rules.walls.is_none_or(|kinds| {
+                                kinds & (1 << crate::rules::wall_kind(spec, &program.rules)) != 0
+                            }) && rules.gap.is_none_or(|gap| nearest() >= gap)
+                        })
+                        // A home keeps its midden from open wells, and one where fire is worked
+                        // keeps from others' homes (M8c slice CW).
+                        .filter(|spec| {
+                            program.use_ != civ_land::PlotUse::Dwelling || {
+                                let rect = build::plot_rect(spec, program);
+                                rules.midden_from.is_none_or(|m| {
+                                    !crate::rules::near_open_well(&rect, m, &ctx.land.wells)
+                                }) && rules.fire_from.is_none_or(|m| {
+                                    others_homes
+                                        .iter()
+                                        .all(|r| crate::rules::gap_m(&rect, r) >= m)
+                                })
+                            }
+                        })
+                        // Nor on ground a plan its builders keep reserves.
+                        .filter(|spec| {
+                            plans.is_empty() || {
+                                let rect = build::plot_rect(spec, program);
+                                plans.iter().all(|l| !l.reserves(&rect, 0))
+                            }
+                        })
+                        // Nor on a parcel whose district allows another use (M8c slice CW).
+                        .filter(|spec| {
+                            !obey_rules || zoned.is_empty() || {
+                                let rect = build::plot_rect(spec, program);
+                                let bit = crate::polity::use_bit(program.use_);
+                                zoned
+                                    .iter()
+                                    .all(|(r, uses)| uses & bit != 0 || !r.near(&rect, 0))
+                            }
+                        })
+                };
+                // Ground that drops too far across a plot is levelled, and ground too steep to
+                // level by hand, or that would be levelled beside water, is not built on; level
+                // ground is sought first (ADR-0010 §2-3).
+                let lev = &ctx.params.build.levelling;
+                let levelling = |rect: &civ_land::RectCm| {
+                    let drop = self.drop_across(ctx.map, rect);
+                    if drop <= lev.from_m {
+                        Some(0.0)
+                    } else {
+                        (drop <= lev.most_m
+                            && civ_land::earth::clear_of_water(ctx.map, rect, drop, lev.side_run))
+                        .then_some(drop)
+                    }
+                };
+                let spec = build::home_site(
+                    ctx.land, ctx.map, ctx.nav, program, &design_at, from, hearth, max_m,
+                    &levelling,
+                )?;
+                let stages = build::stage_needs(&spec, program)?;
+                // The levelling it needs, hours: a slope's cut, half the plot to a quarter of its
+                // drop on the mean, as the platform takes it (ADR-0010 §2).
+                let rect = build::plot_rect(&spec, program);
+                let area_m2 = f64::from(rect.w) * f64::from(rect.h) / 1e4;
+                let level_h = levelling(&rect).unwrap_or(0.0) * area_m2 / 8.0 * lev.h_per_m3;
+                Some((spec, stages, level_h))
             };
-            // Ground that drops too far across a plot is levelled, and ground too steep to level
-            // by hand, or that would be levelled beside water, is not built on; level ground is
-            // sought first (ADR-0010 §2-3).
-            let lev = &ctx.params.build.levelling;
-            let levelling = |rect: &civ_land::RectCm| {
-                let drop = self.drop_across(ctx.map, rect);
-                if drop <= lev.from_m {
-                    Some(0.0)
-                } else {
-                    (drop <= lev.most_m
-                        && civ_land::earth::clear_of_water(ctx.map, rect, drop, lev.side_run))
-                    .then_some(drop)
-                }
-            };
-            let spec = build::home_site(
-                ctx.land, ctx.map, ctx.nav, program, &design_at, from, hearth, max_m, &levelling,
-            )?;
-            let stages = build::stage_needs(&spec, program)?;
-            // The levelling it needs, hours: a slope's cut, half the plot to a quarter of its
-            // drop on the mean, as the platform takes it (ADR-0010 §2).
-            let rect = build::plot_rect(&spec, program);
-            let area_m2 = f64::from(rect.w) * f64::from(rect.h) / 1e4;
-            let level_h = levelling(&rect).unwrap_or(0.0) * area_m2 / 8.0 * lev.h_per_m3;
+            let (spec, stages, level_h) =
+                self.home_ground(ctx.land, day, key, still_clear, search)?;
             Some((
                 NewHome {
                     spec,

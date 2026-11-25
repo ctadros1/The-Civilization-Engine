@@ -1619,6 +1619,23 @@ fn a_world_saved_after_a_marriage_goes_on_as_the_unsaved_one_does() {
     saves_and_goes_on_alike(&mut sim, 120);
 }
 
+/// §8 25, fifth: a world saved at seven in the morning, nothing staged, goes on as the unsaved one
+/// does for eight hours. A home site a household found earlier that day is kept only while what
+/// it was found from stands (ADR-0011 §4): here household 68 takes plot 158 at 06:55 beside the
+/// hut site household 63 had found, and a kept site that ignored it failed at 10:36 where a world
+/// loaded after 06:55 found the site afresh and began hut 171.
+#[test]
+fn a_world_saved_at_seven_goes_on_as_the_unsaved_one_does() {
+    let mut sim = world_knowing(3, 50, &[50], true).expect("generates");
+    let to_seven = (7 * 60 - sim.now().minute_of_day()).rem_euclid(24 * 60);
+    sim.advance_minutes(to_seven).expect("goes on");
+    assert_eq!(
+        (sim.now().day_index(), sim.now().minute_of_day()),
+        (59, 7 * 60)
+    );
+    saves_and_goes_on_alike(&mut sim, 480);
+}
+
 /// Saves `sim`, loads it, and checks every section of the loaded world is the same, and that the
 /// two go on alike for `minutes`.
 fn saves_and_goes_on_alike(sim: &mut Sim, minutes: i64) {
@@ -1640,6 +1657,33 @@ fn saves_and_goes_on_alike(sim: &mut Sim, minutes: i64) {
     sim.advance_minutes(minutes).expect("advances");
     loaded.advance_minutes(minutes).expect("advances");
     same(sim, &loaded);
+}
+
+/// A world saved at ordinary hours, with nothing done to it by hand, goes on alike for four hours
+/// after each save (ADR-0011 §4: what is kept for the day is a function of saved state). The
+/// round-trip fixture saves at 00:07 and compares the reload only; this runs on beside the
+/// unsaved world, so a cache that a load finds afresh differently shows here.
+#[test]
+fn a_world_saved_at_ordinary_hours_goes_on_alike_for_four_hours_after_each() {
+    const DAY: i64 = 24 * 60;
+    let mut sim = world_knowing(3, 50, &[50], true).expect("generates");
+    // Days from the world's first day (day 59 of the calendar, 1 March) and minutes of the day.
+    let first = sim.now().day_index();
+    // 07:30 of the first day lies in the hours a kept home site went stale (§8 25, fifth).
+    let hours = [
+        (0, 7 * 60 + 30),
+        (0, 12 * 60),
+        (0, 19 * 60),
+        (1, 3 * 60),
+        (60, 7 * 60),
+    ];
+    for (day, minute) in hours {
+        let (at, now) = ((first + day) * DAY + minute, sim.now().minutes());
+        assert!(at > now, "the sweep's instants run forward");
+        sim.advance_minutes(at - now).expect("lives");
+        assert_eq!(sim.now().day_index() - first, day);
+        saves_and_goes_on_alike(&mut sim, 4 * 60);
+    }
 }
 
 #[test]

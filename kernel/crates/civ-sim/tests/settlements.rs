@@ -1670,7 +1670,13 @@ fn a_world_saved_at_ordinary_hours_goes_on_alike_for_four_hours_after_each() {
     // Days from the world's first day (day 59 of the calendar, 1 March) and minutes of the day.
     let first = sim.now().day_index();
     // 07:30 of the first day lies in the hours a kept home site went stale (§8 25, fifth).
-    let hours = [(0, 7 * 60 + 30), (0, 12 * 60), (0, 19 * 60), (1, 3 * 60), (60, 7 * 60)];
+    let hours = [
+        (0, 7 * 60 + 30),
+        (0, 12 * 60),
+        (0, 19 * 60),
+        (1, 3 * 60),
+        (60, 7 * 60),
+    ];
     for (day, minute) in hours {
         let (at, now) = ((first + day) * DAY + minute, sim.now().minutes());
         assert!(at > now, "the sweep's instants run forward");

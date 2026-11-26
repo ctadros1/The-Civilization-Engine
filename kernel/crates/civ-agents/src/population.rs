@@ -8192,17 +8192,9 @@ impl Population {
         who: PermanentId,
         now: SimTime,
     ) {
-        let patch = ctx.land.patches.of_cell(cell as usize, ctx.map.width);
-        let aq = &ctx.land.water.aquifer;
-        let spring = aq.stage.get(patch).is_some_and(Option::is_none)
-            && aq
-                .seep
-                .get(patch)
-                .copied()
-                .flatten()
-                .is_some_and(|(c, _)| c == cell);
+        let spring = spring_patch(ctx, cell);
         let litres = ctx.params.household.carry_water_l;
-        if spring {
+        if let Some(patch) = spring {
             self.spring_draws
                 .draw(now.day_index(), patch as u32, litres);
             self.water_draws.springs += 1;
@@ -8210,7 +8202,7 @@ impl Population {
             self.water_draws.banks += 1;
         }
         self.water_draws.litres += litres;
-        if !spring {
+        if spring.is_none() {
             self.drew_load_from_reach(ctx, cell, household, litres);
         }
         self.log_work(crate::uses::Place::Source(cell), household, who, now, 0.0);
@@ -8286,9 +8278,6 @@ impl Population {
         who: Option<PermanentId>,
         shunned: &dyn Fn(u32) -> bool,
     ) -> Option<WaterOption> {
-        let (water, params) = (&ctx.land.water, &ctx.land_params.water);
-        let carry = ctx.params.household.carry_water_l;
-        let day = ctx.now.day_index();
         let option = |cell: u32, s: f32| WaterOption {
             cell,
             walk_min: f64::from(s) / 60.0,
@@ -8300,11 +8289,7 @@ impl Population {
             if shunned(cell) {
                 continue;
             }
-            let Some(spring) = water.spring_at(params, patch as usize) else {
-                continue;
-            };
-            let left = spring.flow_m3_day * 1000.0 - self.spring_draws.drawn(day, patch);
-            if left >= carry && left - carry * self.loads_promised(ctx, cell, who) as f64 >= carry {
+            if self.spring_has_load(ctx, patch, cell, who) {
                 return Some(option(cell, s));
             }
         }
@@ -8315,6 +8300,33 @@ impl Population {
             .find(|&(cell, _)| !shunned(cell))
             .or(home.water)
             .map(|(cell, s)| option(cell, s))
+    }
+
+    /// Whether the spring of `patch`, rising at `cell`, flows today and has a load left for
+    /// `who` ([`Self::spring_or_bank`]): what flows to it, less what has been drawn there and the
+    /// loads promised to those on their way ([`Self::loads_promised`]), is a load at least.
+    fn spring_has_load(&self, ctx: &Ctx, patch: u32, cell: u32, who: Option<PermanentId>) -> bool {
+        let Some(spring) = ctx
+            .land
+            .water
+            .spring_at(&ctx.land_params.water, patch as usize)
+        else {
+            return false;
+        };
+        let carry = ctx.params.household.carry_water_l;
+        let left =
+            spring.flow_m3_day * 1000.0 - self.spring_draws.drawn(ctx.now.day_index(), patch);
+        left >= carry && left - carry * self.loads_promised(ctx, cell, who) as f64 >= carry
+    }
+
+    /// Whether `target` is the water at a spring that has no load left today for `who`
+    /// ([`Self::spring_has_load`]): one that flows no longer, or is drawn and promised for the day.
+    pub(super) fn spring_spent(&self, ctx: &Ctx, target: Target, who: Option<PermanentId>) -> bool {
+        let Target::Water(cell) = target else {
+            return false;
+        };
+        spring_patch(ctx, cell)
+            .is_some_and(|patch| !self.spring_has_load(ctx, patch as u32, cell, who))
     }
 
     /// Loads promised at the spring at `cell`: the people but `except` on their way to draw a
@@ -9896,6 +9908,21 @@ fn lay_out_places(ctx: &Ctx, range: u32, in_water: bool) -> Places {
         in_water,
         blocks,
     }
+}
+
+/// The patch whose spring rises at `cell`, if `cell` is the lowest ground of a patch off the water
+/// (where a spring rises when the heads give it water; M6a slice AY).
+fn spring_patch(ctx: &Ctx, cell: u32) -> Option<usize> {
+    let patch = ctx.land.patches.of_cell(cell as usize, ctx.map.width);
+    let aq = &ctx.land.water.aquifer;
+    (aq.stage.get(patch).is_some_and(Option::is_none)
+        && aq
+            .seep
+            .get(patch)
+            .copied()
+            .flatten()
+            .is_some_and(|(c, _)| c == cell))
+    .then_some(patch)
 }
 
 /// The cell of a bank or spring at which activity `act` is yet to draw a load of water (§9, "A

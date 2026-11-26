@@ -438,6 +438,123 @@ fn a_spring_rushed(mut sim: Sim) {
     assert_eq!(sim.people().spring_draws.drawn(day + 1, p as u32), 0.0);
 }
 
+/// A household-resolved settlement's day (ADR-0032 §2) asks of each of its trips for water whether
+/// the spring has a load left, as one setting off in a Detailed day does (§9, "A spring counts the
+/// loads promised as well as drawn"). A band of 60 in the world of the spring scenes fetches from
+/// the spring that flows there, 614 L a day, nearer than the river; household-resolved, its
+/// households' water spent the evening before, it lives its day at midnight drawing no more than
+/// flows to the spring, the rest from the river. The day once repeated each household's first
+/// trip of the morning until its water was made up, so the household whose trips the spring ran
+/// out in drew past it. A world saved the evening before goes on, set household-resolved again
+/// (a resolution is never saved), as the unsaved one does through two household-resolved days.
+#[test]
+fn a_household_resolved_day_draws_no_more_than_a_spring_flows() {
+    a_spring_resolved([7; 16]);
+}
+
+/// [`a_household_resolved_day_draws_no_more_than_a_spring_flows`] in the world of identity
+/// `identity`.
+fn a_spring_resolved(identity: [u8; 16]) {
+    let mut sim = Sim::create_for_tests(
+        &NewWorld {
+            name: "Spring".to_owned(),
+            seed: 6,
+            preset_id: PRESET.to_owned(),
+            size_cells: 768,
+            band_size: 60,
+            neighbours: Vec::new(),
+            neighbours_known: true,
+            regime_id: String::new(),
+        },
+        content(),
+        identity,
+    )
+    .expect("generates");
+    to_morning(&mut sim);
+    // The spring every household fetches from.
+    let homes: Vec<_> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, h)| !h.members.is_empty())
+        .map(|(_, h)| h.id)
+        .collect();
+    let at = |sim: &mut Sim, h| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.water_source_for_tests(ctx, h, true))
+            .map(|o| o.cell)
+    };
+    let cell = at(&mut sim, homes[0]).expect("a source of water");
+    let aq = &sim.land().water.aquifer;
+    let p = (0..aq.len())
+        .find(|&p| aq.stage[p].is_none() && aq.seep[p].is_some_and(|(c, _)| c == cell))
+        .expect("the households fetch from a spring");
+    for &h in &homes {
+        assert_eq!(
+            at(&mut sim, h),
+            Some(cell),
+            "household {h} fetches from the spring"
+        );
+    }
+    let settlement = sim.land().settlements[0].id;
+    sim.set_household_resolved([settlement]);
+    // To the last minutes of the evening, when nobody fetches water: every household's water
+    // spent, so the day it lives at midnight is a day of fetching.
+    sim.advance_minutes(DAY - 2).expect("advances");
+    let params = sim.rules().people.household.clone();
+    let load = params.carry_water_l;
+    let now = sim.now();
+    for (_, h) in sim.people_mut_for_tests().households.iter_mut() {
+        h.water_l = 0.0;
+        h.water_at = now;
+    }
+    let mut loaded = saves_alike(&mut sim);
+    loaded.set_household_resolved([settlement]);
+    for day in 0..2 {
+        for s in [&mut sim, &mut loaded] {
+            to_morning(s);
+            assert!(s.people().resolution_problems().is_empty());
+            assert_eq!(
+                s.household_resolved().iter().collect::<Vec<_>>(),
+                [&settlement]
+            );
+            // The day is lived: what flows to the spring today and what was drawn there.
+            let today = s.now().day_index();
+            let flow = s
+                .land()
+                .water
+                .spring_at(&s.rules().land.water, p)
+                .map_or(0.0, |x| x.flow_m3_day * 1000.0);
+            let wanted: f64 = s
+                .people()
+                .households
+                .iter()
+                .map(|(_, h)| h.members.len() as f64 * h.water_use(&params))
+                .sum();
+            assert!(wanted > flow + 5.0 * load, "{wanted} L wanted of {flow} L");
+            let drawn = s.people().spring_draws.drawn(today, p as u32);
+            let (here, elsewhere) = draws(s, cell);
+            assert!((drawn - here as f64 * load).abs() < 1e-6);
+            // A load short of its flow at most is left at the spring, and the rest of the water
+            // the village wants comes from the river.
+            assert!(
+                drawn <= flow && drawn > flow - load,
+                "day {day}: {drawn} L drawn of {flow} L"
+            );
+            assert!(elsewhere > 0, "day {day}: nobody went to the river");
+            assert!(s.people().problems(u64::MAX, usize::MAX).is_empty());
+            assert!(s.people().uses.problems().is_empty());
+        }
+        let (a, b) = (
+            persist::encode_sections(&sim),
+            persist::encode_sections(&loaded),
+        );
+        assert_eq!(a.len(), b.len());
+        for (x, y) in a.iter().zip(&b) {
+            assert!(x.bytes == y.bytes, "day {day}: section `{}` differs", x.tag);
+        }
+    }
+}
+
 /// How many are on their way to draw a load at `cell`, their draw not yet done: on a trip for
 /// water aimed at it before its work step ends, or for a fire before its filling (its first work
 /// step) ends. Read from people's activities, as the engine's own count is.

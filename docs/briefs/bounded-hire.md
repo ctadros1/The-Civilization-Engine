@@ -1,11 +1,14 @@
 # Brief: a seeker of work weighs the offers within reach of what it knows
 
-Status: **proposed, revised for the owner's second review** (2026-11-25). Plan §8 24, seventh
-item (the 100k bench workload). The owner's review of 2026-11-25 approved the direction only
-(bounded, reachable employment information in place of every employer on every decision); this
-revision answers its points 1, 2 and the hiring parts of 5, and the owner's review of the revision
-(every input of the kept list, the most offers a decision works out, the rotation's limits,
-provisional settings). Nothing here is built, and nothing in it authorizes an implementation, a parameter change, a limit amendment or a promotion.
+Status: **candidate built on `claude/bounded-hire`, not promoted** (2026-11-26). Plan §8 24,
+seventh item (the 100k bench workload). Proposed and revised for the owner's reviews of 2026-11-25; implementation approved by the owner on 2026-11-26
+with decisions that override this brief where they differ (§9): farm hiring only; an attention
+budget of eight distinct employers, at most four of them contacts; at most sixteen offers worked
+out including retries; deduplication and reachability before a slot is spent; reachable
+neighbouring employers kept; a fresh household-and-day-keyed draw in place of §4.4's rotating
+window, with no promised discovery deadline; no vacancy reports; the kept list's invalidation as
+§4.2a. §9 records what was built and how it was validated. Nothing here authorizes promotion, a
+parameter change beyond the two provisional settings, a limit amendment or a save-format change.
 
 ## 1. What happens now (read from the code)
 
@@ -331,3 +334,49 @@ Scenes are proposed names in `kernel/crates/civ-sim/tests/`.
 - The implementation itself, any parameter change, any performance-limit amendment, and promotion.
 - Deferred separately by the owner: the price-convergence persistence proposal, the notables
   under-proposal question, sowing-wage timing, and the other ADR and sewer decisions.
+
+## 9. As built (2026-11-26, the first candidate)
+
+Built by Claude on `claude/bounded-hire` from verification `ffe1e161` (the corrected baseline),
+under the owner's decisions of 2026-11-26, which override §4.4 and §7's choices 1 to 4.
+
+- **Where.** `population/search.rs` (new): `field_search` and `search_field_work` (the search),
+  `hire_pool` and `build_hire_pool` (the kept list), `hire_contacts`; `population/firm.rs`
+  `best_job` takes the travel field's key and weighs what `field_search` finds beside the workshops,
+  as before. Offers, wages and payment (`reap_offer_with` and the three under it,
+  `hired_reaping`, `hired_threshing`, `hired_sowing`), workshop hiring and the observer's
+  `field_hire` are unchanged.
+- **Selection (replaces §4.4).** Contacts (§4.1 1, read afresh at every search) are drawn first,
+  then the kept list (§4.1 2), each without replacement by a sparse Fisher-Yates draw from
+  `Rng64::from_key(seed, PURPOSE_HIRE, household, day, 0 or 1)` over the list in id order. Whom a
+  search weighs is therefore a function of the world seed, the household, the day and saved state
+  (fields, households, ties, kin, the walking grid), so a world saved at any hour and loaded draws
+  the same; no shared random stream is touched. A search never weighs an employer twice or its own
+  household. No discovery deadline holds: over keyed days an employer is weighed in about
+  `slots / employers` of a seeker's searches (checked in the scenes over 400 keyed days).
+- **The budget.** `firm.hire_search` (8) slots and at most `firm.hire_contacts` (4) of them to
+  contacts (content API 238; provisional design settings, NUDGE in plan §9). An employer weighed
+  with no work, or none it can pay for, spends a slot; one whose offer's place proves out of reach
+  (another settlement's beyond the work's walk) is passed over without one; a search stops at
+  `2 × hire_search` (16) offers worked out, retries included.
+- **The kept list (§4.2a).** Per travel field key: the seeker's settlement's households with a
+  field whose centre, or a home, lies in the travel field; and other settlements' households with
+  a field whose centre lies within the work's straight line of the travel field's origin
+  (`fields_near`, the walk at top speed, now measured from the origin the walk is measured from
+  rather than from the seeker's home) and a field or home within the work's walk. Rebuilt when its
+  stamp differs: the travel field's origin cell and revision (`HomeField` `cell`, `rev`), the
+  seeker's settlement, the fields' count, `field_moves` (new, counted at every `fields_moved`),
+  `homes_moved`, and the day. Let go by `forget_derived`; never saved. Every kept read in debug
+  builds is checked against one built afresh (`debug_assert_eq!`).
+- **Differences from today's eligibility.** Own-settlement households with no field are no longer
+  weighed (they offer nothing). Another settlement's household whose home, not a field, is within
+  the walk is now listed (threshing's place is the home). The straight-line bound is taken from the
+  travel field's origin.
+- **Counts (report only, never saved).** `Population::hire_tally` (`HireTally`): searches, offers,
+  slots, passed over, searches at the limit, the most offers in one search, contacts read,
+  eligible and weighed, reach lookups, lists built and read; `bench_village` prints them.
+- **Scenes.** `kernel/crates/civ-sim/tests/hiring.rs`, fourteen, each with its prerequisites
+  asserted and shown to fail under a temporary mutation of the behaviour it protects; the suite,
+  the four bench workloads, the search's counts and the labour and food readings are in plan §9
+  ("Bounded hiring, the first candidate" and the measurements after it).
+

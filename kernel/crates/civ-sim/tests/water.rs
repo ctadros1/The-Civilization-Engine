@@ -385,6 +385,7 @@ fn a_spring_rushed(mut sim: Sim) {
             sim.now().minutes() - start < DAY - 60,
             "no rush to the spring"
         );
+        kept_as_counted(&mut sim, cell);
         let drawn = sim.people().spring_draws.drawn(day, p as u32);
         let promised = on_the_way(&sim);
         most = most.max(promised);
@@ -402,6 +403,7 @@ fn a_spring_rushed(mut sim: Sim) {
     for s in [&mut sim, &mut loaded] {
         for _ in 0..rest {
             s.advance_minutes(1).expect("advances");
+            kept_as_counted(s, cell);
             let drawn = s.people().spring_draws.drawn(day, p as u32);
             let promised = on_the_way(s);
             most = most.max(promised);
@@ -512,6 +514,7 @@ fn a_spring_resolved(identity: [u8; 16]) {
     for day in 0..2 {
         for s in [&mut sim, &mut loaded] {
             to_morning(s);
+            kept_as_counted(s, cell);
             assert!(s.people().resolution_problems().is_empty());
             assert_eq!(
                 s.household_resolved().iter().collect::<Vec<_>>(),
@@ -553,6 +556,293 @@ fn a_spring_resolved(identity: [u8; 16]) {
             assert!(x.bytes == y.bytes, "day {day}: section `{}` differs", x.tag);
         }
     }
+}
+
+/// The loads promised at each cell read from the engine's day's list of those who may be on their
+/// way to draw water, against a count of everyone afresh (§9, "A spring counts the loads promised
+/// as well as drawn"): they are the same at every cell. The loads promised at `cell`.
+fn kept_as_counted(sim: &mut Sim, cell: u32) -> usize {
+    let cells = sim.with_ctx_for_tests(|pop, ctx| pop.loads_promised_for_tests(ctx));
+    for &(c, kept, counted) in &cells {
+        assert_eq!(
+            kept,
+            counted,
+            "at {}: {kept} kept on the way to cell {c}, {counted} counted",
+            sim.now().minutes()
+        );
+    }
+    let at = cells.iter().find(|x| x.0 == cell).map_or(0, |x| x.2);
+    assert_eq!(at, on_the_way(sim, cell));
+    at
+}
+
+/// Those on their way to draw at `cell` doing `behavior`, by id, and whether each is at its
+/// work step (arrived and drawing, or filling).
+fn on_the_way_by(
+    sim: &Sim,
+    cell: u32,
+    behavior: civ_agents::params::Behavior,
+) -> Vec<(civ_core::PermanentId, bool)> {
+    use civ_agents::person::{Step, Target};
+    let activities = &sim.rules().catalog.activities;
+    let mut out: Vec<_> = sim
+        .people()
+        .people
+        .iter()
+        .filter(|(_, x)| {
+            activities.get(x.act.def as usize).map(|a| a.behavior) == Some(behavior)
+                && match x.act.target {
+                    Target::Water(c) => c == cell,
+                    Target::Douse { from, .. } => from == cell && x.act.step <= 1,
+                    _ => false,
+                }
+                && x.act.steps[(x.act.step as usize).min(x.act.steps.len())..]
+                    .iter()
+                    .any(|s| matches!(s, Step::Work { .. }))
+        })
+        .map(|(_, x)| {
+            let working = matches!(
+                x.act.steps.get(x.act.step as usize),
+                Some(Step::Work { .. })
+            );
+            (x.id, working)
+        })
+        .collect();
+    out.sort_unstable();
+    out
+}
+
+/// The engine keeps a day's list of those who may be on their way to draw water, so that asking
+/// whether a spring has a load left does not count everyone (§9, "A spring counts the loads
+/// promised as well as drawn"). What it gives is what a count of everyone gives through every
+/// change a trip goes through, each made mid-trip: trips begun at the dawn rush, arrivals at the
+/// spring, draws, a death on the way, a trip cancelled and then begun again, a person deciding
+/// again on the way, a world saved and loaded in the rush, a person arriving in the world on
+/// their way, a fire whose fighters fill at the spring (one dying and one giving up on the way),
+/// and the turn of the day.
+#[test]
+fn the_kept_list_of_those_on_their_way_to_a_spring_is_as_a_count_of_everyone() {
+    use civ_agents::params::Behavior;
+    let mut sim = village(6);
+    to_morning(&mut sim);
+    let (p, cell) = spring_site(&sim);
+    let flow = sim.rules().land.water.spring_min_m3_day;
+    set_spring(&mut sim, p, Some(flow));
+    let day = sim.now().day_index();
+    let empty = |sim: &mut Sim| {
+        let now = sim.now();
+        for (_, h) in sim.people_mut_for_tests().households.iter_mut() {
+            h.water_l = 0.0;
+            h.water_at = now;
+        }
+    };
+    empty(&mut sim);
+    // The rush, minute by minute: trips begun, arrivals and draws.
+    let (mut begun, mut arrived, mut drawn_on) = (0, 0, 0);
+    let mut last = (0, 0.0);
+    loop {
+        sim.advance_minutes(1).expect("advances");
+        assert!(sim.now().day_index() == day, "no rush");
+        let n = kept_as_counted(&mut sim, cell);
+        let drawn = sim.people().spring_draws.drawn(day, p as u32);
+        if n > last.0 {
+            begun += 1;
+        }
+        if on_the_way_by(&sim, cell, Behavior::FetchWater)
+            .iter()
+            .any(|x| x.1)
+        {
+            arrived += 1;
+        }
+        if drawn > last.1 {
+            drawn_on += 1;
+        }
+        last = (n, drawn);
+        let walkers = on_the_way_by(&sim, cell, Behavior::FetchWater)
+            .iter()
+            .filter(|x| !x.1)
+            .count();
+        if walkers >= 4 {
+            break;
+        }
+    }
+    let walking: Vec<_> = on_the_way_by(&sim, cell, Behavior::FetchWater)
+        .into_iter()
+        .filter(|x| !x.1)
+        .map(|x| x.0)
+        .collect();
+    assert!(walking.len() >= 4, "{walking:?} on their way");
+    // A death on the way.
+    let n = kept_as_counted(&mut sim, cell);
+    sim.die_for_tests(walking[0]);
+    assert_eq!(
+        kept_as_counted(&mut sim, cell),
+        n - 1,
+        "the dead still counted"
+    );
+    // A trip cancelled, then a decision made afresh.
+    sim.people_mut_for_tests().restart(walking[1]);
+    assert_eq!(
+        kept_as_counted(&mut sim, cell),
+        n - 2,
+        "the cancelled still counted"
+    );
+    sim.with_ctx_for_tests(|pop, ctx| pop.decide_now_for_tests(ctx, walking[1]));
+    kept_as_counted(&mut sim, cell);
+    // Someone on the way deciding again.
+    sim.with_ctx_for_tests(|pop, ctx| pop.decide_now_for_tests(ctx, walking[2]));
+    let n = kept_as_counted(&mut sim, cell);
+    // A world saved and loaded in the rush: the list is made from the saved activities.
+    let mut loaded = saves_alike(&mut sim);
+    assert_eq!(kept_as_counted(&mut loaded, cell), n);
+    // Someone arriving in the world on their way to the spring.
+    let mut newcomer = loaded.people().person(walking[3]).expect("lives").clone();
+    newcomer.id = civ_core::PermanentId::from_raw(u64::MAX - 1).expect("an id");
+    let was = kept_as_counted(&mut loaded, cell);
+    loaded.people_mut_for_tests().insert_person(newcomer);
+    assert_eq!(kept_as_counted(&mut loaded, cell), was + 1);
+    drop(loaded);
+    for _ in 0..120 {
+        sim.advance_minutes(1).expect("advances");
+        let n = kept_as_counted(&mut sim, cell);
+        let drawn = sim.people().spring_draws.drawn(day, p as u32);
+        if n > last.0 {
+            begun += 1;
+        }
+        if on_the_way_by(&sim, cell, Behavior::FetchWater)
+            .iter()
+            .any(|x| x.1)
+        {
+            arrived += 1;
+        }
+        if drawn > last.1 {
+            drawn_on += 1;
+        }
+        last = (n, drawn);
+    }
+    assert!(
+        begun > 0 && arrived > 0 && drawn_on > 0,
+        "trips begun at {begun} minutes, arrivals at {arrived}, draws at {drawn_on}"
+    );
+    // A fire: huts of the first household beside the spring, flowing well, at the morning's
+    // fetching, a windy dry day and every household's water spent, so its fighters fill there.
+    let mut fire = village(6);
+    to_morning(&mut fire);
+    set_spring(&mut fire, p, Some(20.0));
+    fire.advance_minutes(11 * 60).expect("advances");
+    let hut_def = {
+        let catalog = &content().catalog;
+        &catalog.buildings[catalog
+            .building_index("core:building/hut")
+            .expect("the hut")]
+    };
+    let household = fire
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h.id)
+        .min()
+        .expect("a household");
+    let home = civ_agents::population::cell_centre(fire.map(), cell as usize);
+    let hut_at = |at: (f32, f32)| {
+        civ_agents::build::design_shape(
+            hut_def,
+            &content().catalog.goods,
+            civ_agents::build::Shape::Round { radius: 310 },
+            at,
+            None,
+        )
+        .expect("a hut")
+    };
+    let step = civ_agents::build::plot_rect(&hut_at((0.0, 0.0)), hut_def).w as f32 / 100.0 + 3.0;
+    let mut huts = Vec::new();
+    for r in 0..2 {
+        for c in 0..3 {
+            let at = (home.0 + 20.0 + r as f32 * step, home.1 + c as f32 * step);
+            huts.push(
+                fire.place_building_for_tests(
+                    household,
+                    hut_at(at),
+                    civ_grammar::Stage::ALL.len() as u8,
+                )
+                .expect("placed"),
+            );
+        }
+    }
+    {
+        let w = &mut fire.land_mut_for_tests().weather;
+        w.today.wind_ms = 5.5;
+        w.today.wind_from_deg = 270.0;
+        w.today.gust_ms = 5.5 * 1.7;
+        w.today.fuel_moisture = 0.12;
+    }
+    empty(&mut fire);
+    fire.set_fire(huts[0]).expect("set alight");
+    let (mut dousers, mut filling, mut filled, mut branched) = (0, 0, 0, false);
+    let mut was: Vec<(civ_core::PermanentId, bool)> = Vec::new();
+    for _ in 0..180 {
+        fire.advance_minutes(1).expect("advances");
+        // Their water stays spent while the fire burns.
+        empty(&mut fire);
+        kept_as_counted(&mut fire, cell);
+        let on = on_the_way_by(&fire, cell, Behavior::Douse);
+        dousers += on
+            .iter()
+            .filter(|x| !was.iter().any(|w| w.0 == x.0))
+            .count();
+        filling += on.iter().filter(|x| x.1).count();
+        // A fighter who was filling at the spring a minute ago and is no longer on the way there
+        // has drawn their load.
+        filled += was
+            .iter()
+            .filter(|w| w.1 && !on.iter().any(|x| x.0 == w.0))
+            .count();
+        // One on the way to fill, in two copies of the world: in one they die on the way, in
+        // the other they give up and decide again.
+        if let Some(&(walker, _)) = on.iter().find(|x| !x.1)
+            && !branched
+        {
+            branched = true;
+            let n = kept_as_counted(&mut fire, cell);
+            let mut died = saves_alike(&mut fire);
+            assert_eq!(kept_as_counted(&mut died, cell), n);
+            died.die_for_tests(walker);
+            assert_eq!(
+                kept_as_counted(&mut died, cell),
+                n - 1,
+                "the dead fighter counted"
+            );
+            let mut gave_up = saves_alike(&mut fire);
+            gave_up.people_mut_for_tests().restart(walker);
+            assert_eq!(
+                kept_as_counted(&mut gave_up, cell),
+                n - 1,
+                "one who gave up counted"
+            );
+            gave_up.with_ctx_for_tests(|pop, ctx| pop.decide_now_for_tests(ctx, walker));
+            kept_as_counted(&mut gave_up, cell);
+            for s in [&mut died, &mut gave_up] {
+                for _ in 0..30 {
+                    s.advance_minutes(1).expect("advances");
+                    kept_as_counted(s, cell);
+                }
+            }
+        }
+        was = on;
+    }
+    assert!(
+        dousers > 0 && filling > 0 && filled > 0 && branched,
+        "fighters on the way to the spring: {dousers}, minutes filling there: {filling}, loads \
+         filled: {filled}"
+    );
+    // The turn of the day, minute by minute.
+    let to_late = DAY - sim.now().minutes().rem_euclid(DAY) - 60;
+    sim.advance_minutes(to_late).expect("advances");
+    for _ in 0..120 {
+        sim.advance_minutes(1).expect("advances");
+        kept_as_counted(&mut sim, cell);
+    }
+    assert_eq!(sim.now().day_index(), day + 1);
 }
 
 /// How many are on their way to draw a load at `cell`, their draw not yet done: on a trip for

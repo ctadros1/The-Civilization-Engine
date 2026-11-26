@@ -743,6 +743,12 @@ pub struct Population {
     /// obstacles ([`Mix`]) and a mark of those ([`LandMark`]), with the day they were made
     /// ([`Population::home_ground`]). Derived, never saved.
     home_grounds: std::sync::Mutex<HomeGrounds>,
+    /// Those who may be on their way to draw a load of water, by the cell they draw at
+    /// ([`Population::loads_promised`]): everyone whose activity was on its way to draw there when
+    /// the day's list was made from all the people, and everyone who has taken up such an
+    /// activity since ([`Population::take_up`]), each at most once. Some have drawn since or done
+    /// something else; each read keeps those still on their way. Derived, never saved.
+    water_trips: std::sync::Mutex<WaterTrips>,
     /// The day's asks for help with mending: for each household asked, the households that
     /// asked it (research 11-04 §1.6). Derived each day, not saved.
     mend_asks: (Option<i64>, FastMap<PermanentId, Vec<PermanentId>>),
@@ -1143,6 +1149,15 @@ type HomeGround = (BuildingSpec, Vec<StageNeeds>, f64);
 /// it reads, a mark of the land it was made on and what it found, and the day
 /// ([`Population::home_ground`]).
 type HomeGrounds = (i64, FastMap<u64, (Vec<u64>, LandMark, Option<HomeGround>)>);
+
+/// The day's list of those who may be on their way to draw water, by cell
+/// ([`Population::loads_promised`]): the day it was made from all the people (`None` until it
+/// is), and the people by cell.
+#[derive(Debug, Default)]
+struct WaterTrips {
+    day: Option<i64>,
+    at: FastMap<u32, Vec<Handle<Person>>>,
+}
 
 /// Everything a search for a building's ground reads, word by word, and a digest of it
 /// ([`Population::home_ground`]). Two keys are the same only when every word is.
@@ -1880,6 +1895,9 @@ impl Population {
     /// Adds a living person (their record must be added separately).
     pub fn insert_person(&mut self, p: Person) -> Handle<Person> {
         let id = p.id;
+        // They come with an activity of their own: the day's list of those on their way to
+        // draw water is made again from all the people when next read.
+        self.forget_water_trips();
         let handle = self.people.insert(p);
         self.index.insert(id, handle);
         handle
@@ -1904,6 +1922,7 @@ impl Population {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .1
             .clear();
+        self.forget_water_trips();
         self.first_home_for.clear();
         self.stage_needs.clear();
         self.expansions.clear();
@@ -6699,6 +6718,8 @@ impl Population {
         }
         // A round of the watch is counted as it begins (M4b slice AC).
         let (who, def) = (p.id, p.act.def);
+        // One setting off to draw water is one of those who may be on their way.
+        self.note_water_trip(ctx, h);
         if catalog
             .activities
             .get(usize::from(def))
@@ -8333,11 +8354,130 @@ impl Population {
     /// load there whose draw is not yet done ([`draw_ahead`]). Counted afresh from people's
     /// activities, which a save keeps, so a world saved while they are on their way and loaded
     /// counts the same.
+    ///
+    /// Read from the day's list of those who may be on their way ([`WaterTrips`]), made from all
+    /// the people at the first read of the day and added to as activities are taken up: everyone
+    /// on their way to draw at `cell` is on it (an activity aimed at a draw is only ever begun by
+    /// [`Self::take_up`], or loaded, or brought by a person added, after which the list is made
+    /// again), so keeping those of it whose activity is still on its way there counts what a scan
+    /// of everyone would (in a build with debug assertions, each count is checked against that
+    /// scan).
     fn loads_promised(&self, ctx: &Ctx, cell: u32, except: Option<PermanentId>) -> usize {
+        let count = self.loads_promised_kept(ctx, cell, except);
+        debug_assert_eq!(
+            count,
+            self.loads_promised_scan(ctx, cell, except),
+            "the loads promised at cell {cell} kept differ from those counted afresh"
+        );
+        count
+    }
+
+    /// [`Self::loads_promised`] read from the day's list ([`WaterTrips`]), made from all the
+    /// people when it is not of today.
+    fn loads_promised_kept(&self, ctx: &Ctx, cell: u32, except: Option<PermanentId>) -> usize {
+        let day = ctx.now.day_index();
+        // A poisoned lock still holds only people who may be on their way.
+        let mut trips = self
+            .water_trips
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if trips.day != Some(day) {
+            trips.at.clear();
+            for (h, p) in self.people.iter() {
+                if let Some(c) = draw_ahead(&p.act, ctx.catalog) {
+                    trips.at.entry(c).or_default().push(h);
+                }
+            }
+            trips.day = Some(day);
+        }
+        let on_the_way = |h: &Handle<Person>| {
+            self.people
+                .get(*h)
+                .filter(|p| draw_ahead(&p.act, ctx.catalog) == Some(cell))
+        };
+        trips.at.get_mut(&cell).map_or(0, |list| {
+            list.retain(|h| on_the_way(h).is_some());
+            list.iter()
+                .filter(|h| on_the_way(h).is_some_and(|p| Some(p.id) != except))
+                .count()
+        })
+    }
+
+    /// [`Self::loads_promised`] counted afresh from every person's activity: what the day's
+    /// list must give.
+    fn loads_promised_scan(&self, ctx: &Ctx, cell: u32, except: Option<PermanentId>) -> usize {
         self.people
             .iter()
             .filter(|(_, p)| Some(p.id) != except && draw_ahead(&p.act, ctx.catalog) == Some(cell))
             .count()
+    }
+
+    /// Every cell someone is on their way to draw water at, or the day's list holds, with the
+    /// loads promised there read from the list and counted afresh (tests): `(cell, kept,
+    /// counted)`, in cell order.
+    #[doc(hidden)]
+    pub fn loads_promised_for_tests(&self, ctx: &Ctx) -> Vec<(u32, usize, usize)> {
+        let mut cells: BTreeSet<u32> = self
+            .people
+            .iter()
+            .filter_map(|(_, p)| draw_ahead(&p.act, ctx.catalog))
+            .collect();
+        cells.extend(
+            self.water_trips
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .at
+                .keys()
+                .copied(),
+        );
+        cells
+            .into_iter()
+            .map(|c| {
+                let kept = self.loads_promised_kept(ctx, c, None);
+                (c, kept, self.loads_promised_scan(ctx, c, None))
+            })
+            .collect()
+    }
+
+    /// `id` decides again now, whatever they were doing, as an interruption has them do (tests).
+    #[doc(hidden)]
+    pub fn decide_now_for_tests(&mut self, ctx: &mut Ctx, id: PermanentId) {
+        if let Some(&h) = self.index.get(&id) {
+            self.decide(ctx, h, 0);
+        }
+    }
+
+    /// Notes that person `h`, whose activity has just been taken up, may be on their way to draw
+    /// water ([`Self::loads_promised`]).
+    fn note_water_trip(&mut self, ctx: &Ctx, h: Handle<Person>) {
+        let Some(cell) = self
+            .people
+            .get(h)
+            .and_then(|p| draw_ahead(&p.act, ctx.catalog))
+        else {
+            return;
+        };
+        let trips = self
+            .water_trips
+            .get_mut()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if trips.day.is_some() {
+            let list = trips.at.entry(cell).or_default();
+            if !list.contains(&h) {
+                list.push(h);
+            }
+        }
+    }
+
+    /// Lets go of the day's list of those on their way to draw water: it is made again from all
+    /// the people when next read.
+    fn forget_water_trips(&mut self) {
+        let trips = self
+            .water_trips
+            .get_mut()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        trips.day = None;
+        trips.at.clear();
     }
 
     fn log_work(

@@ -322,6 +322,154 @@ fn a_spring_drawn_then_the_river(mut sim: Sim) {
     assert_eq!(sim.people().spring_draws.drawn(day + 1, p as u32), 0.0);
 }
 
+/// A spring counts the loads promised to those on their way as well as those drawn (§9, "A spring
+/// counts the loads promised as well as drawn"): with every household's water spent at once, the
+/// village of [`a_spring_nearer_than_the_river_gives_its_days_water_and_then_people_go_to_the_river`]
+/// sets out together at first light, and the spring still gives no more than flows to it, the rest
+/// going to the river. Whether a load is left was once looked for when one set off, against what
+/// had been drawn and not what those already on the way would draw: this scene drew 46 loads,
+/// 690 L of 500 L. A world saved in the rush, with people on their way, goes on as the unsaved one
+/// does.
+#[test]
+fn a_spring_gives_no_more_than_it_flows_when_everyone_sets_out_for_it_at_once() {
+    a_spring_rushed(village(6));
+}
+
+/// [`a_spring_gives_no_more_than_it_flows_when_everyone_sets_out_for_it_at_once`] in `sim`.
+fn a_spring_rushed(mut sim: Sim) {
+    to_morning(&mut sim);
+    let (p, cell) = spring_site(&sim);
+    let flow = sim.rules().land.water.spring_min_m3_day;
+    set_spring(&mut sim, p, Some(flow));
+    let day = sim.now().day_index();
+    let start = sim.now().minutes();
+    let params = sim.rules().people.household.clone();
+    let load = params.carry_water_l;
+    let now = sim.now();
+    // Every household's water spent at once: what each fetches today to end the day with its
+    // days of water is all of them and the day's use.
+    let mut wanted = 0.0;
+    for (_, h) in sim.people_mut_for_tests().households.iter_mut() {
+        h.water_l = 0.0;
+        h.water_at = now;
+        let day_l = h.members.len() as f64 * h.water_use(&params);
+        wanted += day_l * params.water_target_days + day_l;
+    }
+    // Every household fetches from the spring.
+    let homes: Vec<_> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, h)| !h.members.is_empty())
+        .map(|(_, h)| h.id)
+        .collect();
+    assert!(
+        wanted > flow * 1000.0 + 5.0 * load,
+        "{wanted} L wanted, the spring giving {flow} m³"
+    );
+    for &h in &homes {
+        let at = sim.with_ctx_for_tests(|pop, ctx| pop.water_source_for_tests(ctx, h, true));
+        assert_eq!(
+            at.map(|o| o.cell),
+            Some(cell),
+            "household {h} fetches from the spring"
+        );
+    }
+    let on_the_way = |sim: &Sim| on_the_way(sim, cell);
+    // Into the rush: loads drawn and more on the way. At no minute is more drawn and promised
+    // than flows.
+    let mut most = 0;
+    loop {
+        sim.advance_minutes(1).expect("advances");
+        assert!(
+            sim.now().minutes() - start < DAY - 60,
+            "no rush to the spring"
+        );
+        let drawn = sim.people().spring_draws.drawn(day, p as u32);
+        let promised = on_the_way(&sim);
+        most = most.max(promised);
+        assert!(
+            drawn + promised as f64 * load <= flow * 1000.0 + 1e-6,
+            "{drawn} L drawn and {promised} loads promised of {flow} m³"
+        );
+        if drawn > 0.0 && promised >= 3 {
+            break;
+        }
+    }
+    let mut loaded = saves_alike(&mut sim);
+    assert_eq!(on_the_way(&loaded), on_the_way(&sim));
+    let rest = DAY - 60 - (sim.now().minutes() - start);
+    for s in [&mut sim, &mut loaded] {
+        for _ in 0..rest {
+            s.advance_minutes(1).expect("advances");
+            let drawn = s.people().spring_draws.drawn(day, p as u32);
+            let promised = on_the_way(s);
+            most = most.max(promised);
+            assert!(
+                drawn + promised as f64 * load <= flow * 1000.0 + 1e-6,
+                "{drawn} L drawn and {promised} loads promised of {flow} m³"
+            );
+        }
+    }
+    assert!(most >= 3, "at most {most} on the way to the spring at once");
+    for sim in [&sim, &loaded] {
+        let (here, elsewhere) = draws(sim, cell);
+        let drawn = sim.people().spring_draws.drawn(day, p as u32);
+        assert!((drawn - here as f64 * load).abs() < 1e-6);
+        assert!(here >= 30, "only {here} loads were drawn at the spring");
+        assert!(drawn <= flow * 1000.0, "{drawn} L drawn of {flow} m³");
+        assert!(
+            elsewhere > 0,
+            "once the spring was drawn nobody went to the river"
+        );
+        assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+        assert!(sim.people().uses.problems().is_empty());
+    }
+    let (a, b) = (
+        persist::encode_sections(&sim),
+        persist::encode_sections(&loaded),
+    );
+    assert_eq!(a.len(), b.len());
+    for (x, y) in a.iter().zip(&b) {
+        assert!(x.bytes == y.bytes, "section `{}` differs", x.tag);
+    }
+    // The next day the spring gives again.
+    to_morning(&mut sim);
+    assert_eq!(sim.people().spring_draws.drawn(day + 1, p as u32), 0.0);
+}
+
+/// How many are on their way to draw a load at `cell`, their draw not yet done: on a trip for
+/// water aimed at it before its work step ends, or for a fire before its filling (its first work
+/// step) ends. Read from people's activities, as the engine's own count is.
+fn on_the_way(sim: &Sim, cell: u32) -> usize {
+    use civ_agents::params::Behavior;
+    use civ_agents::person::{Step, Target};
+    let activities = &sim.rules().catalog.activities;
+    sim.people()
+        .people
+        .iter()
+        .filter(|(_, x)| {
+            let work_ahead = |until: usize| {
+                x.act.steps.iter().enumerate().any(|(i, s)| {
+                    i >= x.act.step as usize && i < until && matches!(s, Step::Work { .. })
+                })
+            };
+            match (
+                activities.get(x.act.def as usize).map(|a| a.behavior),
+                x.act.target,
+            ) {
+                (Some(Behavior::FetchWater), Target::Water(c)) => {
+                    c == cell && work_ahead(usize::MAX)
+                }
+                (Some(Behavior::Douse), Target::Douse { from, .. }) => {
+                    from == cell && work_ahead(2)
+                }
+                _ => false,
+            }
+        })
+        .count()
+}
+
 /// Saves `sim` and loads it: every section of the loaded world is the same.
 fn saves_alike(sim: &mut Sim) -> Sim {
     let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");

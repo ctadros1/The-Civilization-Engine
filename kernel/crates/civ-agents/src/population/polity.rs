@@ -2752,7 +2752,7 @@ impl Population {
                     .filter(|s| self.homes.contains_key(s))
                     .unwrap_or(x.id);
                 let home = self.homes.get(&key);
-                let o = self.water_source_among(ctx, home, Some((x, false)), &|_| false)?;
+                let o = self.water_source_among(ctx, home, Some((x, false)), None, &|_| false)?;
                 Some((h, x, home, o))
             })
             .collect();
@@ -2765,7 +2765,9 @@ impl Population {
                     .filter(|d| d.3.cell == cell)
                     .filter_map(|&(h, x, home, o)| {
                         let other =
-                            self.water_source_among(ctx, home, Some((x, false)), &|c| c == cell)?;
+                            self.water_source_among(ctx, home, Some((x, false)), None, &|c| {
+                                c == cell
+                            })?;
                         let kcal = self.hour_kcal(ctx, x);
                         let loads = x.members.len() as f64 * x.water_use(&params.household) / carry;
                         let walked = (trip(&other) - trip(&o)).max(0.0) / 60.0 * loads * window;

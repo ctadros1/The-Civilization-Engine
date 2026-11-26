@@ -8244,23 +8244,25 @@ impl Population {
                 .binary_search(&crate::uses::Place::Source(cell))
                 .is_ok()
         };
-        let chosen = self.water_source_among(ctx, home, x, &shunned);
+        let chosen = self.water_source_among(ctx, home, x, who, &shunned);
         if chosen.is_none() && !suspect.is_empty() {
-            return self.water_source_among(ctx, home, x, &|_| false);
+            return self.water_source_among(ctx, home, x, who, &|_| false);
         }
         chosen
     }
 
-    /// [`Self::water_source`] among the sources `shunned` does not pass over.
+    /// [`Self::water_source`] among the sources `shunned` does not pass over, for `who` (whose own
+    /// load is not counted among those promised at a spring).
     fn water_source_among(
         &self,
         ctx: &Ctx,
         home: Option<&HomeField>,
         x: Option<(&Household, bool)>,
+        who: Option<PermanentId>,
         shunned: &dyn Fn(u32) -> bool,
     ) -> Option<WaterOption> {
         let other = home
-            .and_then(|home| self.spring_or_bank(ctx, home, shunned))
+            .and_then(|home| self.spring_or_bank(ctx, home, who, shunned))
             .filter(|o| !shunned(o.cell));
         let bound = other.map_or(f64::INFINITY, |o| 2.0 * o.walk_min);
         let well = x.and_then(|(x, short)| self.well_option(ctx, x, short, bound, shunned));
@@ -8273,11 +8275,15 @@ impl Population {
     }
 
     /// The nearest spring that flows, has a load left today and is not `shunned`, if one is
-    /// nearer than the river or lake, else the river or lake, from `home`.
+    /// nearer than the river or lake, else the river or lake, from `home`. A load is left when
+    /// what flows to the spring today, less what has been drawn there and the loads promised to
+    /// those on their way to draw there ([`Self::loads_promised`]; `who`'s own not among them),
+    /// is a load at least: those who set off together do not all count on its last load.
     fn spring_or_bank(
         &self,
         ctx: &Ctx,
         home: &HomeField,
+        who: Option<PermanentId>,
         shunned: &dyn Fn(u32) -> bool,
     ) -> Option<WaterOption> {
         let (water, params) = (&ctx.land.water, &ctx.land_params.water);
@@ -8297,7 +8303,8 @@ impl Population {
             let Some(spring) = water.spring_at(params, patch as usize) else {
                 continue;
             };
-            if spring.flow_m3_day * 1000.0 - self.spring_draws.drawn(day, patch) >= carry {
+            let left = spring.flow_m3_day * 1000.0 - self.spring_draws.drawn(day, patch);
+            if left >= carry && left - carry * self.loads_promised(ctx, cell, who) as f64 >= carry {
                 return Some(option(cell, s));
             }
         }
@@ -8308,6 +8315,17 @@ impl Population {
             .find(|&(cell, _)| !shunned(cell))
             .or(home.water)
             .map(|(cell, s)| option(cell, s))
+    }
+
+    /// Loads promised at the spring at `cell`: the people but `except` on their way to draw a
+    /// load there whose draw is not yet done ([`draw_ahead`]). Counted afresh from people's
+    /// activities, which a save keeps, so a world saved while they are on their way and loaded
+    /// counts the same.
+    fn loads_promised(&self, ctx: &Ctx, cell: u32, except: Option<PermanentId>) -> usize {
+        self.people
+            .iter()
+            .filter(|(_, p)| Some(p.id) != except && draw_ahead(&p.act, ctx.catalog) == Some(cell))
+            .count()
     }
 
     fn log_work(
@@ -9877,6 +9895,30 @@ fn lay_out_places(ctx: &Ctx, range: u32, in_water: bool) -> Places {
         range,
         in_water,
         blocks,
+    }
+}
+
+/// The cell of a bank or spring at which activity `act` is yet to draw a load of water (§9, "A
+/// spring counts the loads promised as well as drawn"): a trip for water aimed at a source's cell
+/// with its drawing still ahead, or a load for a fire to be drawn at one, its filling still ahead.
+/// A function of the activity alone, which a save keeps.
+pub(crate) fn draw_ahead(act: &Activity, catalog: &Catalog) -> Option<u32> {
+    let behavior = catalog.activities.get(act.def as usize)?.behavior;
+    // Whether a work step stands at or after the step in progress and before step `until`.
+    let work_ahead = |until: usize| {
+        act.steps
+            .get(act.step as usize..until.min(act.steps.len()))
+            .is_some_and(|s| s.iter().any(|s| matches!(s, Step::Work { .. })))
+    };
+    match (behavior, act.target) {
+        // The draw is made as its work step ends (`end_step`); after it come the walk home and
+        // the deposit.
+        (Behavior::FetchWater, Target::Water(cell)) => work_ahead(usize::MAX).then_some(cell),
+        // A load for a fire is drawn as its first work step, the second, ends.
+        (Behavior::Douse, Target::Douse { from, .. }) if from != crate::person::FROM_STORE => {
+            work_ahead(2).then_some(from)
+        }
+        _ => None,
     }
 }
 

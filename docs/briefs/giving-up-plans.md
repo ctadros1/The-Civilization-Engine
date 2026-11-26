@@ -229,7 +229,7 @@ large change to ordinary moves. So the helper is separate and used for giving up
 ### 3.4 Slice 1: the move, charged and lived within a day
 
 A route check moves nobody and spends nothing, so slice 1 charges and lives the move itself, within
-one day. Recommended over a persistent journey for slice 1 (§7, choice 1), because the walk ends
+one day. Recommended over a persistent journey for slice 1 (§9.1), because the walk ends
 before midnight and so needs no new saved state, and because on today's maps nearly every walk fits:
 a map is at most 2,048 cells of 8 m (16.4 km a side, `civ-sim` `MAP_SIZES`, `CELL_SIZE_M`), and
 the M5a demo's settlements stood 3.2–5.4 km apart. What is charged, and how:
@@ -252,7 +252,7 @@ the M5a demo's settlements stood 3.2–5.4 km apart. What is charged, and how:
   within the capacity of §3.2. That goes with it. **What exceeds capacity is left**: in slice 1
   lost to the household and booked as a new flow, *abandoned* (flows are counters, never saved), so
   the goods ledger shows it; the alternative, leaving it at the old home in the household's name to
-  be fetched, needs a holder and a save change (§7, choice 2). Vehicles go only with a member to
+  be fetched, needs a holder and a save change (§9.4). Vehicles go only with a member to
   pull them.
 - **What is still not lived.** The record, residence and carried goods are at the new hearth from
   the midnight of the move, some hours before the carriers arrive (the goods are not a consignment
@@ -279,7 +279,7 @@ stock; nobody comes back from it, and nothing draws from it.
   reaches the map's edge. The rest needs a saved known-exits record per household (the edge cell or
   way, how known: walked, came in by, told; first and last day), told on at the hearth as places are
   (`share_told`), with arrivals (waves, sent families) recording the edge they came by: a save
-  change (§5; §7, choice 3). Each known exit is screened as any plan is (§3.2) on today's grid: an
+  change (§5; §9.6). Each known exit is screened as any plan is (§3.2) on today's grid: an
   edge across an unfordable river or a flooded valley is not an exit tonight, and the nearest edge
   in a straight line has no standing. Founders placed at setup came in by no recorded way, so their
   descendants know an edge only by walking or by word.
@@ -462,29 +462,9 @@ not into the numbers.
 
 ## 7. Remaining choices for the owner
 
-1. **Slice 1's move: the charged one-day move (§3.4) or a persistent journey now (§3.6).** I
-   recommend the one-day move: it charges time, dependents, depletion and possessions with existing
-   activities and trips and no new saved state, and on maps of at most 16.4 km it covers nearly
-   every walk. The cost: carried goods reach the new store some hours before their carriers, and a
-   viable place beyond a day's light holds the household at home (counted) until slice 2.
-2. **What exceeds carrying capacity:** lost to the household and booked as abandoned (recommended
-   for slice 1: no save change, and it does not overstate what a distressed household brings), or
-   left at the old home in its name to be fetched later, more faithful within a day's walk but
-   needing a goods holder at a home, a save change, and fetch trips.
-3. **Exit knowledge in slice 1:** a saved known-exits record (walked, came in by, told; recommended,
-   since word of routes is part of the owner's request), or only edges derived from worked ground
-   (`KnownPatch`), with no save change but more households trapped. Either way no household knows an
-   edge merely because a route to it exists.
-4. **Word-of-food reports in slice 1** (recommended: reports are part of the owner's request), or
-   sight only, leaving the prior to carry word-only places (run 124's nine households held no
-   impression of Sedgestead) and avoiding the telling change.
-5. **The prior's centre:** a content value (recommended), or the mean of the household's other
-   impressions, which lowers expectations in a regional famine but correlates the beliefs.
-6. **Households that split** (sending some members, leaving dependents with kin; 05-06 §1.2):
-   recommended out of these slices; the cost is that care constraints only ever block a move.
-
-Settled by the owner (2026-11-25) and written in: staying stays eligible whenever it passes the
-survival screen (§3.3, step 3); exits are known only through what households know (§3.5).
+The remaining choices are in §9, written to be decided from on their own (2026-11-26). Where §9
+recommends what §3.4 does not yet say (residence changing on arrival, §9.3), §3.4 and §5 describe
+the first option and change with the owner's choice.
 
 ## 8. Not approved by this review
 
@@ -494,3 +474,276 @@ survival screen (§3.3, step 3); exits are known only through what households kn
   the notables under-proposal question, sowing-wage timing, and the other ADR and sewer decisions.
 - The open validation blockers named in the review (combined determinism candidate 74e6519d's
   failures in chain 192, benchmark 131, long run 132) are outside this brief.
+
+## 9. Remaining owner choices (2026-11-26)
+
+This section stands on its own. It covers what the owner's 2026-11-26 message asked to be set out
+plainly: journey state, interrupted travel, arrival timing, possessions, save and reload, and the
+transport-and-information distinction between emergency and ordinary departure. It also gathers the
+earlier open choices. Nothing here is approved: not implementation, not new parameters, not any
+save-format or ADR change. Code facts were checked against verification ffe1e161.
+
+**Already settled by the owner (2026-11-25), not reopened.** Staying stays eligible whenever it
+passes the survival screen. Exits are known only through what a household knows, never because the
+navigation grid can route to an edge. A reachable destination too far for slice 1 to walk still
+counts, and still keeps the household from leaving the map.
+
+**The slice-1 design in brief.** When the hazard fires, a household reconsiders at midnight. It
+weighs staying, the known settlements and the exits it knows. Each plan first passes a physical
+screen on today's walking grid: a route, carrying capacity, provisions and depletion. Exits are
+eligible only if no internal plan is believed viable. A survival screen then drops dominated plans,
+and a fixed-temperature draw chooses among the rest. A chosen move within one day's light is
+walked as an ordinary activity and trip. A chosen move beyond it is not carried out: the household
+stays and is counted as "held by the bound".
+
+### 9.1 Journey state
+
+**Question.** Is slice 1's charged one-day move enough, or is a persistent journey built with it?
+
+- **(a) One-day move only (recommended).**
+  - *How it works:* members walk the route as one ordinary activity, *moving house*, using the
+    existing `person.rs` `Activity`, `Step::Walk` and `Trip`. These are saved in the people and
+    events sections as every walk is.
+  - *Why no journey record is needed:* the bound (the daylight left, at most `walk_hours_day`)
+    makes every planned walk end the same day.
+  - *Consequence:* a viable destination beyond the bound holds the household at home, counted.
+  - *Needs:* the new content activity, two effort parameters (carriers, carried) and the ADR-0018
+    §5 amendment already listed. No journey save state, though §9.3's recommended option adds a
+    small pending-move record.
+- **(b) Persistent journey now (slice 2).**
+  - *What is saved:* one record per household on the road (`tce_save.fbs`, flatc 25.12.19),
+    holding:
+    - the origin, and the destination settlement or exit;
+    - route waypoints and the leg reached;
+    - the stage (on the road, camped, arrived, turned back, stranded) and its dates;
+    - tonight's camp point.
+  - *Goods on the way:* the consignments section's boat field becomes optional, so goods can travel
+    as a consignment carried on foot (`consignments.rs` ties one to a boat today).
+  - *Existing patterns to build on:* the war band, whose stages are saved and dated (`war.rs`
+    `BandStage`), whose supply is what members carry, and whose people can be away overnight.
+  - *Needs:* a new save section, a consignments change, and one new ADR. That ADR would take up
+    ADR-0018's "people stay away overnight" revisit and touch ADR-0029 §3, ADR-0032 §1 and
+    ADR-0011 §2.
+- **When (b) becomes needed:**
+  - when slice 1's count of plans held by the bound is material;
+  - when slice 4 needs multi-day departures over connections;
+  - or if the owner chooses §9.2(c), interruption as saved journey stages.
+
+  On today's maps, at most 16.4 km a side (`civ-sim` `MAP_SIZES`, `CELL_SIZE_M`), most walks fit
+  within a day.
+
+### 9.2 Interrupted travel
+
+**What can cut a walk short today** (verified):
+- **A crossing gives way.** Whoever is on it falls and may die, and everyone whose walk would cross
+  it stops where they are and decides again (`crossings.rs`).
+- **Fire.** Someone it wakes or stops decides again (`fire.rs` `stop_and_think`).
+- **A walk that cannot be routed.** A walker carrying a load waits `WAIT_AFTER_FAILURE_MIN`
+  (10 minutes) and retries the same walk; one carrying nothing waits, then decides again
+  (`population.rs`).
+- **Rising water.** Flood depths change when the land's day is advanced at midnight
+  (`civ-land` `advance_to_day` calls `update_floods`), or when the observer raises a river
+  (`floods.rs` `raise_river`). I found no code that stops a trip already under way when depths
+  change; the next route uses the new grid.
+- **A member collapses or dies.** Death, including from depletion, is drawn at midnight
+  (`life.rs` `mortality`, called from `live_day`). A walker therefore does not collapse mid-walk;
+  dying mid-walk comes only from a fall or a fire.
+- **Night falls.** No rule stops a walk at dark: the daylight limit applies when an activity is
+  chosen (`daylight_only`). A delayed walk goes on in the dark and may cross midnight, where "an
+  activity running at midnight finishes as planned" (ADR-0011 §2).
+- **Carrying is not a physical link.** In slice 1 a carried member walks its own trip on its
+  carrier's timings. If a carrier dies, the carried still arrive.
+
+**Question.** What happens to the household when its walk is cut short?
+
+- **(a) Walks behave as now, and the move turns back if abandoned (recommended, with §9.3's
+  option b).**
+  - Each walker re-routes, waits or decides again exactly as any walk does.
+  - A member who decides again is no longer on the move. While any member is still on it, the
+    move goes on.
+  - When none is, the move has failed. The household is still at its origin with its record,
+    store and land; it is counted as *turned back* and reconsiders when the hazard next fires.
+  - *Consequence:* nobody is ever separated from their household's food by a failed move.
+  - *Needs:* §9.3(b)'s pending-move record. No new parameter.
+- **(b) Walks behave as now, with residence already moved at midnight** (§3.4 as written,
+  §9.3(a)).
+  - An interrupted member re-routes toward home, which is now at the destination.
+  - With no route there, they wait and decide again as residents of a place they cannot reach,
+    away from their store and fields: stranded, with no rule yet to end it.
+  - *Needs:* a stranded rule (turn back, i.e. move the record again, after some time), and a
+    parameter for when.
+- **(c) A journey record with turned-back and stranded stages** (§9.1(b)).
+  - Interruption is a stage: camp, turn back, or be stranded, each saved and dated.
+  - It links carriers to the carried, so the death of a carrier strands its charges.
+  - *Needs:* everything in §9.1(b).
+
+### 9.3 Arrival timing
+
+**Question.** When do the household record, residence and store change: at the midnight of the
+decision, or on arrival?
+
+- **(a) At midnight (§3.4 as written; today's `relocate`).** The record, residence and store
+  change at the midnight of the decision, and members walk the next day. This opens a window of
+  inconsistency from that midnight to arrival: some hours, longer if interrupted.
+  - *What the observer and accounts show during the window:*
+    - The settlement accounts and lists already count the members in the destination. Accounts
+      are derived from residence histories (ADR-0018 §3), and `relocate` writes those at once.
+    - The members' bodies are at the origin or on the road.
+    - The chronicle says "moved to" before anyone has gone.
+    - The destination's store holds the carried goods before their carriers arrive.
+  - *Interruptions:* risk stranding (§9.2(b)).
+  - *Needs:* no save change, because the residence entry itself starts the walk (the
+    first-decision rule reads it).
+- **(b) On arrival (recommended).** The record, residence, land hand-over and carried goods change
+  when the last member still on the move reaches the destination hearth, or when it reaches the
+  edge for leaving the map.
+  - *During the walk:* members are residents of the origin, present elsewhere, as on a visit
+    (ADR-0018 §2: presence is not residence). The accounts agree with where people belong at every
+    minute.
+  - *Needs:*
+    - A small saved *pending move* per household, holding the destination (settlement or exit
+      cell) and the day decided. It carries the decision from midnight until the members wake and
+      set off, and identifies the move until arrival. It is a save change, and the seed of slice
+      2's journey record, so it is not thrown away later.
+    - An ADR-0032 amendment. Arrival is no longer midnight's work (ADR-0032 §4), and a demotion to
+      household resolution at midnight places everyone at home and drops pending step events
+      (ADR-0032 §3). So both settlements hold Detailed while a move between them is under way, as
+      a settlement already holds Detailed while a band is under way to it (ADR-0032 §1).
+- **Recommendation: (b).** It removes the inconsistency window and the stranding case. Its cost is
+  one small saved record and an ADR-0032 amendment.
+
+### 9.4 Possessions
+
+**What is carried.** Within the capacity of §3.2, the household carries in this order:
+1. its dependents;
+2. the walk's food and water;
+3. food for the horizon;
+4. other goods, by their worth in hours of its work per kilogram (`value.rs`).
+
+Capacity is `carry_kg` (20 kg) for each able member not pulling a vehicle, plus each vehicle that a
+way would bring (the `vehicles_move` test) and an able member pulls.
+
+**Vehicles.** Today `boating.rs` `vehicles_move` places a household's made boats and carts at the
+new home at once, after checking a way exists. Under §9.3(b) this happens at arrival, and only for
+a vehicle someone pulled.
+
+**Question.** What becomes of goods beyond capacity?
+
+- **(a) Abandoned (recommended for slice 1).** They are removed from the world and booked as a new
+  flow, *abandoned*. Flows are counters and never saved (`person.rs`).
+  - *Goods ledger:* shows, by good, what each move abandoned, beside eaten and departed.
+  - *Consequences:*
+    - Households arrive poorer than today's relocation leaves them.
+    - Tools and seed may be left behind (07-08 §1.8; 05-06 §1.4).
+    - Nobody else can take up what was left.
+  - *Needs:* no save change, no ADR change.
+- **(b) Left at the old home in the household's name.**
+  - The goods stay where they are, held for the moved household, to be fetched by ordinary trips
+    while within reach.
+  - *Consequences:* more faithful within a day's walk.
+  - *Needs:*
+    - a goods holder at a home whose household has moved (a save change);
+    - fetch trips;
+    - a rule for when unclaimed goods pass to others, which ADR-0007 §2 decides for ground but
+      not for goods (an ADR change).
+- **(c) Given to kin or neighbours.** Not proposed: it would need a giving decision at departure
+  that no part of the design supplies.
+
+### 9.5 Save and reload
+
+**Slice 1: what a save mid-move holds.**
+- *People:* each member's moving-house activity (its steps, the step reached, step times, target)
+  and trip (points, timings, departure), position, carrying and energy.
+- *Events:* the pending step-end events, versioned as every activity's are.
+- *Houses:* the household record, at the origin under §9.3(b) or the destination under §9.3(a).
+- *History:* the residence entries.
+- *Places:* known places, with impression dates if approved.
+- *Boats and carts.*
+- *The pending-move record,* if §9.3(b) is chosen.
+- *Not saved:* plans, screen routes and travel fields, which are derived or not needed again.
+
+**How a load continues.** The scheduler restores the pending events, and walkers go on from where
+their trips put them. Arrival processing runs at the move's last step and reads only saved state.
+An Accelerated save comes only at midnight (ADR-0011 §2), so it holds either moves decided but not
+begun, or delayed walks still running.
+
+**Slice 2.** As above, plus the journey record (stage, leg, camp) and on-foot consignments. A load
+resumes the current leg or the night's camp.
+
+**Tests that prove it:**
+- save, load, save with identical raw digests;
+- a world saved while a household walks to its refuge, and one saved mid-walk to an exit, each going
+  on as the unsaved world does;
+- a save at the midnight of the decision;
+- Gate A over a move scene (Detailed/Accelerated/Detailed, and thirty one-day advances against one
+  thirty-day advance);
+- a resolution switch at a midnight while a move is under way;
+- for slice 2, a world saved on the second day of a journey;
+- every scene ends checking `residence_problems`, the settlements' accounts and the goods ledger,
+  including the abandoned flow.
+
+### 9.6 Emergency and ordinary departure: transport and information
+
+**The distinction stays.**
+- **Emergency (slice 1):** walking routes on today's grid, and only the exits the household knows.
+  Vehicles count only as carrying capacity. The outside is weighed only when no internal plan is
+  believed viable. There is no exploring for an unknown way out, and no fares or posted runs.
+- **Ordinary voluntary departure (slice 4):** off-map plans may compete even when staying is
+  viable. They do so through actual connections the household knows of: roads, lines and posted
+  runs reaching the edge, with fares (in food today), schedules and reliability. They also reflect
+  the household's means, access rules, and information by word, letters or telegraph (ADR-0034 §5,
+  ADR-0035, ADR-0036 §7–§8). Where no known way exists, exploring costs days, food and an
+  uncertain outcome; known connections cut that cost and uncertainty. No era bonus. No exit
+  connection exists in content or worldgen today, so slice 4 needs its own ADR.
+- **Why it stays:** a depleted household deciding nightly under a survival screen is not weighing
+  timetables. Internal emergency moves are within a day's walk on today's maps. And mixing
+  services into the emergency path would make slice 1 depend on machinery that does not yet reach
+  the edge.
+
+**Question.** How is knowledge of exits held?
+
+- **(a) A saved known-exits record per household (recommended).** Each entry holds the edge cell
+  or way; how it was known (walked, came in by, told); and its first and last day. It is told on at
+  the hearth as places are (`share_told`), and arrivals record the edge they came by. Slice 4 adds
+  ways, lines and runs known to reach the edge.
+  - *Consequence:* word of routes counts, as the owner asked.
+  - *Needs:* a save change (appended to the places section or a section of its own, empty for old
+    saves).
+- **(b) Derived only from saved worked ground.** An exit is known where a `KnownPatch` record in
+  `Household.known` reaches the map's edge.
+  - *Consequences:* no save change, but more households are trapped. Founders' descendants have
+    no recorded way in, and word cannot spread knowledge of an exit.
+- **Either way:** a household with no viable internal plan and no known feasible exit chooses only
+  among staying and the moves that pass the survival screen; with no feasible move, it stays,
+  trapped. Run 124's three households that knew no other place would likely stay at Thornbank and
+  may starve there. This is reported as a behaviour change, not tuned away.
+
+### 9.7 Other open choices (consolidated)
+
+- **Word-of-food reports in slice 1.**
+  - *Options:* a teller passes their household's dated impression when telling of a place,
+    discounted by `told_share` (recommended: reports were part of the owner's request); or sight
+    only.
+  - *Consequences:* with sight only, the prior carries every word-only place. Run 124's nine
+    households held no impression of Sedgestead either way.
+  - *Needs:* the places section's impression day and how-known, a save change already listed;
+    `told_share`.
+- **The prior's centre.**
+  - *Options:* a content value `prior_fed` (recommended); or the mean of the household's other
+    impressions.
+  - *Consequences:* the second lowers expectations in a regional famine but correlates the
+    beliefs.
+  - *Needs:* one parameter either way, logged as a NUDGE.
+- **Households that split** (sending some members, or leaving dependents with kin; 05-06 §1.2).
+  - *Options:* out of these slices (recommended); or a split plan.
+  - *Consequences:* while out, care of dependents only ever blocks a move.
+  - *Needs:* a split plan would need household division rules and an ADR-0018 §5 amendment.
+
+**Summary of what the recommendations need:**
+- *Save changes:* the places section's impression day and how-known; the known-exits record
+  (§9.6(a)); the pending-move record (§9.3(b)).
+- *ADR changes:* ADR-0018 §3 and §5; ADR-0032 §1 and §4.
+- *Content:* the moving-house activity and the slice-1 parameters of §4, all design priors logged
+  as NUDGE entries.
+- *Not needed until a later slice:* slice 2's journey section, the change to consignments, and a
+  goods holder at a moved household's home.

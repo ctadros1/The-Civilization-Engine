@@ -4,10 +4,8 @@
 //! through the ledger, keeps books, passes to the household its owners join, and closes when
 //! nobody is left to keep it or it has sold nothing for months.
 
-use civ_core::{FastMap, Handle, PermanentId, SimTime};
+use civ_core::{Handle, PermanentId, SimTime};
 use civ_land::PlotUse;
-
-use civ_world::nav::TravelField;
 
 use super::{Ctx, Population, cell_of, fuel_per_day, stores_now};
 use crate::decide::{JobOption, TradeWorth};
@@ -1017,11 +1015,12 @@ impl Population {
         ctx: &Ctx,
         hh: &Household,
         stores: &[f64],
-        reach: Option<&TravelField>,
+        field_key: PermanentId,
         session_min: f64,
     ) -> Option<JobOption> {
         let settlement = hh.settlement?;
-        let reach = reach?;
+        let home = self.homes.get(&field_key)?;
+        let reach = &home.reach;
         let hiring: Vec<(&Firm, WageOffer)> = self
             .firms
             .iter()
@@ -1030,60 +1029,15 @@ impl Population {
             .filter(|f| !self.order.credit.owes(f.id))
             .filter_map(|f| f.wage.filter(|w| w.open_hours() >= 0.5).map(|w| (f, w)))
             .collect();
-        // Reaping the settlement's other households would hire (§8 17, fourth), and another
+        // Field work the settlement's other households would hire (§8 17, fourth), and another
         // settlement's whose fields lie within the work's walk of home (§8 23, first): a
-        // neighbouring village's hands, not a gang come from afar.
-        let walk_min = ctx
-            .catalog
-            .activities
-            .iter()
-            .filter(|a| a.behavior == Behavior::Hire)
-            .map(|a| f64::from(a.max_walk_minutes))
-            .fold(0.0, f64::max);
-        let walk_m = Self::hire_scan_m(ctx, walk_min);
-        // The other settlements' households with a field within the walk, from the fields near
-        // home only (`fields_near`); each employer's fields from the index of who works what,
-        // while it holds every field, else from one pass over them; and the hands already out
-        // for hire gathered once, when first wanted (§8 24, seventh: an exact cut, ADR-0028 §1).
-        let mut nearby: Vec<PermanentId> = self
-            .fields_near(ctx.land, hh.home, walk_m)
-            .into_iter()
-            .map(|i| ctx.land.fields[i].household)
-            .filter(|&e| {
-                e != hh.id
-                    && self
-                        .household(e)
-                        .is_some_and(|x| x.settlement.is_some() && x.settlement != Some(settlement))
-            })
-            .collect();
-        nearby.sort_unstable();
-        nearby.dedup();
-        let by_household: Option<FastMap<PermanentId, Vec<u32>>> =
-            (!self.fields_all_indexed(ctx.land)).then(|| {
-                let mut by: FastMap<PermanentId, Vec<u32>> = FastMap::default();
-                for (i, f) in ctx.land.fields.iter().enumerate() {
-                    by.entry(f.household).or_default().push(i as u32);
-                }
-                by
-            });
-        let hired = std::cell::OnceCell::new();
-        let set_out = |ids: &[PermanentId]| {
-            Self::hours_on(hired.get_or_init(|| self.hired_set_out(ctx)), ids)
-        };
-        let reaping: Vec<(PermanentId, super::reapers::ReapOffer)> = self
-            .households_in(settlement)
-            .filter(|x| x.id != hh.id)
-            .map(|x| x.id)
-            .chain(nearby.iter().copied())
-            .filter_map(|e| {
-                let fields = match &by_household {
-                    Some(by) => by.get(&e).map_or(&[][..], Vec::as_slice),
-                    None => self.indexed_fields(ctx.land, e),
-                };
-                self.reap_offer_with(ctx, e, fields, &set_out)
-                    .map(|o| (e, o))
-            })
-            .collect();
+        // neighbouring village's hands, not a gang come from afar. Weighed within a bounded
+        // search (the owner's decisions of 2026-11-26): contacts first, then the employers within
+        // reach kept for the travel field (`field_search`).
+        let reaping = self
+            .field_search(ctx, hh, settlement, field_key, ctx.now.day_index())
+            .map(|s| s.found)
+            .unwrap_or_default();
         if hiring.is_empty() && reaping.is_empty() {
             return None;
         }
@@ -1171,18 +1125,9 @@ impl Population {
                 ));
             }
         }
-        // Reaping for hire, for as long as a session or the hours wanted, paid in grain.
-        for (employer, o) in reaping {
-            let Some(walk) = reach
-                .seconds_to(cell_of(ctx.map, o.at))
-                .map(|s| f64::from(s) / 60.0)
-            else {
-                continue;
-            };
-            // Another settlement's only within the work's walk, lest a far one hide a near one.
-            if walk > walk_min && nearby.binary_search(&employer).is_ok() {
-                continue;
-            }
+        // Field work for hire, for as long as a session or the hours wanted, paid in grain: the
+        // walk to its place was found within reach when it was weighed.
+        for (employer, o, walk) in reaping {
             let minutes = (o.hours * 60.0).min(session_min);
             let Some((hours, worth)) = worth_of(o.good, o.kg_per_hour * minutes / 60.0) else {
                 continue;
@@ -1219,6 +1164,7 @@ impl Population {
     ) -> Option<(PermanentId, Option<PermanentId>, f64)> {
         let hh = self.household(household)?.clone();
         let (key, _) = self.walking_field_of(ctx, (hh.id, hh.settlement, hh.home));
+        self.refresh_kin();
         let stores = stores_now(&hh, ctx.now, ctx.params, &ctx.catalog.goods);
         let session_min = ctx
             .catalog
@@ -1227,8 +1173,7 @@ impl Population {
             .filter(|a| a.behavior == Behavior::Hire)
             .map(|a| f64::from(a.max_minutes))
             .fold(0.0, f64::max);
-        let reach = self.homes.get(&key).map(|f| &f.reach);
-        self.best_job(ctx, &hh, &stores, reach, session_min)
+        self.best_job(ctx, &hh, &stores, key, session_min)
             .map(|j| (j.firm, j.field, j.walk_min))
     }
 
@@ -1236,7 +1181,7 @@ impl Population {
     /// settlement's fields, metres, for a walk of `walk_min` minutes ([`Self::best_job`]): at the
     /// fastest pace walking allows (Tobler's top speed, on its best slope, a gentle descent), so
     /// that no field a walk could reach in that time is left out; the walk itself decides.
-    fn hire_scan_m(ctx: &Ctx, walk_min: f64) -> f64 {
+    pub(super) fn hire_scan_m(ctx: &Ctx, walk_min: f64) -> f64 {
         walk_min * 60.0 * ctx.params.nav.top_speed_ms()
     }
 

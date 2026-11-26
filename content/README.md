@@ -474,6 +474,8 @@ it). Content API 8 added the kind.
   | `wage_share` | The share of what an hour's work adds for a workshop, at middling skill, that it first offers as a wage. |
   | `wage_review_days`, `wage_max_change` | How often a workshop reviews its wage, and the most it raises it at a review while work goes untaken (research 08-10 §5.6: 14–30 days, 1–5 %). |
   | `max_hire_hours` | The most hours of work a workshop hires between two of its weekly reviews. |
+  | `hire_search` | Optional (content API 238): how many distinct farm employers a household seeking field work weighs at a decision, 1 to 64, its attention budget; at most twice as many offers are worked out, retries included. Absent, 8. |
+  | `hire_contacts` | Optional (content API 238): of those, the most its contacts (its people's close kin's households and those holding anyone they hold a tie with) take, at most `hire_search`; the rest go to employers within reach drawn afresh each day. Absent, 4. |
 
   New decision reasons: *what the work is paid* and *nobody nearby is hiring*.
 
@@ -2247,3 +2249,12 @@ daily burn (`fuel_kg_per_person_day`) is the day's dishes and the fire's warmth;
 less than a day's burning skips its dearest such dishes first for food that needs no fire, and its
 hearth burns less by them. The core's groats take 1.4 (porridge, 0.35 kg a kilogram cooked at four
 parts to one), meat 0.75 and fish 0.6 (design priors).
+
+Content API 238 (bounded hiring, the owner's decisions of 2026-11-26; research 08-10 §5.3, §5.6,
+08-04) lets a people profile's `[firm]` name `hire_search` and `hire_contacts`: a household seeking
+field work (reaping, threshing, preparing and sowing for hire) weighs at most `hire_search`
+distinct employers at a decision, its contacts at most `hire_contacts` of them and the rest drawn
+afresh each day, by a draw keyed on the household and the day, from the employers with a field or
+home within reach (another settlement's within the work's walk); an employer is weighed at most
+once a search, and one whose offer proves out of reach takes no place. The core's 8 and 4 are
+provisional design settings. Workshop hiring is unchanged.

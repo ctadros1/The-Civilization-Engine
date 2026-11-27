@@ -126,6 +126,15 @@ fn free(land: &Land, map: &WorldMap, rect: &RectCm) -> bool {
         && !land.tips.near(rect, 0)
 }
 
+/// [`free`], with the earthworks, plots and fields already narrowed to `near`: those near a
+/// rectangle that holds `rect` (an exact cut, ADR-0028 §1: one far from that is far from `rect`).
+fn free_among(land: &Land, map: &WorldMap, near: &[RectCm], rect: &RectCm) -> bool {
+    earth::clear_of_water(map, rect, 0.0, 0.0)
+        && !near.iter().any(|r| r.near(rect, 0))
+        && !land.wells.near(rect, 0)
+        && !land.tips.near(rect, 0)
+}
+
 /// Where a new pit on deposit `d` would go, and its heap: the free square of side `side` on the
 /// body nearest `toward` (the settlement's hearth), its heap beside it, toward `toward` first.
 /// `None` when there is no such place.
@@ -149,15 +158,57 @@ fn new_pit_site(
         }
     }
     let far = |p: &(f64, f64)| (p.0 - toward.0).hypot(p.1 - toward.1);
-    spots.sort_by(|a, b| far(a).total_cmp(&far(b)));
-    for at in spots {
+    // Each spot's distance worked out once, not at every comparison: the same stable order.
+    let mut spots: Vec<(f64, (f64, f64))> = spots.into_iter().map(|p| (far(&p), p)).collect();
+    spots.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let step = side + HEAP_GAP_M;
+    // Every pit and heap tried lies within `step` and half a side of a spot: the earthworks,
+    // plots and fields near that rectangle (with a margin for rounding) are all that could stand
+    // in the way, gathered in one pass rather than at every square tried (an exact cut).
+    let reach = step + side;
+    let (mut x0, mut x1, mut y0, mut y1) = (
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+    );
+    for (_, p) in &spots {
+        (x0, x1) = (x0.min(p.0), x1.max(p.0));
+        (y0, y1) = (y0.min(p.1), y1.max(p.1));
+    }
+    let near: Vec<RectCm> = if spots.is_empty() {
+        Vec::new()
+    } else {
+        let (bx, by) = (
+            ((x0 - reach) * 100.0).floor() as i32 - 2,
+            ((y0 - reach) * 100.0).floor() as i32 - 2,
+        );
+        let area = RectCm {
+            x: bx,
+            y: by,
+            w: ((x1 + reach) * 100.0).ceil() as i32 + 2 - bx,
+            h: ((y1 + reach) * 100.0).ceil() as i32 + 2 - by,
+        };
+        land.earthworks
+            .iter()
+            .map(|w| w.rect)
+            .chain(land.plots.iter().map(|p| p.rect))
+            .chain(land.fields.iter().map(|f| f.rect))
+            .filter(|r| r.near(&area, 0))
+            .collect()
+    };
+    let free_here = |rect: &RectCm| {
+        let f = free_among(land, map, &near, rect);
+        debug_assert_eq!(f, free(land, map, rect));
+        f
+    };
+    for (_, at) in spots {
         let pit = square(at, side);
-        if !free(land, map, &pit) {
+        if !free_here(&pit) {
             continue;
         }
         // The heap beside it: on the side toward `toward`, else round the other sides.
         let (dx, dy) = (toward.0 - at.0, toward.1 - at.1);
-        let step = side + HEAP_GAP_M;
         let first = if dx.abs() >= dy.abs() {
             (dx.signum(), 0.0)
         } else {
@@ -176,7 +227,7 @@ fn new_pit_site(
         ];
         for (sx, sy) in sides {
             let heap = square((at.0 + sx * step, at.1 + sy * step), side);
-            if free(land, map, &heap) {
+            if free_here(&heap) {
                 return Some((pit, heap));
             }
         }

@@ -345,6 +345,27 @@ impl Population {
             .map(|b| crate::build::centre_m(&b.spec))
     }
 
+    /// [`Self::firm_site`] of every firm that has a site, from one pass over the buildings: for a
+    /// caller that asks of many firms (an exact cut, ADR-0028 §1: the first roofed workshop
+    /// building of each, as `firm_site` finds it).
+    fn firm_sites(
+        &self,
+        land: &civ_land::Land,
+        catalog: &crate::params::Catalog,
+    ) -> civ_core::FastMap<PermanentId, (f32, f32)> {
+        let mut out: civ_core::FastMap<PermanentId, (f32, f32)> = Default::default();
+        for b in &land.buildings {
+            if let Some(id) = b.firm
+                && !out.contains_key(&id)
+                && b.roofed()
+                && catalog.use_of(&b.spec.program) == Some(PlotUse::Work)
+            {
+                out.insert(id, crate::build::centre_m(&b.spec));
+            }
+        }
+        out
+    }
+
     /// How many are working for firm `id` now, owners and hired hands: those whose work is for it
     /// and under way.
     fn working_for(&self, ctx: &Ctx, id: PermanentId) -> usize {
@@ -1068,6 +1089,9 @@ impl Population {
             };
             Some((hours, worth))
         };
+        // Where the workshops hiring work, found in one pass over the buildings once the first
+        // is asked for, not in one a workshop (an exact cut, ADR-0028 §1).
+        let sites = std::cell::OnceCell::new();
         let mut best: Option<(f64, JobOption)> = None;
         for (f, w) in hiring {
             let Some(owner) = self.household(f.owner) else {
@@ -1090,9 +1114,12 @@ impl Population {
                 continue;
             }
             // At its workshop once it has one, else at its owners' home.
-            let at = self
-                .firm_site(ctx.land, ctx.catalog, f.id)
-                .unwrap_or(owner.home);
+            let site = sites
+                .get_or_init(|| self.firm_sites(ctx.land, ctx.catalog))
+                .get(&f.id)
+                .copied();
+            debug_assert_eq!(site, self.firm_site(ctx.land, ctx.catalog, f.id));
+            let at = site.unwrap_or(owner.home);
             let Some(walk) = reach
                 .seconds_to(cell_of(ctx.map, at))
                 .map(|s| f64::from(s) / 60.0)

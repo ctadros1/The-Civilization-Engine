@@ -509,6 +509,20 @@ pub fn is_salvage(goods: &[GoodDef], g: usize) -> bool {
         })
 }
 
+/// [`is_salvage`] of every good of `goods`, by index, from one pass over them: for a caller that
+/// asks of many goods (ADR-0028 §1: an exact cut, the same answer as asking of each).
+pub fn salvage_goods(goods: &[GoodDef]) -> Vec<bool> {
+    let mut out: Vec<bool> = goods.iter().map(|d| d.id == ASH).collect();
+    for d in goods {
+        if let Some((s, _)) = d.tool.as_ref().and_then(|t| t.scrap)
+            && let Some(x) = out.get_mut(s)
+        {
+            *x = true;
+        }
+    }
+    out
+}
+
 /// Kilograms of ash a session making `units` of `recipe` leaves (ADR-0038 §2): each fuel it takes,
 /// by unit and by session, times its `ash_share`, less the ash the fuels it gives keep (coke keeps
 /// its coal's ash, charcoal its wood's), never below none.

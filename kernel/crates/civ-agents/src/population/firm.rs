@@ -1030,7 +1030,9 @@ impl Population {
     /// The paid work a person of household `hh` could go and do: of the workshops of its
     /// settlement hiring (not its own), the one whose pay is worth most to the household, the
     /// work wanted, the walk (`reach`, from home) and what the pay brings it (food it is short
-    /// of, or goods at what they are worth to it). `session_min` is the longest session.
+    /// of, or goods at what they are worth to it). `session_min` is the longest session; `known`
+    /// what the decision asking already knew of the household (its own costs and capped tool
+    /// wants), not worked out again (an exact cut, ADR-0028 §1).
     pub(crate) fn best_job(
         &self,
         ctx: &Ctx,
@@ -1038,6 +1040,7 @@ impl Population {
         stores: &[f64],
         field_key: PermanentId,
         session_min: f64,
+        known: Option<super::market::Known<'_>>,
     ) -> Option<JobOption> {
         let settlement = hh.settlement?;
         let home = self.homes.get(&field_key)?;
@@ -1063,8 +1066,14 @@ impl Population {
             return None;
         }
         let (catalog, goods) = (ctx.catalog, &ctx.catalog.goods);
-        let costs = self.own_costs_of(ctx, hh);
-        let holding = self.holding_of(ctx, hh, stores);
+        let costs = match known {
+            Some(k) => k.costs.get_or_init(|| self.own_costs_of(ctx, hh)).clone(),
+            None => self.own_costs_of(ctx, hh),
+        };
+        let holding = self.holding_with(ctx, hh, stores, known);
+        debug_assert!(costs == self.own_costs_of(ctx, hh));
+        debug_assert!(holding.keep == self.holding_of(ctx, hh, stores).keep);
+        debug_assert!(holding.want == self.holding_of(ctx, hh, stores).want);
         let food = stock_kcal(stores, goods);
         let food_keep: f64 = goods
             .iter()
@@ -1200,7 +1209,7 @@ impl Population {
             .filter(|a| a.behavior == Behavior::Hire)
             .map(|a| f64::from(a.max_minutes))
             .fold(0.0, f64::max);
-        self.best_job(ctx, &hh, &stores, key, session_min)
+        self.best_job(ctx, &hh, &stores, key, session_min, None)
             .map(|j| (j.firm, j.field, j.walk_min))
     }
 

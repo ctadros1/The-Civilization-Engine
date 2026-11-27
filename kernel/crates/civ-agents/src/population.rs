@@ -5845,7 +5845,11 @@ impl Population {
         let job = || {
             *hh_view.job.get_or_init(|| {
                 if session_min > 0.0 {
-                    self.best_job(ctx, &hh, &stores, field_key, session_min)
+                    let known = market::Known {
+                        costs: &costs_once,
+                        wants: &tool_wants,
+                    };
+                    self.best_job(ctx, &hh, &stores, field_key, session_min, Some(known))
                 } else {
                     None
                 }

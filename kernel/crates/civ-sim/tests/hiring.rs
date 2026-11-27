@@ -1382,3 +1382,109 @@ fn a_neighbours_reachable_employer_is_weighed_beside_idle_home_employers() {
         "searches weighing the neighbour",
     );
 }
+
+/// The nineteenth coverage pass (§9): a household of another settlement is listed among those a
+/// newcomer may weigh by a field within the work's walk of the hand's hearth, but the work it
+/// offers is on its other field, ripe longest, by its own settlement and beyond the walk. Whenever
+/// it is weighed it is passed over, never found and never spending a slot, lest a far one hide a
+/// near one (§6). Were another settlement's offer taken at any walk, the hand would be sent far
+/// from its own hearth for the work.
+#[test]
+fn a_neighbours_employer_listed_by_a_near_field_is_passed_over_for_work_beyond_the_walk() {
+    let mut sim = world(3, 768, 30, vec![30]);
+    tweak(&mut sim);
+    for _ in 0..200 {
+        if sim.land().fields.len() >= 8 {
+            break;
+        }
+        sim.advance_minutes(DAY).expect("advances");
+    }
+    let c = sim.rules().people.farm.crop;
+    let mut count: std::collections::BTreeMap<PermanentId, usize> = Default::default();
+    for f in sim
+        .land()
+        .fields
+        .iter()
+        .filter(|f| usize::from(f.crop) == c)
+    {
+        *count.entry(f.household).or_default() += 1;
+    }
+    let employer = count
+        .iter()
+        .filter(|(h, n)| {
+            **n >= 2
+                && sim
+                    .people()
+                    .household(**h)
+                    .is_some_and(|x| x.settlement.is_some())
+        })
+        .max_by_key(|(h, n)| (**n, std::cmp::Reverse(**h)))
+        .map(|(h, _)| *h)
+        .expect("a household with two fields");
+    let home_of = sim.people().household(employer).and_then(|x| x.settlement);
+    let (a, b) = {
+        let s = &sim.land().settlements;
+        let a = s.iter().find(|x| Some(x.id) == home_of).expect("`a`");
+        let b = s.iter().find(|x| Some(x.id) != home_of).expect("`b`");
+        (a.hearth_m, (b.id, b.hearth_m))
+    };
+    let came = sim.spawn_families(b.1, 14).expect("families come to `b`");
+    assert!(came.iter().all(|s| s.settlement == b.0), "they join `b`");
+    sim.advance_minutes(60).expect("advances");
+    furnish(&mut sim);
+    let seeker = came
+        .iter()
+        .map(|s| s.household)
+        .min()
+        .expect("a newcomer of `b`");
+    ripe(&mut sim, employer, 400.0);
+    starve(&mut sim, &[seeker]);
+    // One field 400 m from `b`'s hearth toward `a`, within the walk; the other, ripe longest, on
+    // dry ground about 4 km from it the same way: farther than the work's walk (30 minutes) but
+    // within what a decision's travel field reaches (1.2 times the longest walk any activity
+    // allows), so its walk is known and is too long.
+    let (dx, dy) = (a.0 - b.1.0, a.1 - b.1.1);
+    let d = dx.hypot(dy).max(1.0);
+    let near = (b.1.0 + dx / d * 400.0, b.1.1 + dy / d * 400.0);
+    let far_at = spot_near(&sim, (b.1.0 + dx / d * 4000.0, b.1.1 + dy / d * 4000.0), 0);
+    let fields = fields_of(&sim, employer);
+    let (first, second) = (fields[0], fields[1]);
+    for f in sim.land_mut_for_tests().fields.iter_mut() {
+        if f.id == first {
+            f.rect.x = (near.0 * 100.0) as i32 - f.rect.w / 2;
+            f.rect.y = (near.1 * 100.0) as i32 - f.rect.h / 2;
+        }
+        if f.id == second {
+            f.rect.x = (far_at.0 * 100.0) as i32 - f.rect.w / 2;
+            f.rect.y = (far_at.1 * 100.0) as i32 - f.rect.h / 2;
+            f.sown_day -= 2;
+        }
+    }
+    let far = sim
+        .land()
+        .fields
+        .iter()
+        .find(|f| f.id == second)
+        .map(|f| f.rect.centre_m())
+        .expect("the far field");
+    assert!(
+        offer(&mut sim, employer).is_some_and(|o| o.0 == FieldTask::Reap),
+        "short of reapers"
+    );
+    let (w_near, w_far) = (walk(&mut sim, seeker, near), walk(&mut sim, seeker, far));
+    assert!(
+        w_near.is_some_and(|w| w <= 30.0),
+        "the near field within the walk: {w_near:?}"
+    );
+    assert!(
+        w_far.is_some_and(|w| w > 30.0),
+        "the work reachable, beyond the walk: {w_far:?}"
+    );
+    assert!(
+        pool(&mut sim, seeker).contains(&(employer, true)),
+        "listed, of another settlement, by its near field"
+    );
+    let (seen, found) = share_of(&mut sim, seeker, employer);
+    assert!(seen > 0, "weighed in some of its keyed searches");
+    assert_eq!(found, 0, "passed over whenever weighed ({seen} times)");
+}

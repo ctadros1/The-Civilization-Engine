@@ -1260,6 +1260,14 @@ impl Population {
         // food a fire makes a meal of), asked only of a fuel offer (§8 18, sixth).
         let waits_on_fire = std::cell::OnceCell::new();
         let waits = || *waits_on_fire.get_or_init(|| self.fire_wanted_kg(ctx, hh, stores) > 0.0);
+        // Which goods are salvage, worked out once at the first offer that asks rather than over
+        // the catalogue at every offer (an exact cut, ADR-0028 §1).
+        let salvage_here = std::cell::OnceCell::new();
+        let salvage = |g: usize| {
+            let s = salvage_here.get_or_init(|| make::salvage_goods(goods))[g];
+            debug_assert_eq!(s, make::is_salvage(goods, g));
+            s
+        };
         // How much of each tool it needs, reckoned at its first offer: many sellers offer the same.
         let mut tool_needs: Vec<Option<f64>> = vec![None; goods.len()];
         let mut best: Option<Deal> = None;
@@ -1301,7 +1309,7 @@ impl Population {
                     let own = costs()[g].unwrap_or(f64::INFINITY) * (1.0 + lean) * units;
                     let kcal = units * d.kcal_per_kg;
                     (units, TradeWorth::Food { kcal }, own)
-                } else if make::is_salvage(goods, g) {
+                } else if salvage(g) {
                     // What a heap or a tip holds, that it is short of toward the tools it lacks
                     // (ADR-0044 §2): as much as it keeps beyond what it holds, and one person
                     // carries, worth the hours of its own it saves.

@@ -612,6 +612,68 @@ fn on_the_way_by(
     out
 }
 
+/// The nineteenth coverage pass (§9): a trip to the spring set by hand mid-day is on the day's
+/// list of those on their way, as a count of everyone finds it.
+#[test]
+fn a_trip_to_a_spring_set_by_hand_is_on_the_days_list_of_those_on_their_way() {
+    use civ_agents::params::Behavior;
+    // The nineteenth coverage pass (§9): one whose activity a test sets by hand, mid-day, to a
+    // trip to the spring is on the day's list of those on their way, as a count of everyone
+    // finds them. Changing people by hand (`people_mut_for_tests`) forgets what is derived, the
+    // day's list with it; were the list kept, it would miss them, and the debug check against a
+    // count of everyone would fail on an engine that is right.
+    let mut sim = village(6);
+    to_morning(&mut sim);
+    let (p, cell) = spring_site(&sim);
+    let flow = sim.rules().land.water.spring_min_m3_day;
+    set_spring(&mut sim, p, Some(flow));
+    let day = sim.now().day_index();
+    let now = sim.now();
+    for (_, h) in sim.people_mut_for_tests().households.iter_mut() {
+        h.water_l = 0.0;
+        h.water_at = now;
+    }
+    let walker = loop {
+        sim.advance_minutes(1).expect("advances");
+        assert_eq!(sim.now().day_index(), day, "nobody set out for the spring");
+        if let Some(&(id, _)) = on_the_way_by(&sim, cell, Behavior::FetchWater)
+            .iter()
+            .find(|x| !x.1)
+        {
+            break id;
+        }
+    };
+    // The day's list is made, and read.
+    let n = kept_as_counted(&mut sim, cell);
+    assert!(n >= 1, "the walker is counted");
+    let going: Vec<_> = on_the_way_by(&sim, cell, Behavior::FetchWater)
+        .into_iter()
+        .map(|x| x.0)
+        .collect();
+    let other = sim
+        .people()
+        .people
+        .iter()
+        .map(|(_, x)| x.id)
+        .find(|id| !going.contains(id))
+        .expect("someone not on the way");
+    let act = sim.people().person(walker).expect("lives").act.clone();
+    {
+        let pop = sim.people_mut_for_tests();
+        let (_, x) = pop
+            .people
+            .iter_mut()
+            .find(|(_, x)| x.id == other)
+            .expect("lives");
+        x.act = act;
+    }
+    assert_eq!(
+        kept_as_counted(&mut sim, cell),
+        n + 1,
+        "one set on their way by hand"
+    );
+}
+
 /// The engine keeps a day's list of those who may be on their way to draw water, so that asking
 /// whether a spring has a load left does not count everyone (§9, "A spring counts the loads
 /// promised as well as drawn"). What it gives is what a count of everyone gives through every

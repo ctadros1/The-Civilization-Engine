@@ -2652,10 +2652,12 @@ impl Population {
     }
 
     /// Forgets what is kept to find things faster (field sites, who is at each hearth, the
-    /// fields by household, faded places let go): after people, households or land were changed
-    /// by hand, as tests do. Each is worked out again when next needed, the same as it would
-    /// have been, so nothing that happens changes.
+    /// fields by household, faded places let go, the day's list of those on their way to draw
+    /// water): after people, households or land were changed by hand, as tests do. Each is worked
+    /// out again when next needed, the same as it would have been, so nothing that happens
+    /// changes.
     pub fn forget_derived(&mut self) {
+        self.forget_water_trips();
         self.sites.clear();
         self.homes_moved += 1;
         self.at_hearth = None;

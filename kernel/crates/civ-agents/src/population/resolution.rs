@@ -642,7 +642,8 @@ impl Population {
                     }
                 }
                 // Water the household uses in a day, by the trip a member would make for it.
-                if let Some((h, cand)) = water_cand {
+                if let Some((h, mut cand)) = water_cand {
+                    let who = self.people.get(h).map(|p| p.id);
                     for _ in 0..MAX_WATER_TRIPS {
                         let short = self.household(id).map_or(0.0, |x| {
                             let day =
@@ -651,6 +652,24 @@ impl Population {
                         });
                         if short <= 0.0 {
                             break;
+                        }
+                        // Each trip asks, as one set off would, whether the spring it goes to has
+                        // a load left (§9, "A spring counts the loads promised as well as
+                        // drawn"): once it has none, the trip is planned again from first light
+                        // and goes where the household's people would go now (the river or lake,
+                        // another spring, a well), or, with nowhere, no more are made.
+                        if self.spring_spent(ctx, cand.scored.target, who) {
+                            let again = self.plan_evening(ctx, h, wake).and_then(|p| {
+                                p.cands
+                                    .into_iter()
+                                    .find(|c| behavior_of(ctx, c) == Some(Behavior::FetchWater))
+                            });
+                            match again {
+                                Some(c) if !self.spring_spent(ctx, c.scored.target, who) => {
+                                    cand = c;
+                                }
+                                _ => break,
+                            }
                         }
                         self.enact(ctx, h, &cand, None, &hh);
                     }

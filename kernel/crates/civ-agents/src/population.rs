@@ -743,6 +743,12 @@ pub struct Population {
     /// obstacles ([`Mix`]) and a mark of those ([`LandMark`]), with the day they were made
     /// ([`Population::home_ground`]). Derived, never saved.
     home_grounds: std::sync::Mutex<HomeGrounds>,
+    /// Those who may be on their way to draw a load of water, by the cell they draw at
+    /// ([`Population::loads_promised`]): everyone whose activity was on its way to draw there when
+    /// the day's list was made from all the people, and everyone who has taken up such an
+    /// activity since ([`Population::take_up`]), each at most once. Some have drawn since or done
+    /// something else; each read keeps those still on their way. Derived, never saved.
+    water_trips: std::sync::Mutex<WaterTrips>,
     /// The day's asks for help with mending: for each household asked, the households that
     /// asked it (research 11-04 §1.6). Derived each day, not saved.
     mend_asks: (Option<i64>, FastMap<PermanentId, Vec<PermanentId>>),
@@ -1176,6 +1182,15 @@ type HomeGround = (BuildingSpec, Vec<StageNeeds>, f64);
 /// it reads, a mark of the land it was made on and what it found, and the day
 /// ([`Population::home_ground`]).
 type HomeGrounds = (i64, FastMap<u64, (Vec<u64>, LandMark, Option<HomeGround>)>);
+
+/// The day's list of those who may be on their way to draw water, by cell
+/// ([`Population::loads_promised`]): the day it was made from all the people (`None` until it
+/// is), and the people by cell.
+#[derive(Debug, Default)]
+struct WaterTrips {
+    day: Option<i64>,
+    at: FastMap<u32, Vec<Handle<Person>>>,
+}
 
 /// Everything a search for a building's ground reads, word by word, and a digest of it
 /// ([`Population::home_ground`]). Two keys are the same only when every word is.
@@ -1913,6 +1928,9 @@ impl Population {
     /// Adds a living person (their record must be added separately).
     pub fn insert_person(&mut self, p: Person) -> Handle<Person> {
         let id = p.id;
+        // They come with an activity of their own: the day's list of those on their way to
+        // draw water is made again from all the people when next read.
+        self.forget_water_trips();
         let handle = self.people.insert(p);
         self.index.insert(id, handle);
         handle
@@ -1937,6 +1955,7 @@ impl Population {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .1
             .clear();
+        self.forget_water_trips();
         self.first_home_for.clear();
         self.stage_needs.clear();
         self.expansions.clear();
@@ -6723,6 +6742,8 @@ impl Population {
         }
         // A round of the watch is counted as it begins (M4b slice AC).
         let (who, def) = (p.id, p.act.def);
+        // One setting off to draw water is one of those who may be on their way.
+        self.note_water_trip(ctx, h);
         if catalog
             .activities
             .get(usize::from(def))
@@ -8216,17 +8237,9 @@ impl Population {
         who: PermanentId,
         now: SimTime,
     ) {
-        let patch = ctx.land.patches.of_cell(cell as usize, ctx.map.width);
-        let aq = &ctx.land.water.aquifer;
-        let spring = aq.stage.get(patch).is_some_and(Option::is_none)
-            && aq
-                .seep
-                .get(patch)
-                .copied()
-                .flatten()
-                .is_some_and(|(c, _)| c == cell);
+        let spring = spring_patch(ctx, cell);
         let litres = ctx.params.household.carry_water_l;
-        if spring {
+        if let Some(patch) = spring {
             self.spring_draws
                 .draw(now.day_index(), patch as u32, litres);
             self.water_draws.springs += 1;
@@ -8234,7 +8247,7 @@ impl Population {
             self.water_draws.banks += 1;
         }
         self.water_draws.litres += litres;
-        if !spring {
+        if spring.is_none() {
             self.drew_load_from_reach(ctx, cell, household, litres);
         }
         self.log_work(crate::uses::Place::Source(cell), household, who, now, 0.0);
@@ -8268,23 +8281,25 @@ impl Population {
                 .binary_search(&crate::uses::Place::Source(cell))
                 .is_ok()
         };
-        let chosen = self.water_source_among(ctx, home, x, &shunned);
+        let chosen = self.water_source_among(ctx, home, x, who, &shunned);
         if chosen.is_none() && !suspect.is_empty() {
-            return self.water_source_among(ctx, home, x, &|_| false);
+            return self.water_source_among(ctx, home, x, who, &|_| false);
         }
         chosen
     }
 
-    /// [`Self::water_source`] among the sources `shunned` does not pass over.
+    /// [`Self::water_source`] among the sources `shunned` does not pass over, for `who` (whose own
+    /// load is not counted among those promised at a spring).
     fn water_source_among(
         &self,
         ctx: &Ctx,
         home: Option<&HomeField>,
         x: Option<(&Household, bool)>,
+        who: Option<PermanentId>,
         shunned: &dyn Fn(u32) -> bool,
     ) -> Option<WaterOption> {
         let other = home
-            .and_then(|home| self.spring_or_bank(ctx, home, shunned))
+            .and_then(|home| self.spring_or_bank(ctx, home, who, shunned))
             .filter(|o| !shunned(o.cell));
         let bound = other.map_or(f64::INFINITY, |o| 2.0 * o.walk_min);
         let well = x.and_then(|(x, short)| self.well_option(ctx, x, short, bound, shunned));
@@ -8297,16 +8312,17 @@ impl Population {
     }
 
     /// The nearest spring that flows, has a load left today and is not `shunned`, if one is
-    /// nearer than the river or lake, else the river or lake, from `home`.
+    /// nearer than the river or lake, else the river or lake, from `home`. A load is left when
+    /// what flows to the spring today, less what has been drawn there and the loads promised to
+    /// those on their way to draw there ([`Self::loads_promised`]; `who`'s own not among them),
+    /// is a load at least: those who set off together do not all count on its last load.
     fn spring_or_bank(
         &self,
         ctx: &Ctx,
         home: &HomeField,
+        who: Option<PermanentId>,
         shunned: &dyn Fn(u32) -> bool,
     ) -> Option<WaterOption> {
-        let (water, params) = (&ctx.land.water, &ctx.land_params.water);
-        let carry = ctx.params.household.carry_water_l;
-        let day = ctx.now.day_index();
         let option = |cell: u32, s: f32| WaterOption {
             cell,
             walk_min: f64::from(s) / 60.0,
@@ -8318,10 +8334,7 @@ impl Population {
             if shunned(cell) {
                 continue;
             }
-            let Some(spring) = water.spring_at(params, patch as usize) else {
-                continue;
-            };
-            if spring.flow_m3_day * 1000.0 - self.spring_draws.drawn(day, patch) >= carry {
+            if self.spring_has_load(ctx, patch, cell, who) {
                 return Some(option(cell, s));
             }
         }
@@ -8332,6 +8345,163 @@ impl Population {
             .find(|&(cell, _)| !shunned(cell))
             .or(home.water)
             .map(|(cell, s)| option(cell, s))
+    }
+
+    /// Whether the spring of `patch`, rising at `cell`, flows today and has a load left for
+    /// `who` ([`Self::spring_or_bank`]): what flows to it, less what has been drawn there and the
+    /// loads promised to those on their way ([`Self::loads_promised`]), is a load at least.
+    fn spring_has_load(&self, ctx: &Ctx, patch: u32, cell: u32, who: Option<PermanentId>) -> bool {
+        let Some(spring) = ctx
+            .land
+            .water
+            .spring_at(&ctx.land_params.water, patch as usize)
+        else {
+            return false;
+        };
+        let carry = ctx.params.household.carry_water_l;
+        let left =
+            spring.flow_m3_day * 1000.0 - self.spring_draws.drawn(ctx.now.day_index(), patch);
+        left >= carry && left - carry * self.loads_promised(ctx, cell, who) as f64 >= carry
+    }
+
+    /// Whether `target` is the water at a spring that has no load left today for `who`
+    /// ([`Self::spring_has_load`]): one that flows no longer, or is drawn and promised for the day.
+    pub(super) fn spring_spent(&self, ctx: &Ctx, target: Target, who: Option<PermanentId>) -> bool {
+        let Target::Water(cell) = target else {
+            return false;
+        };
+        spring_patch(ctx, cell)
+            .is_some_and(|patch| !self.spring_has_load(ctx, patch as u32, cell, who))
+    }
+
+    /// Loads promised at the spring at `cell`: the people but `except` on their way to draw a
+    /// load there whose draw is not yet done ([`draw_ahead`]). Counted afresh from people's
+    /// activities, which a save keeps, so a world saved while they are on their way and loaded
+    /// counts the same.
+    ///
+    /// Read from the day's list of those who may be on their way ([`WaterTrips`]), made from all
+    /// the people at the first read of the day and added to as activities are taken up: everyone
+    /// on their way to draw at `cell` is on it (an activity aimed at a draw is only ever begun by
+    /// [`Self::take_up`], or loaded, or brought by a person added, after which the list is made
+    /// again), so keeping those of it whose activity is still on its way there counts what a scan
+    /// of everyone would (in a build with debug assertions, each count is checked against that
+    /// scan).
+    fn loads_promised(&self, ctx: &Ctx, cell: u32, except: Option<PermanentId>) -> usize {
+        let count = self.loads_promised_kept(ctx, cell, except);
+        debug_assert_eq!(
+            count,
+            self.loads_promised_scan(ctx, cell, except),
+            "the loads promised at cell {cell} kept differ from those counted afresh"
+        );
+        count
+    }
+
+    /// [`Self::loads_promised`] read from the day's list ([`WaterTrips`]), made from all the
+    /// people when it is not of today.
+    fn loads_promised_kept(&self, ctx: &Ctx, cell: u32, except: Option<PermanentId>) -> usize {
+        let day = ctx.now.day_index();
+        // A poisoned lock still holds only people who may be on their way.
+        let mut trips = self
+            .water_trips
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if trips.day != Some(day) {
+            trips.at.clear();
+            for (h, p) in self.people.iter() {
+                if let Some(c) = draw_ahead(&p.act, ctx.catalog) {
+                    trips.at.entry(c).or_default().push(h);
+                }
+            }
+            trips.day = Some(day);
+        }
+        let on_the_way = |h: &Handle<Person>| {
+            self.people
+                .get(*h)
+                .filter(|p| draw_ahead(&p.act, ctx.catalog) == Some(cell))
+        };
+        trips.at.get_mut(&cell).map_or(0, |list| {
+            list.retain(|h| on_the_way(h).is_some());
+            list.iter()
+                .filter(|h| on_the_way(h).is_some_and(|p| Some(p.id) != except))
+                .count()
+        })
+    }
+
+    /// [`Self::loads_promised`] counted afresh from every person's activity: what the day's
+    /// list must give.
+    fn loads_promised_scan(&self, ctx: &Ctx, cell: u32, except: Option<PermanentId>) -> usize {
+        self.people
+            .iter()
+            .filter(|(_, p)| Some(p.id) != except && draw_ahead(&p.act, ctx.catalog) == Some(cell))
+            .count()
+    }
+
+    /// Every cell someone is on their way to draw water at, or the day's list holds, with the
+    /// loads promised there read from the list and counted afresh (tests): `(cell, kept,
+    /// counted)`, in cell order.
+    #[doc(hidden)]
+    pub fn loads_promised_for_tests(&self, ctx: &Ctx) -> Vec<(u32, usize, usize)> {
+        let mut cells: BTreeSet<u32> = self
+            .people
+            .iter()
+            .filter_map(|(_, p)| draw_ahead(&p.act, ctx.catalog))
+            .collect();
+        cells.extend(
+            self.water_trips
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .at
+                .keys()
+                .copied(),
+        );
+        cells
+            .into_iter()
+            .map(|c| {
+                let kept = self.loads_promised_kept(ctx, c, None);
+                (c, kept, self.loads_promised_scan(ctx, c, None))
+            })
+            .collect()
+    }
+
+    /// `id` decides again now, whatever they were doing, as an interruption has them do (tests).
+    #[doc(hidden)]
+    pub fn decide_now_for_tests(&mut self, ctx: &mut Ctx, id: PermanentId) {
+        if let Some(&h) = self.index.get(&id) {
+            self.decide(ctx, h, 0);
+        }
+    }
+
+    /// Notes that person `h`, whose activity has just been taken up, may be on their way to draw
+    /// water ([`Self::loads_promised`]).
+    fn note_water_trip(&mut self, ctx: &Ctx, h: Handle<Person>) {
+        let Some(cell) = self
+            .people
+            .get(h)
+            .and_then(|p| draw_ahead(&p.act, ctx.catalog))
+        else {
+            return;
+        };
+        let trips = self
+            .water_trips
+            .get_mut()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if trips.day.is_some() {
+            let list = trips.at.entry(cell).or_default();
+            if !list.contains(&h) {
+                list.push(h);
+            }
+        }
+    }
+
+    /// Lets go of the day's list of those on their way to draw water: it is made again from all
+    /// the people when next read.
+    fn forget_water_trips(&mut self) {
+        let trips = self
+            .water_trips
+            .get_mut()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        trips.day = None;
+        trips.at.clear();
     }
 
     fn log_work(
@@ -9901,6 +10071,45 @@ fn lay_out_places(ctx: &Ctx, range: u32, in_water: bool) -> Places {
         range,
         in_water,
         blocks,
+    }
+}
+
+/// The patch whose spring rises at `cell`, if `cell` is the lowest ground of a patch off the water
+/// (where a spring rises when the heads give it water; M6a slice AY).
+fn spring_patch(ctx: &Ctx, cell: u32) -> Option<usize> {
+    let patch = ctx.land.patches.of_cell(cell as usize, ctx.map.width);
+    let aq = &ctx.land.water.aquifer;
+    (aq.stage.get(patch).is_some_and(Option::is_none)
+        && aq
+            .seep
+            .get(patch)
+            .copied()
+            .flatten()
+            .is_some_and(|(c, _)| c == cell))
+    .then_some(patch)
+}
+
+/// The cell of a bank or spring at which activity `act` is yet to draw a load of water (§9, "A
+/// spring counts the loads promised as well as drawn"): a trip for water aimed at a source's cell
+/// with its drawing still ahead, or a load for a fire to be drawn at one, its filling still ahead.
+/// A function of the activity alone, which a save keeps.
+pub(crate) fn draw_ahead(act: &Activity, catalog: &Catalog) -> Option<u32> {
+    let behavior = catalog.activities.get(act.def as usize)?.behavior;
+    // Whether a work step stands at or after the step in progress and before step `until`.
+    let work_ahead = |until: usize| {
+        act.steps
+            .get(act.step as usize..until.min(act.steps.len()))
+            .is_some_and(|s| s.iter().any(|s| matches!(s, Step::Work { .. })))
+    };
+    match (behavior, act.target) {
+        // The draw is made as its work step ends (`end_step`); after it come the walk home and
+        // the deposit.
+        (Behavior::FetchWater, Target::Water(cell)) => work_ahead(usize::MAX).then_some(cell),
+        // A load for a fire is drawn as its first work step, the second, ends.
+        (Behavior::Douse, Target::Douse { from, .. }) if from != crate::person::FROM_STORE => {
+            work_ahead(2).then_some(from)
+        }
+        _ => None,
     }
 }
 

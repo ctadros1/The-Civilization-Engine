@@ -5113,6 +5113,9 @@ impl Population {
         // As the market would ask them again for the purchase weighed below.
         let tool_wants = wants.clone();
         let costs_once = OnceCell::new();
+        // What it keeps and wants of each good, from these stores, as its sale, purchase and paid
+        // work weigh it below: worked out at the first of them to ask.
+        let holding_once = OnceCell::new();
         let costs = || {
             costs_once
                 .get_or_init(|| self.own_costs_of(ctx, &hh))
@@ -5239,6 +5242,7 @@ impl Population {
             market::Known {
                 costs: &costs_once,
                 wants: &tool_wants,
+                holding: &holding_once,
             },
         );
         let mut tool_material = vec![0.0; goods.len()];
@@ -5796,6 +5800,7 @@ impl Population {
                 let known = market::Known {
                     costs: &costs_once,
                     wants: &tool_wants,
+                    holding: &holding_once,
                 };
                 self.best_purchase(ctx, &hh, &stores, reach, Some(known))
             })
@@ -5848,6 +5853,7 @@ impl Population {
                     let known = market::Known {
                         costs: &costs_once,
                         wants: &tool_wants,
+                        holding: &holding_once,
                     };
                     self.best_job(ctx, &hh, &stores, field_key, session_min, Some(known))
                 } else {

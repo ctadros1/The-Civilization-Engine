@@ -1070,7 +1070,14 @@ impl Population {
             Some(k) => k.costs.get_or_init(|| self.own_costs_of(ctx, hh)).clone(),
             None => self.own_costs_of(ctx, hh),
         };
-        let holding = self.holding_with(ctx, hh, stores, known);
+        let holding_here;
+        let holding: &super::market::Holding = match known {
+            Some(k) => self.holding_known(ctx, hh, stores, k),
+            None => {
+                holding_here = self.holding_with(ctx, hh, stores, None);
+                &holding_here
+            }
+        };
         debug_assert!(costs == self.own_costs_of(ctx, hh));
         debug_assert!(holding.keep == self.holding_of(ctx, hh, stores).keep);
         debug_assert!(holding.want == self.holding_of(ctx, hh, stores).want);

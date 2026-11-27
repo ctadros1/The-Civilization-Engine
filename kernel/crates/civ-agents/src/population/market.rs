@@ -77,13 +77,30 @@ pub(crate) struct Holding {
     pub food_keep: f64,
 }
 
+impl Holding {
+    /// Whether `other` is the same to the bit (a kept holding against one worked out afresh).
+    fn same_as(&self, other: &Holding) -> bool {
+        let bits = |v: &[f64]| v.iter().map(|x| x.to_bits()).collect::<Vec<u64>>();
+        bits(&self.keep) == bits(&other.keep)
+            && bits(&self.want) == bits(&other.want)
+            && bits(&self.works) == bits(&other.works)
+            && self.spare_years.to_bits() == other.spare_years.to_bits()
+            && self.food_keep.to_bits() == other.food_keep.to_bits()
+    }
+}
+
 /// What a decision has already worked out for its household now that the market would ask
-/// again: what each good costs it in its own hours (worked out when first wanted) and the tools
-/// it wants, capped by the power it could use. The same as asked afresh, only not asked twice.
+/// again: what each good costs it in its own hours (worked out when first wanted), the tools
+/// it wants, capped by the power it could use, and what it keeps and wants of each good from
+/// the decision's stores (worked out when first wanted). The same as asked afresh, only not
+/// asked twice.
 #[derive(Clone, Copy)]
 pub(crate) struct Known<'a> {
     pub costs: &'a std::cell::OnceCell<Vec<Option<f64>>>,
     pub wants: &'a [f64],
+    /// [`Population::holding_with`] of the decision's household and stores, with these costs and
+    /// wants: one decision's sale, purchase and paid work ask it of the same stores.
+    pub holding: &'a std::cell::OnceCell<Holding>,
 }
 
 /// A vehicle a household could make that would keep it `gain_h` hours beyond the walk's on the
@@ -634,6 +651,23 @@ impl Population {
     /// and what it builds with while it has no finished home or builds anything.
     pub(crate) fn holding_of(&self, ctx: &Ctx, hh: &Household, stores: &[f64]) -> Holding {
         self.holding_with(ctx, hh, stores, None)
+    }
+
+    /// [`Self::holding_with`] with what the decision asking knew, worked out at the first of its
+    /// sale, purchase and paid work to ask and kept for the others (an exact cut, ADR-0028 §1):
+    /// all three ask it of the decision's own stores, and nothing changes between them.
+    pub(crate) fn holding_known<'k>(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        stores: &[f64],
+        known: Known<'k>,
+    ) -> &'k Holding {
+        let kept = known
+            .holding
+            .get_or_init(|| self.holding_with(ctx, hh, stores, Some(known)));
+        debug_assert!(kept.same_as(&self.holding_with(ctx, hh, stores, Some(known))));
+        kept
     }
 
     /// [`Self::holding_of`], with what the decision asking already knew of the household.
@@ -1233,7 +1267,14 @@ impl Population {
         let own_costs_here = std::cell::OnceCell::new();
         let own_costs = known.map_or(&own_costs_here, |k| k.costs);
         let costs = || own_costs.get_or_init(|| self.own_costs_of(ctx, hh));
-        let holding = self.holding_with(ctx, hh, stores, known);
+        let holding_here;
+        let holding: &Holding = match known {
+            Some(k) => self.holding_known(ctx, hh, stores, k),
+            None => {
+                holding_here = self.holding_with(ctx, hh, stores, None);
+                &holding_here
+            }
+        };
         // Food it is short of: what it keeps less what it has, by energy.
         let (short_kcal, food_keep) = food_short(goods, &holding.keep, stores);
         let lean = if food_keep > 0.0 {
@@ -2885,7 +2926,7 @@ impl Population {
             return out;
         }
         let costs = known.costs.get_or_init(|| self.own_costs_of(ctx, hh));
-        let holding = self.holding_with(ctx, hh, stores, Some(known));
+        let holding = self.holding_known(ctx, hh, stores, known);
         debug_assert!(*costs == self.own_costs_of(ctx, hh));
         debug_assert!(holding.keep == self.holding_of(ctx, hh, stores).keep);
         let margin = ctx.params.market.margin;

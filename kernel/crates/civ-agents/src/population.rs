@@ -4769,7 +4769,9 @@ impl Population {
             p.id,
             p.carrying.kg > 0.0 || p.carrying.water_l > 0.0,
         );
-        let Some(hh) = self.household(hh_id).cloned() else {
+        // Its counters of goods' flows are left out of the copy: nothing a decision does reads
+        // them (an exact cut, ADR-0028 §1).
+        let Some(hh) = self.household_mut(hh_id).map(Household::copy_without_flows) else {
             return;
         };
         let supply_at = Self::supply_at(ctx, &hh);
@@ -5107,12 +5109,31 @@ impl Population {
             .filter_map(|m| self.person(*m))
             .map(|q| q.age_years(now))
             .collect();
-        let knows = |t: usize| self.household_knows(&hh.members, t);
+        // The techniques anyone in it knows, read once for every question the decision asks of
+        // them (an exact cut, ADR-0028 §1).
+        let known_techniques = self.techniques_known(&hh.members);
+        let knows = |t: usize| {
+            let k = known_techniques.binary_search(&(t as u16)).is_ok();
+            debug_assert_eq!(k, self.household_knows(&hh.members, t));
+            k
+        };
         let mut wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
         self.cap_power_wants(ctx, &hh, &knows, &mut wants);
         // As the market would ask them again for the purchase weighed below.
         let tool_wants = wants.clone();
         let costs_once = OnceCell::new();
+        // What it keeps and wants of each good, from these stores, as its sale, purchase and paid
+        // work weigh it below: worked out at the first of them to ask.
+        let holding_once = OnceCell::new();
+        // And the way it would make each tool, which its holding and its making below weigh.
+        let ways_once: Vec<OnceCell<Option<usize>>> =
+            (0..goods.len()).map(|_| OnceCell::new()).collect();
+        let known = market::Known {
+            costs: &costs_once,
+            wants: &tool_wants,
+            holding: &holding_once,
+            ways: &ways_once,
+        };
         let costs = || {
             costs_once
                 .get_or_init(|| self.own_costs_of(ctx, &hh))
@@ -5231,16 +5252,7 @@ impl Population {
             .collect();
         // Tools others want and nobody offers, which the household makes for fewer hours than
         // they would give: worth making to sell (slice I).
-        let for_sale = self.for_sale(
-            ctx,
-            &hh,
-            &stores,
-            &tool_need,
-            market::Known {
-                costs: &costs_once,
-                wants: &tool_wants,
-            },
-        );
+        let for_sale = self.for_sale(ctx, &hh, &stores, &tool_need, known);
         let mut tool_material = vec![0.0; goods.len()];
         let mut tool_material_blocked = vec![false; goods.len()];
         let mut tool_material_raw = vec![false; goods.len()];
@@ -5262,7 +5274,7 @@ impl Population {
                         .iter()
                         .position(|r| r.outputs.iter().any(|&(g, _)| g == t))
                 } else {
-                    make::way_to_tool(catalog, t, &can_work, &costs)
+                    known.way_to_tool(catalog, t, &can_work, &costs)
                 }
             })
             .collect();
@@ -5271,7 +5283,7 @@ impl Population {
         // A fuel goes toward what a tool's materials are made of beyond what its hearth keeps
         // (M11d, sixth part); the tool's own fuel and a pot's firing wood are weighed as before.
         let mut tool_fuel = vec![0.0; goods.len()];
-        let knows_any = |t: usize| self.household_knows(&hh.members, t);
+        let knows_any = |t: usize| knows(t);
         let beyond_hearth = |g: usize| {
             (held_of(g) - market::hearth_keep(params, goods, g, household_fuel_day, &knows_any))
                 .max(0.0)
@@ -5792,13 +5804,9 @@ impl Population {
         };
         // A purchase that costs the household fewer hours than getting the good itself.
         let trade = || {
-            *hh_view.trade.get_or_init(|| {
-                let known = market::Known {
-                    costs: &costs_once,
-                    wants: &tool_wants,
-                };
-                self.best_purchase(ctx, &hh, &stores, reach, Some(known))
-            })
+            *hh_view
+                .trade
+                .get_or_init(|| self.best_purchase(ctx, &hh, &stores, reach, Some(known)))
         };
         // One in another settlement, by a report (M5b slice AP, ADR-0019 §2). One of a household
         // goes at a time: what another is on the way to buy is not home yet, and two would walk
@@ -5845,10 +5853,6 @@ impl Population {
         let job = || {
             *hh_view.job.get_or_init(|| {
                 if session_min > 0.0 {
-                    let known = market::Known {
-                        costs: &costs_once,
-                        wants: &tool_wants,
-                    };
                     self.best_job(ctx, &hh, &stores, field_key, session_min, Some(known))
                 } else {
                     None

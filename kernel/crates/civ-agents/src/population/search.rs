@@ -361,6 +361,46 @@ impl Population {
         (out, read)
     }
 
+    /// The employers of `pool` among household `hh`'s contacts ([`Self::hire_contacts`]), by
+    /// id, with the entries read: each contact marked where the pool holds it, not all gathered,
+    /// sorted and then looked up (an exact cut, ADR-0028 §1: the pool is sorted by id, so its
+    /// order is theirs).
+    fn contacts_in_pool(&self, hh: &Household, pool: &HirePool) -> (Vec<(PermanentId, bool)>, u64) {
+        let find = |e: PermanentId| pool.employers.binary_search_by_key(&e, |&(id, _)| id).ok();
+        let mut marked = vec![false; pool.employers.len()];
+        let kin = self.kin_households(hh);
+        let mut read = kin.len() as u64;
+        for i in kin.into_iter().filter_map(find) {
+            marked[i] = true;
+        }
+        for &m in &hh.members {
+            for t in self.ties.of(m) {
+                read += 1;
+                if let Some(p) = self.person(t.to)
+                    && p.household != hh.id
+                    && let Some(i) = find(p.household)
+                {
+                    marked[i] = true;
+                }
+            }
+        }
+        let out: Vec<(PermanentId, bool)> = marked
+            .iter()
+            .zip(&pool.employers)
+            .filter(|&(&m, _)| m)
+            .map(|(_, &e)| e)
+            .collect();
+        debug_assert!({
+            let (all, all_read) = self.hire_contacts(hh);
+            let slow: Vec<(PermanentId, bool)> = all
+                .into_iter()
+                .filter_map(|e| find(e).map(|i| pool.employers[i]))
+                .collect();
+            all_read == read && slow == out
+        });
+        (out, read)
+    }
+
     /// The farm offers household `hh` of `settlement` weighs at a decision, searching from
     /// travel field `field_key` (see the module's account), its draw keyed on day `key_day` (the
     /// day's own, but for tests): `None` without a travel field.
@@ -436,14 +476,7 @@ impl Population {
         let contact_slots = (firm.hire_contacts as usize).min(budget);
         let cap = 2 * budget;
         let day = key_day as u64;
-        let in_pool = |e: PermanentId| {
-            pool.employers
-                .binary_search_by_key(&e, |&(id, _)| id)
-                .ok()
-                .map(|i| pool.employers[i])
-        };
-        let (contacts, read) = self.hire_contacts(hh);
-        let contacts: Vec<(PermanentId, bool)> = contacts.into_iter().filter_map(in_pool).collect();
+        let (contacts, read) = self.contacts_in_pool(hh, pool);
         let counts = &self.hire_counts;
         HireCounts::add(&counts.decisions, 1);
         HireCounts::add(&counts.contacts_read, read);

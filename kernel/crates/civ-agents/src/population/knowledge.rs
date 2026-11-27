@@ -1558,6 +1558,19 @@ impl Population {
         }
     }
 
+    /// The techniques anyone among `members` knows, by index, sorted: those
+    /// [`Self::household_knows`] is true of.
+    pub(crate) fn techniques_known(&self, members: &[PermanentId]) -> Vec<u16> {
+        let mut out: Vec<u16> = members
+            .iter()
+            .filter_map(|m| self.person(*m))
+            .flat_map(|p| p.knows.iter().filter(|k| k.known).map(|k| k.technique))
+            .collect();
+        out.sort_unstable();
+        out.dedup();
+        out
+    }
+
     /// Whether anyone among `members` knows technique `t`.
     pub(crate) fn household_knows(&self, members: &[PermanentId], t: usize) -> bool {
         members

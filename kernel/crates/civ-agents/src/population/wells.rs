@@ -238,17 +238,50 @@ impl Population {
             .map(f64::from)
     }
 
-    /// The households of `x`'s people's close kin, `x`'s own left out.
+    /// The households of `x`'s people's close kin ([`Self::close_kin`]), `x`'s own left out, by
+    /// id: read from the records and the index of children directly, each kin looked up once
+    /// where it is met, not gathered and sorted for each member first (an exact cut, ADR-0028
+    /// §1: the same households, sorted and each once).
     pub(crate) fn kin_households(&self, x: &Household) -> Vec<PermanentId> {
-        let mut out: Vec<PermanentId> = x
-            .members
-            .iter()
-            .flat_map(|&m| self.close_kin(m))
-            .filter_map(|k| self.person(k).map(|p| p.household))
-            .filter(|&h| h != x.id)
-            .collect();
+        let children = |q: PermanentId| self.children.get(&q).map_or(&[][..], Vec::as_slice);
+        let mut out: Vec<PermanentId> = Vec::new();
+        let mut add = |q: PermanentId| {
+            if let Some(p) = self.person(q)
+                && p.household != x.id
+            {
+                out.push(p.household);
+            }
+        };
+        for &m in &x.members {
+            let Some(r) = self.records.get(&m) else {
+                continue;
+            };
+            for parent in [r.mother, r.father].into_iter().flatten() {
+                add(parent);
+                for &c in children(parent) {
+                    if c != m {
+                        add(c);
+                    }
+                }
+            }
+            for &c in children(m) {
+                add(c);
+            }
+        }
         out.sort_unstable();
         out.dedup();
+        debug_assert_eq!(out, {
+            let mut slow: Vec<PermanentId> = x
+                .members
+                .iter()
+                .flat_map(|&m| self.close_kin(m))
+                .filter_map(|k| self.person(k).map(|p| p.household))
+                .filter(|&h| h != x.id)
+                .collect();
+            slow.sort_unstable();
+            slow.dedup();
+            slow
+        });
         out
     }
 

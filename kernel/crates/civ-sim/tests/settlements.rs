@@ -3323,6 +3323,66 @@ fn a_kept_field_site_is_keyed_on_the_wells_and_tips_on_its_ground() {
     assert_eq!(with_well(far), before, "a well begun far off");
 }
 
+/// The nineteenth coverage pass (§8 26, fifth): a field site kept for the day stands only while
+/// its stamp does (`SiteStamp`), the cheap check before its key is read again. A tip laid
+/// anywhere moves it, as a well or a field does. A plot is let go when a plan's finding takes its
+/// building down, so a plot let go and another claimed the same day leaves the count of plots as
+/// it was: before, the stamp held the count alone, so a site found beside the plot let go, or
+/// where the new one lies, was used still (a build with debug assertions panics on the key's
+/// check), where a world loaded after would search afresh (ADR-0011 §5).
+#[test]
+fn a_kept_field_site_is_read_again_after_a_tip_or_a_plot_let_go_and_another_claimed() {
+    use civ_agents::population::site_stamp_stands_for_tests as stands;
+    use civ_core::PermanentId;
+    use civ_land::RectCm;
+    let sim = world(3, 50, &[30]).expect("generates");
+    let ground = Some(RectCm {
+        x: 100_000,
+        y: 100_000,
+        w: 20_000,
+        h: 20_000,
+    });
+    let rect = RectCm {
+        x: 105_000,
+        y: 105_000,
+        w: 400,
+        h: 400,
+    };
+    let id = |n: u64| PermanentId::from_raw(999_000 + n).expect("an id");
+    let plot = |n: u64| civ_land::Plot {
+        id: id(n),
+        household: id(0),
+        rect,
+        use_: civ_land::PlotUse::Dwelling,
+        since: SimTime::from_minutes(0),
+        receipt: None,
+        allotted: None,
+    };
+    let mut before = sim.land().clone();
+    before.plots.push(plot(1));
+    before.plots.push(plot(2));
+    assert!(stands(&before, &before.clone(), ground), "nothing changed");
+    let mut tipped = before.clone();
+    tipped
+        .tips
+        .list
+        .push(civ_land::tips::TipGround { id: id(9), rect });
+    assert!(!stands(&before, &tipped, ground), "a tip laid");
+    let mut claimed = before.clone();
+    claimed.plots.push(plot(3));
+    assert!(!stands(&before, &claimed, ground), "a plot claimed");
+    let mut let_go = before.clone();
+    let_go.plots.retain(|p| p.id != id(1));
+    assert!(!stands(&before, &let_go, ground), "a plot let go");
+    // One let go and another claimed: as many plots as before, but not the same.
+    let_go.plots.push(plot(3));
+    assert_eq!(let_go.plots.len(), before.plots.len());
+    assert!(
+        !stands(&before, &let_go, ground),
+        "a plot let go and another claimed the same day"
+    );
+}
+
 /// The eighteenth coverage pass (§8 24, seventh's exact cut, 3407e5a): a field site kept for the
 /// day is keyed only on the homes near enough to its ground to keep a field off, nearer than the
 /// 15 m gap `farm::find_site` keeps a field from a home, measured on whole centimetres from the

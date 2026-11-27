@@ -1038,14 +1038,17 @@ struct HomePlan {
     deadline: i64,
 }
 
-/// Whether what [`site_inputs`] reads may have changed, cheaply: fields, plots, earthworks and
-/// deposits are only ever added, and none is moved, so their counts say whether any has been; and
-/// the count of moves of households' homes; and the ground the household looks over, which its
-/// home's view can redraw within a day (floodwater changes what ground it can break, M6b slice
-/// BF). While these stand, a site found earlier in the day stands.
+/// Whether what [`site_inputs`] reads may have changed, cheaply: fields, earthworks, deposits,
+/// wells and tips are only ever added, and none is moved, so their counts say whether any has
+/// been; plots are added too, but one is let go when a plan's finding takes its building down
+/// (`plans`), so theirs is the count with the last one's id, which a plot let go and another
+/// claimed the same day changes (the count alone stands); and the count of moves of households'
+/// homes; and the ground the household looks over, which its home's view can redraw within a day
+/// (floodwater changes what ground it can break, M6b slice BF). While these stand, a site found
+/// earlier in the day stands.
 type SiteStamp = (
     usize,
-    usize,
+    (usize, Option<PermanentId>),
     usize,
     usize,
     usize,
@@ -1053,6 +1056,36 @@ type SiteStamp = (
     u64,
     Option<civ_land::RectCm>,
 );
+
+/// What a field site kept for the day is read against ([`SiteStamp`]), on `land` after
+/// `homes_moved` moves of homes, for a household looking over `ground`.
+fn site_stamp(
+    land: &civ_land::Land,
+    homes_moved: u64,
+    ground: Option<civ_land::RectCm>,
+) -> SiteStamp {
+    (
+        land.fields.len(),
+        (land.plots.len(), land.plots.last().map(|x| x.id)),
+        land.earthworks.len(),
+        land.deposits.len(),
+        land.wells.list.len(),
+        land.tips.list.len(),
+        homes_moved,
+        ground,
+    )
+}
+
+/// Whether a field site kept on `before` is read against the same as one on `after`
+/// ([`site_stamp`]), for a household looking over `ground`: for tests.
+#[doc(hidden)]
+pub fn site_stamp_stands_for_tests(
+    before: &civ_land::Land,
+    after: &civ_land::Land,
+    ground: Option<civ_land::RectCm>,
+) -> bool {
+    site_stamp(before, 0, ground) == site_stamp(after, 0, ground)
+}
 
 /// What finding new ground for a field reads that can change within a day, as one number: the
 /// fields, plots, earthworks, wells, tips and bodies showing at the surface on `ground` (the
@@ -2894,16 +2927,7 @@ impl Population {
         let home = self.homes.get(&field_key)?;
         let (breakable, ground) = (&home.breakable, home.site_ground);
         let land: &civ_land::Land = ctx.land;
-        let stamp = (
-            land.fields.len(),
-            land.plots.len(),
-            land.earthworks.len(),
-            land.deposits.len(),
-            land.wells.list.len(),
-            land.tips.list.len(),
-            self.homes_moved,
-            ground,
-        );
+        let stamp = site_stamp(land, self.homes_moved, ground);
         let kept = self
             .sites
             .get(&hh.id)

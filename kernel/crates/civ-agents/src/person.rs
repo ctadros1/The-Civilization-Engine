@@ -697,9 +697,22 @@ impl Flow {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Flows {
     by: Vec<Vec<f64>>,
+    /// Set on the counters of a copy made without them ([`Household::copy_without_flows`]),
+    /// which nothing may read: checked under debug assertions.
+    #[cfg(debug_assertions)]
+    left_out: bool,
 }
 
 impl Flows {
+    /// No counters, in a copy that leaves them out: reading them is a mistake.
+    fn left_out() -> Flows {
+        Flows {
+            by: Vec::new(),
+            #[cfg(debug_assertions)]
+            left_out: true,
+        }
+    }
+
     /// Counts `amount` of good `good` as `flow`.
     pub fn add(&mut self, flow: Flow, good: usize, amount: f64) {
         if amount == 0.0 || !amount.is_finite() {
@@ -730,6 +743,11 @@ impl Flows {
 
     /// The amount of good `good` counted as `flow`.
     pub fn get(&self, flow: Flow, good: usize) -> f64 {
+        #[cfg(debug_assertions)]
+        assert!(
+            !self.left_out,
+            "a household copied without its flows read them"
+        );
         self.by
             .get(flow as usize)
             .and_then(|row| row.get(good))
@@ -739,6 +757,11 @@ impl Flows {
 
     /// Adds another set of counters to these.
     pub fn absorb(&mut self, other: &Flows) {
+        #[cfg(debug_assertions)]
+        assert!(
+            !other.left_out,
+            "a household copied without its flows read them"
+        );
         for flow in Flow::ALL {
             if let Some(row) = other.by.get(flow as usize) {
                 for (g, v) in row.iter().enumerate() {
@@ -916,6 +939,16 @@ pub struct FloodLoss {
 }
 
 impl Household {
+    /// A copy of the household without its flow counters, which much of a copy's cost is and
+    /// which nothing reads of a copy (a decision's own; an exact cut, ADR-0028 §1). Reading the
+    /// copy's counters panics under debug assertions.
+    pub(crate) fn copy_without_flows(&mut self) -> Household {
+        let flows = std::mem::replace(&mut self.flows, Flows::left_out());
+        let copy = self.clone();
+        self.flows = flows;
+        copy
+    }
+
     /// Remembers a loss to a flood (M6b slice BG): one record a day and place, the deeper water
     /// and the losses summed.
     pub fn remember_flood_loss(&mut self, loss: FloodLoss) {
@@ -1769,6 +1802,32 @@ mod tests {
         assert!((h.stores[2] - 12.0).abs() < 1e-9, "{}", h.stores[2]);
         assert_eq!(h.fuel_credit_kg, 0.0);
         assert!((h.flows.get(Flow::Burned, 2) - 18.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_copy_without_flows_is_the_household_but_its_counters() {
+        let mut h = household(vec![1.0, 2.0, 3.0]);
+        h.flows.add(Flow::Burned, 2, 4.0);
+        h.members = vec![PermanentId::from_raw(7).expect("non-zero")];
+        let whole = h.clone();
+        let copy = h.copy_without_flows();
+        assert_eq!(h, whole, "the household keeps its counters");
+        assert_eq!(h.flows.get(Flow::Burned, 2), 4.0);
+        let mut back = copy.clone();
+        back.flows = whole.flows.clone();
+        assert_eq!(
+            back, whole,
+            "the copy is the household but for its counters"
+        );
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    #[should_panic(expected = "copied without its flows")]
+    fn reading_a_copys_left_out_flows_panics() {
+        let mut h = household(vec![1.0, 2.0, 3.0]);
+        let copy = h.copy_without_flows();
+        let _ = copy.flows.get(Flow::Burned, 2);
     }
 
     #[test]

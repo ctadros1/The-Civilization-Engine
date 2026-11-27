@@ -4769,7 +4769,9 @@ impl Population {
             p.id,
             p.carrying.kg > 0.0 || p.carrying.water_l > 0.0,
         );
-        let Some(hh) = self.household(hh_id).cloned() else {
+        // Its counters of goods' flows are left out of the copy: nothing a decision does reads
+        // them (an exact cut, ADR-0028 §1).
+        let Some(hh) = self.household_mut(hh_id).map(Household::copy_without_flows) else {
             return;
         };
         let supply_at = Self::supply_at(ctx, &hh);

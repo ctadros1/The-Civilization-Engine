@@ -13481,6 +13481,31 @@ and M6a gives rivers a daily flow.
     Audited and closed 2026-11-25: `views` and `switched` are Accelerated-only and set aside
     at midnight, and ADR-0011 lets Accelerated mode save only at midnight, so neither can make
     a load diverge.
+27. **What is open next, ranked (2026-11-27, made as 16 to 26 were; 26's first, second, fifth
+    and sixth items are done or merged, its third and fourth wait on the owner):**
+    1. *The speed clause* (26's third). The owner keeps the limits (2026-11-26) and merged the
+       spring's promised loads and bounded hiring into verification (2026-11-27, §9). Next: exact
+       cuts found by profiling the hiring candidate against M9 on village500 and gate100k
+       (`claude/exact-cuts`, from ffe1e161, in progress: salvage goods found once a weighing,
+       making to sell reusing the decision's costs, the hiring workshops' sites in one pass, a
+       new pit's site narrowing what stands in its way), each digest-checked against its parent
+       on the four bench worlds, then merged onto verification and benched on node3 against M9.
+       The merged head's own figures come from bench 147 (`036e6d96` against M9). Promotion to
+       development waits on the clause.
+    2. *The merged head lived long* (gate): long run 146 on `036e6d96` is the first with the
+       spring's loads and bounded hiring together; each passed its own (137, 139).
+    3. *The twentieth coverage pass* (backlog E): item 1's cuts read against their tests,
+       breaking each line, once they land. The nineteenth (§9) covered the field-site stamp,
+       the spring's day list and bounded hiring's pool and search rules.
+    4. *Where a household that gives up goes* (26's fourth): the owner's remaining choices
+       (`claude/migration-choices`, the brief's §9). Nothing is built before them.
+    5. *A lived count of plots let go and claimed the same day* (diagnosis, cheap): how often a
+       plan's finding takes a building down in a long run's worlds, to say whether the
+       nineteenth pass's stamp case was reached in release worlds (no debug run reached it).
+    Still blocked, as checked 2026-11-21 and since: tips' compaction and burning, a sewer rate
+    and inspection (ADR amendments whose revisit conditions do not hold); a sewage farm's
+    produce and pickers' exposure (an ADR-0021 amendment; §9, "A sewage farm's exposure
+    blocked"); Unreal work (the owner's PC).
 
 ---
 

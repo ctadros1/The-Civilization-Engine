@@ -5109,7 +5109,14 @@ impl Population {
             .filter_map(|m| self.person(*m))
             .map(|q| q.age_years(now))
             .collect();
-        let knows = |t: usize| self.household_knows(&hh.members, t);
+        // The techniques anyone in it knows, read once for every question the decision asks of
+        // them (an exact cut, ADR-0028 §1).
+        let known_techniques = self.techniques_known(&hh.members);
+        let knows = |t: usize| {
+            let k = known_techniques.binary_search(&(t as u16)).is_ok();
+            debug_assert_eq!(k, self.household_knows(&hh.members, t));
+            k
+        };
         let mut wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
         self.cap_power_wants(ctx, &hh, &knows, &mut wants);
         // As the market would ask them again for the purchase weighed below.
@@ -5277,7 +5284,7 @@ impl Population {
         // A fuel goes toward what a tool's materials are made of beyond what its hearth keeps
         // (M11d, sixth part); the tool's own fuel and a pot's firing wood are weighed as before.
         let mut tool_fuel = vec![0.0; goods.len()];
-        let knows_any = |t: usize| self.household_knows(&hh.members, t);
+        let knows_any = |t: usize| knows(t);
         let beyond_hearth = |g: usize| {
             (held_of(g) - market::hearth_keep(params, goods, g, household_fuel_day, &knows_any))
                 .max(0.0)

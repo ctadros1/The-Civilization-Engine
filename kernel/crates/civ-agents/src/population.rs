@@ -86,6 +86,7 @@ mod opinion;
 mod payments;
 mod picking;
 mod rounds;
+mod search;
 mod sewers;
 mod telegraph;
 mod tips;
@@ -104,6 +105,7 @@ pub use picking::PickPlace;
 pub use polity::{SitPools, Sitters};
 pub use resolution::{DayBlock, NOT_TAKEN, SwitchInvariants};
 pub use rounds::{MAX_ROUND_HOMES, ROUND_EVERY_DAYS};
+pub use search::{HireTally, Outcome as HireOutcome, PURPOSE_HIRE};
 pub use sickhouse::sickhouse_bed_m2;
 pub use telegraph::{TELEGRAM_FEE_FOOD_DAYS, TelegraphReckoning};
 pub use tips::TIP_M2_PER_PERSON;
@@ -822,6 +824,14 @@ pub struct Population {
     /// ([`Self::hired_set_out`] reads these in place of every person). `None` until made.
     /// Derived.
     hired_hands: Option<Vec<Handle<Person>>>,
+    /// Counts every change of who works a field ([`Self::fields_moved`]): what the kept pools of
+    /// employers a seeker of field work explores read it by ([`search::HirePool`]). Derived.
+    field_moves: u64,
+    /// Per travel field, the employers a seeker of field work on it may explore, with what they
+    /// were built on (bounded hiring, the owner's decisions of 2026-11-26). Derived, never saved.
+    hire_pools: search::HirePools,
+    /// What the search for field work has done, for the record (never saved).
+    hire_counts: search::HireCounts,
     /// Everyone's children on record, in id order, as of the first `children_indexed` records
     /// ([`Self::refresh_kin`]). Derived.
     children: FastMap<PermanentId, Vec<PermanentId>>,
@@ -2654,6 +2664,10 @@ impl Population {
         self.field_cells.clear();
         self.fields_celled = 0;
         self.hired_hands = None;
+        self.hire_pools
+            .get_mut()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clear();
         self.children_indexed = usize::MAX;
         self.settled_stale = true;
     }
@@ -3145,6 +3159,7 @@ impl Population {
     /// A field has changed hands: [`Self::fields_of`] looks at every field until the index is
     /// brought up to date again, at the next decision or midnight ([`Self::index_fields`]).
     pub(crate) fn fields_moved(&mut self) {
+        self.field_moves += 1;
         if self.fields_indexed > 0 {
             self.field_index.clear();
             self.fields_indexed = 0;
@@ -5819,7 +5834,7 @@ impl Population {
         let job = || {
             *hh_view.job.get_or_init(|| {
                 if session_min > 0.0 {
-                    self.best_job(ctx, &hh, &stores, reach, session_min)
+                    self.best_job(ctx, &hh, &stores, field_key, session_min)
                 } else {
                     None
                 }

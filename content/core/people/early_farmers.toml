@@ -412,6 +412,13 @@ wage_max_change = 0.05
 # Most hours of work a workshop hires between two of its weekly reviews: one person's three
 # hours a day (a tuning value).
 max_hire_hours = 21.0
+# Bounded hiring (content API 238; the owner's decisions of 2026-11-26): a household seeking field
+# work weighs at most this many distinct farm employers at a decision, its contacts (kin and ties)
+# taking at most `hire_contacts` of them, the rest employers within reach drawn afresh each day
+# (research 08-10 §5.6, 08-04: 3-8 candidate offers a search, low-confidence starting settings).
+# Provisional design settings, not historical constants (NUDGE, plan §9).
+hire_search = 8
+hire_contacts = 4
 
 [digging]
 # How people dig at a deposit the settlement knows (ADR-0010 §2). With wooden, antler and stone

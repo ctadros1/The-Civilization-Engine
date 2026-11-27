@@ -254,6 +254,7 @@ fn main() {
     let searches_before = civ_world::nav::searches();
     let counts_before = sim.people().route_counts;
     let views_before = sim.people().view_counts;
+    let hire_before = sim.people().hire_tally();
     for day in 1..=a.days {
         let t = Instant::now();
         if day > a.profile_after && a.profile_after > 0 {
@@ -705,6 +706,32 @@ fn main() {
         (views.0 - views_before.0) as f64 / days,
         (views.1 - views_before.1) as f64 / days,
         (views.2 - views_before.2) as f64 / days,
+    );
+    // The search for field work (bounded hiring; the brief's §4.2b): what each search worked out
+    // and read, and the kept lists of employers it read them from. Counted only, never saved.
+    let (h, b) = (sim.people().hire_tally(), hire_before);
+    let searches = (h.decisions - b.decisions).max(1) as f64;
+    let per = |x: u64, y: u64| (x - y) as f64 / searches;
+    println!(
+        "hiring: {} searches ({:.0} a day); a search {:.2} offers worked out (most {}, {} at the \
+         limit), {:.2} slots, {:.2} passed over, {:.2} reach lookups; contacts {:.2} read, {:.2} \
+         within reach, {:.2} weighed; {:.1} employers listed; lists built {} times ({:.0} reach \
+         lookups each), read kept {} times",
+        h.decisions - b.decisions,
+        (h.decisions - b.decisions) as f64 / days,
+        per(h.offers, b.offers),
+        h.most_offers,
+        h.capped - b.capped,
+        per(h.slots, b.slots),
+        per(h.passed_over, b.passed_over),
+        per(h.offer_lookups, b.offer_lookups),
+        per(h.contacts_read, b.contacts_read),
+        per(h.contacts_eligible, b.contacts_eligible),
+        per(h.contacts_weighed, b.contacts_weighed),
+        per(h.pool_size, b.pool_size),
+        h.pool_builds - b.pool_builds,
+        (h.pool_lookups - b.pool_lookups) as f64 / (h.pool_builds - b.pool_builds).max(1) as f64,
+        h.pool_reads - b.pool_reads,
     );
 }
 

@@ -2177,10 +2177,24 @@ pub(crate) struct Firm {
     /// Content API 164 (M10a slice DT): hours of a works' shift from its bell, by daylight.
     #[serde(default = "shift_h")]
     pub shift_h: f64,
+    /// Content API 238 (bounded hiring): distinct farm employers a seeker of field work weighs
+    /// at a decision, and the most of them its contacts take.
+    #[serde(default = "hire_search")]
+    pub hire_search: u32,
+    #[serde(default = "hire_contacts")]
+    pub hire_contacts: u32,
 }
 
 fn shift_h() -> f64 {
     10.0
+}
+
+fn hire_search() -> u32 {
+    8
+}
+
+fn hire_contacts() -> u32 {
+    4
 }
 
 #[derive(Debug, Deserialize)]
@@ -2772,6 +2786,8 @@ impl PeopleFile {
                 wage_max_change: self.firm.wage_max_change,
                 max_hire_hours: self.firm.max_hire_hours,
                 shift_h: self.firm.shift_h,
+                hire_search: self.firm.hire_search,
+                hire_contacts: self.firm.hire_contacts,
             },
             knowledge: KnowledgeParams {
                 founders,
@@ -3630,6 +3646,18 @@ impl PeopleFile {
             p.push(format!(
                 "`firm.shift_h` must be between 1 and 16 (got {})",
                 self.firm.shift_h
+            ));
+        }
+        if !(1..=64).contains(&self.firm.hire_search) {
+            p.push(format!(
+                "`firm.hire_search` must be between 1 and 64 (got {})",
+                self.firm.hire_search
+            ));
+        }
+        if self.firm.hire_contacts > self.firm.hire_search {
+            p.push(format!(
+                "`firm.hire_contacts` must be at most `firm.hire_search` (got {} of {})",
+                self.firm.hire_contacts, self.firm.hire_search
             ));
         }
         let m = &self.mortality;

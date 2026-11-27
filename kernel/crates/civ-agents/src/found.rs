@@ -1809,6 +1809,8 @@ pub(crate) mod tests {
                 wage_max_change: 0.05,
                 max_hire_hours: 21.0,
                 shift_h: 10.0,
+                hire_search: 8,
+                hire_contacts: 4,
             },
             knowledge: crate::params::KnowledgeParams {
                 founders: Vec::new(),

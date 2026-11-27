@@ -2202,6 +2202,14 @@ pub struct FirmParams {
     /// Hours of a works' shift from its bell, by daylight (M10a slice DT; ADR-0033 §8): a
     /// workshop whose machines need a crew rings a bell at sunrise and hires for the shift.
     pub shift_h: f64,
+    /// How many distinct farm employers a household seeking field work weighs at a decision, its
+    /// attention budget (content API 238; bounded hiring, the owner's decisions of 2026-11-26): a
+    /// provisional design setting, not a limit on whom it can know. At most twice as many offers
+    /// are worked out, retries included.
+    pub hire_search: u32,
+    /// Of those, the most that go to its contacts (kin and ties); the rest, and any they leave,
+    /// go to the employers within reach it has not weighed (a provisional design setting).
+    pub hire_contacts: u32,
 }
 
 /// What households build (ADR-0009 §1, §7).

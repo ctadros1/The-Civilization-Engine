@@ -109,5 +109,6 @@ pub use person::{
     Traits, Trip,
 };
 pub use population::{
-    AgentEvent, Approximations, Ctx, DayBlock, FieldHire, Population, TimeUse, WaterDraws,
+    AgentEvent, Approximations, Ctx, DayBlock, FieldHire, HireOutcome, HireTally, Population,
+    TimeUse, WaterDraws,
 };

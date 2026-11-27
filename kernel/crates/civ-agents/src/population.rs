@@ -5125,6 +5125,15 @@ impl Population {
         // What it keeps and wants of each good, from these stores, as its sale, purchase and paid
         // work weigh it below: worked out at the first of them to ask.
         let holding_once = OnceCell::new();
+        // And the way it would make each tool, which its holding and its making below weigh.
+        let ways_once: Vec<OnceCell<Option<usize>>> =
+            (0..goods.len()).map(|_| OnceCell::new()).collect();
+        let known = market::Known {
+            costs: &costs_once,
+            wants: &tool_wants,
+            holding: &holding_once,
+            ways: &ways_once,
+        };
         let costs = || {
             costs_once
                 .get_or_init(|| self.own_costs_of(ctx, &hh))
@@ -5243,17 +5252,7 @@ impl Population {
             .collect();
         // Tools others want and nobody offers, which the household makes for fewer hours than
         // they would give: worth making to sell (slice I).
-        let for_sale = self.for_sale(
-            ctx,
-            &hh,
-            &stores,
-            &tool_need,
-            market::Known {
-                costs: &costs_once,
-                wants: &tool_wants,
-                holding: &holding_once,
-            },
-        );
+        let for_sale = self.for_sale(ctx, &hh, &stores, &tool_need, known);
         let mut tool_material = vec![0.0; goods.len()];
         let mut tool_material_blocked = vec![false; goods.len()];
         let mut tool_material_raw = vec![false; goods.len()];
@@ -5275,7 +5274,7 @@ impl Population {
                         .iter()
                         .position(|r| r.outputs.iter().any(|&(g, _)| g == t))
                 } else {
-                    make::way_to_tool(catalog, t, &can_work, &costs)
+                    known.way_to_tool(catalog, t, &can_work, &costs)
                 }
             })
             .collect();
@@ -5805,14 +5804,9 @@ impl Population {
         };
         // A purchase that costs the household fewer hours than getting the good itself.
         let trade = || {
-            *hh_view.trade.get_or_init(|| {
-                let known = market::Known {
-                    costs: &costs_once,
-                    wants: &tool_wants,
-                    holding: &holding_once,
-                };
-                self.best_purchase(ctx, &hh, &stores, reach, Some(known))
-            })
+            *hh_view
+                .trade
+                .get_or_init(|| self.best_purchase(ctx, &hh, &stores, reach, Some(known)))
         };
         // One in another settlement, by a report (M5b slice AP, ADR-0019 §2). One of a household
         // goes at a time: what another is on the way to buy is not home yet, and two would walk
@@ -5859,11 +5853,6 @@ impl Population {
         let job = || {
             *hh_view.job.get_or_init(|| {
                 if session_min > 0.0 {
-                    let known = market::Known {
-                        costs: &costs_once,
-                        wants: &tool_wants,
-                        holding: &holding_once,
-                    };
                     self.best_job(ctx, &hh, &stores, field_key, session_min, Some(known))
                 } else {
                     None

@@ -101,6 +101,32 @@ pub(crate) struct Known<'a> {
     /// [`Population::holding_with`] of the decision's household and stores, with these costs and
     /// wants: one decision's sale, purchase and paid work ask it of the same stores.
     pub holding: &'a std::cell::OnceCell<Holding>,
+    /// The way it would make each tool ([`make::way_to_tool`] with its own costs and the ways it
+    /// can work from the decision's stores), by good, worked out when first wanted: its holding
+    /// and the decision's making weigh the same tools.
+    pub ways: &'a [std::cell::OnceCell<Option<usize>>],
+}
+
+impl Known<'_> {
+    /// The way to tool `t` ([`make::way_to_tool`] by `can_work` and `costs`, which must be the
+    /// decision's own), kept after the first ask (an exact cut, ADR-0028 §1).
+    pub(crate) fn way_to_tool(
+        &self,
+        catalog: &Catalog,
+        t: usize,
+        can_work: &dyn Fn(&crate::params::RecipeDef) -> bool,
+        costs: &dyn Fn() -> Vec<Option<f64>>,
+    ) -> Option<usize> {
+        let fresh = || make::way_to_tool(catalog, t, can_work, costs);
+        match self.ways.get(t) {
+            Some(cell) => {
+                let way = *cell.get_or_init(fresh);
+                debug_assert_eq!(way, fresh());
+                way
+            }
+            None => fresh(),
+        }
+    }
 }
 
 /// A vehicle a household could make that would keep it `gain_h` hours beyond the walk's on the
@@ -749,9 +775,12 @@ impl Population {
                 keep[s] = keep[t];
             }
             let held_all: f64 = make::serving(goods, t).map(held).sum();
+            let way = |t: usize| match known {
+                Some(k) => k.way_to_tool(catalog, t, &can_work, &costs),
+                None => make::way_to_tool(catalog, t, &can_work, &costs),
+            };
             if make::tool_need(w, held_all) > 0.0
-                && let Some(r) = make::way_to_tool(catalog, t, &can_work, &costs)
-                    .and_then(|r| catalog.recipes.get(r))
+                && let Some(r) = way(t).and_then(|r| catalog.recipes.get(r))
             {
                 for &(g, amount) in &r.inputs {
                     keep_made_of(

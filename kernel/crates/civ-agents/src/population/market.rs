@@ -2825,13 +2825,16 @@ impl Population {
     /// any now; and what they would give for one (what those who found none would have given,
     /// or what one fetched lately) is more than the household's own cost and margin. It is
     /// worth the share of that the household keeps, times how much of it is wanted (up to one
-    /// tool). Nothing while the household, or its workshop, still holds one to sell.
+    /// tool). Nothing while the household, or its workshop, still holds one to sell. `known` is
+    /// what the decision asking already knew of the household (its own costs and capped tool
+    /// wants), so neither is worked out again (an exact cut, ADR-0028 §1).
     pub(crate) fn for_sale(
         &self,
         ctx: &Ctx,
         hh: &Household,
         stores: &[f64],
         tool_need: &[f64],
+        known: Known<'_>,
     ) -> Vec<f64> {
         let goods = &ctx.catalog.goods;
         let mut out = vec![0.0; goods.len()];
@@ -2881,8 +2884,10 @@ impl Population {
         if wanted.is_empty() {
             return out;
         }
-        let costs = self.own_costs_of(ctx, hh);
-        let holding = self.holding_of(ctx, hh, stores);
+        let costs = known.costs.get_or_init(|| self.own_costs_of(ctx, hh));
+        let holding = self.holding_with(ctx, hh, stores, Some(known));
+        debug_assert!(*costs == self.own_costs_of(ctx, hh));
+        debug_assert!(holding.keep == self.holding_of(ctx, hh, stores).keep);
         let margin = ctx.params.market.margin;
         for (t, units, worth) in wanted {
             let Some(cost) = costs[t] else {

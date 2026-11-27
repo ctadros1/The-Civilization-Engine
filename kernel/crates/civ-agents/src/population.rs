@@ -5171,7 +5171,16 @@ impl Population {
             .collect();
         // Tools others want and nobody offers, which the household makes for fewer hours than
         // they would give: worth making to sell (slice I).
-        let for_sale = self.for_sale(ctx, &hh, &stores, &tool_need);
+        let for_sale = self.for_sale(
+            ctx,
+            &hh,
+            &stores,
+            &tool_need,
+            market::Known {
+                costs: &costs_once,
+                wants: &tool_wants,
+            },
+        );
         let mut tool_material = vec![0.0; goods.len()];
         let mut tool_material_blocked = vec![false; goods.len()];
         let mut tool_material_raw = vec![false; goods.len()];

@@ -1237,7 +1237,9 @@ impl Population {
             .then(|| self.households_in(settlement))
             .into_iter()
             .flatten();
-        let sellers: Vec<Seller> = one
+        // Walked as the offers are weighed, not gathered into a list first (an exact cut,
+        // ADR-0028 §1: the list's growing was a sixth of the purchase's time).
+        let sellers = one
             .into_iter()
             .chain(near)
             .filter(|x| x.id != hh.id && !x.offers.is_empty())
@@ -1270,28 +1272,26 @@ impl Population {
                             weight: 1.0,
                         })
                     }),
-            )
-            .collect();
+            );
         self.best_deal(ctx, hh, stores, sellers, walk_min, known)
     }
 
     /// The best of `sellers`' offers for household `hh` with its `stores`, as
     /// [`Population::find_deal`] weighs them: what a buyer saves, believed by each seller's
     /// weight, less the walk there and back.
-    fn best_deal(
+    fn best_deal<'s>(
         &self,
         ctx: &Ctx,
         hh: &Household,
         stores: &[f64],
-        sellers: Vec<Seller>,
+        sellers: impl IntoIterator<Item = Seller<'s>>,
         walk_min: &dyn Fn((f32, f32)) -> Option<f64>,
         known: Option<Known<'_>>,
     ) -> Option<Deal> {
         let (params, goods) = (ctx.params, &ctx.catalog.goods);
         let held = |g: usize| stores.get(g).copied().unwrap_or(0.0).max(0.0);
-        if sellers.is_empty() {
-            return None;
-        }
+        let mut sellers = sellers.into_iter().peekable();
+        sellers.peek()?;
         // Its own costs, worked out only once an offer is worth pricing (most are not).
         let own_costs_here = std::cell::OnceCell::new();
         let own_costs = known.map_or(&own_costs_here, |k| k.costs);

@@ -210,6 +210,96 @@ pub fn serving(goods: &[GoodDef], t: usize) -> impl Iterator<Item = usize> + '_ 
     )
 }
 
+/// What a question asks of the catalogue again and again, each part read from it in one pass at
+/// its first ask: the tools that serve for each tool ([`serving`]) and the first recipe that makes
+/// each good. Made for one decision and dropped with it, never kept: the catalogue it reads does
+/// not change while one question is asked (an exact cut, ADR-0028 §1: each tool's servers were a
+/// walk over every good, each good's recipe one over every recipe).
+#[derive(Debug)]
+pub struct Lookup<'a> {
+    catalog: &'a crate::params::Catalog,
+    /// The goods that serve for another, by the tool they serve for and then their own index
+    /// (each tool's in the catalogue's order), as the tools and the goods.
+    servers: std::cell::OnceCell<(Vec<usize>, Vec<usize>)>,
+    /// By good, the first recipe that makes it.
+    first_maker: std::cell::OnceCell<Vec<Option<usize>>>,
+}
+
+impl<'a> Lookup<'a> {
+    /// The lookup of `catalog` as it stands, nothing read yet.
+    pub fn of(catalog: &'a crate::params::Catalog) -> Self {
+        Lookup {
+            catalog,
+            servers: std::cell::OnceCell::new(),
+            first_maker: std::cell::OnceCell::new(),
+        }
+    }
+
+    /// [`serving`]: tool `t` and the tools that serve for it, `t` first.
+    pub fn serving(&self, t: usize) -> impl Iterator<Item = usize> + '_ {
+        std::iter::once(t).chain(self.others(t).iter().copied())
+    }
+
+    /// The tools that serve for tool `t`, in the catalogue's order: [`serving`] but `t`.
+    pub fn others(&self, t: usize) -> &[usize] {
+        let (tools, by) = self.servers.get_or_init(|| {
+            let mut pairs: Vec<(usize, usize)> = self
+                .catalog
+                .goods
+                .iter()
+                .enumerate()
+                .filter_map(|(g, d)| {
+                    d.tool
+                        .as_ref()
+                        .and_then(|x| x.serves)
+                        .filter(|&t| t != g)
+                        .map(|t| (t, g))
+                })
+                .collect();
+            pairs.sort_unstable();
+            pairs.into_iter().unzip()
+        });
+        let others = &by[tools.partition_point(|&x| x < t)..tools.partition_point(|&x| x <= t)];
+        debug_assert!(
+            others
+                .iter()
+                .copied()
+                .eq(serving(&self.catalog.goods, t).skip(1))
+        );
+        others
+    }
+
+    /// The first recipe, by index, that makes good `g`.
+    pub fn first_maker(&self, g: usize) -> Option<usize> {
+        let recipes = &self.catalog.recipes;
+        let slow = || {
+            recipes
+                .iter()
+                .position(|r| r.outputs.iter().any(|&(o, _)| o == g))
+        };
+        let firsts = self.first_maker.get_or_init(|| {
+            let mut firsts = vec![None; self.catalog.goods.len()];
+            for (r, def) in recipes.iter().enumerate() {
+                for &(o, _) in &def.outputs {
+                    if let Some(slot) = firsts.get_mut(o)
+                        && slot.is_none()
+                    {
+                        *slot = Some(r);
+                    }
+                }
+            }
+            firsts
+        });
+        // A good past the catalogue's (none in content) is looked for as before.
+        let r = match firsts.get(g) {
+            Some(&r) => r,
+            None => slow(),
+        };
+        debug_assert_eq!(r, slow());
+        r
+    }
+}
+
 /// The tool good `g` serves for, if it serves for one; else `g` itself.
 pub fn served(goods: &[GoodDef], g: usize) -> usize {
     goods
@@ -231,9 +321,40 @@ pub fn way_to_tool(
 ) -> Option<usize> {
     let makes = |r: &RecipeDef, g: usize| r.outputs.iter().any(|&(o, _)| o == g);
     let own = catalog.recipes.iter().position(|r| makes(r, t));
+    way_among(
+        catalog,
+        t,
+        own,
+        serving(&catalog.goods, t).skip(1),
+        can_work,
+        costs,
+    )
+}
+
+/// [`way_to_tool`] read through `lookup`, the catalogue's as it stands.
+pub fn way_to_tool_by(
+    catalog: &crate::params::Catalog,
+    lookup: &Lookup<'_>,
+    t: usize,
+    can_work: &dyn Fn(&RecipeDef) -> bool,
+    costs: &dyn Fn() -> Vec<Option<f64>>,
+) -> Option<usize> {
+    let own = lookup.first_maker(t);
+    way_among(catalog, t, own, lookup.serving(t).skip(1), can_work, costs)
+}
+
+/// [`way_to_tool`] given `t`'s own first recipe and the tools `serving` for it.
+fn way_among(
+    catalog: &crate::params::Catalog,
+    t: usize,
+    own: Option<usize>,
+    serving: impl Iterator<Item = usize>,
+    can_work: &dyn Fn(&RecipeDef) -> bool,
+    costs: &dyn Fn() -> Vec<Option<f64>>,
+) -> Option<usize> {
+    let makes = |r: &RecipeDef, g: usize| r.outputs.iter().any(|&(o, _)| o == g);
     // Walked as they are weighed, not gathered first: most tools have no other.
-    let mut others = serving(&catalog.goods, t)
-        .skip(1)
+    let mut others = serving
         .filter_map(|g| {
             catalog
                 .recipes
@@ -333,6 +454,16 @@ pub fn life_of(goods: &[GoodDef], g: usize) -> f64 {
 /// serves for it, from what is held of each (`held`).
 pub fn tools_for(goods: &[GoodDef], t: usize, held: &dyn Fn(usize) -> f64) -> f64 {
     serving(goods, t).map(|g| in_use(goods, g, held(g))).sum()
+}
+
+/// [`tools_for`] read through `lookup`, the catalogue's as it stands.
+pub fn tools_for_by(
+    goods: &[GoodDef],
+    lookup: &Lookup<'_>,
+    t: usize,
+    held: &dyn Fn(usize) -> f64,
+) -> f64 {
+    lookup.serving(t).map(|g| in_use(goods, g, held(g))).sum()
 }
 
 /// How much of tool `good`, of which `held` standard tools are at hand, does its work: all of it,

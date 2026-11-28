@@ -105,6 +105,8 @@ pub(crate) struct Known<'a> {
     /// can work from the decision's stores), by good, worked out when first wanted: its holding
     /// and the decision's making weigh the same tools.
     pub ways: &'a [std::cell::OnceCell<Option<usize>>],
+    /// The catalogue's servers and makers, read once for the decision ([`make::Lookup`]).
+    pub lookup: &'a make::Lookup<'a>,
 }
 
 impl Known<'_> {
@@ -117,15 +119,13 @@ impl Known<'_> {
         can_work: &dyn Fn(&crate::params::RecipeDef) -> bool,
         costs: &dyn Fn() -> Vec<Option<f64>>,
     ) -> Option<usize> {
-        let fresh = || make::way_to_tool(catalog, t, can_work, costs);
-        match self.ways.get(t) {
-            Some(cell) => {
-                let way = *cell.get_or_init(fresh);
-                debug_assert_eq!(way, fresh());
-                way
-            }
+        let fresh = || make::way_to_tool_by(catalog, self.lookup, t, can_work, costs);
+        let way = match self.ways.get(t) {
+            Some(cell) => *cell.get_or_init(fresh),
             None => fresh(),
-        }
+        };
+        debug_assert_eq!(way, make::way_to_tool(catalog, t, can_work, costs));
+        way
     }
 }
 
@@ -771,10 +771,22 @@ impl Population {
             }
             keep[t] = w + make::SPARE_TOOL;
             // The tools that serve for it are kept as it is (M7d slice CE).
-            for s in make::serving(goods, t).skip(1) {
+            // Through the decision's lookup when it has one (an exact cut, ADR-0028 §1).
+            let scanned: Vec<usize>;
+            let others: &[usize] = match known {
+                Some(k) => k.lookup.others(t),
+                None => {
+                    scanned = make::serving(goods, t).skip(1).collect();
+                    &scanned
+                }
+            };
+            for &s in others {
                 keep[s] = keep[t];
             }
-            let held_all: f64 = make::serving(goods, t).map(held).sum();
+            let held_all: f64 = std::iter::once(t)
+                .chain(others.iter().copied())
+                .map(held)
+                .sum();
             let way = |t: usize| match known {
                 Some(k) => k.way_to_tool(catalog, t, &can_work, &costs),
                 None => make::way_to_tool(catalog, t, &can_work, &costs),
@@ -1320,11 +1332,15 @@ impl Population {
         let knows = |t: usize| self.household_knows(&hh.members, t);
         // A worked good: one a recipe makes and no land gives (§8 19, tenth).
         let worked = |g: usize| {
-            ctx.catalog
-                .recipes
-                .iter()
-                .any(|r| r.outputs.iter().any(|&(o, _)| o == g))
-                && !ctx.land_params.resources.iter().any(|r| r.good == g)
+            let made = match known {
+                Some(k) => k.lookup.first_maker(g).is_some(),
+                None => ctx
+                    .catalog
+                    .recipes
+                    .iter()
+                    .any(|r| r.outputs.iter().any(|&(o, _)| o == g)),
+            };
+            made && !ctx.land_params.resources.iter().any(|r| r.good == g)
         };
         // Whether its food waits on a fire (it holds no fuel and nothing it eats as it is, but
         // food a fire makes a meal of), asked only of a fuel offer (§8 18, sixth).
@@ -1355,7 +1371,11 @@ impl Population {
                 let (units, worth, own_h) = if d.tool.is_some() {
                     let need = *tool_needs[g].get_or_insert_with(|| {
                         let wanted = (holding.keep[g] - make::SPARE_TOOL).max(0.0);
-                        let all = make::serving(goods, make::served(goods, g)).map(held).sum();
+                        let served = make::served(goods, g);
+                        let all = match known {
+                            Some(k) => k.lookup.serving(served).map(held).sum(),
+                            None => make::serving(goods, served).map(held).sum(),
+                        };
                         make::tool_need(wanted, all)
                     });
                     let units = f64::from(o.units).min(1.0);

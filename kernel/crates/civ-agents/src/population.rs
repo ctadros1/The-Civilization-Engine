@@ -5128,11 +5128,15 @@ impl Population {
         // And the way it would make each tool, which its holding and its making below weigh.
         let ways_once: Vec<OnceCell<Option<usize>>> =
             (0..goods.len()).map(|_| OnceCell::new()).collect();
+        // The tools that serve for each tool and the recipe that makes each good, read from the
+        // catalogue once for the decision rather than at each question (an exact cut, ADR-0028 §1).
+        let lookup = make::Lookup::of(catalog);
         let known = market::Known {
             costs: &costs_once,
             wants: &tool_wants,
             holding: &holding_once,
             ways: &ways_once,
+            lookup: &lookup,
         };
         let costs = || {
             costs_once
@@ -5228,7 +5232,7 @@ impl Population {
                 if wants[g] <= 0.0 {
                     0.0
                 } else {
-                    make::tool_need(wants[g], make::serving(goods, g).map(held_of).sum())
+                    make::tool_need(wants[g], lookup.serving(g).map(held_of).sum())
                 }
             })
             .collect();
@@ -5269,10 +5273,7 @@ impl Population {
                 {
                     None
                 } else if goods[t].tool.as_ref().is_some_and(|x| x.serves.is_some()) {
-                    catalog
-                        .recipes
-                        .iter()
-                        .position(|r| r.outputs.iter().any(|&(g, _)| g == t))
+                    lookup.first_maker(t)
                 } else {
                     known.way_to_tool(catalog, t, &can_work, &costs)
                 }
@@ -5295,7 +5296,7 @@ impl Population {
             let Some(r) = ways[t].and_then(|r| catalog.recipes.get(r)) else {
                 continue;
             };
-            let blocked = make::tools_for(goods, t, &held_of) < decide::MIN_TOOL;
+            let blocked = make::tools_for_by(goods, &lookup, t, &held_of) < decide::MIN_TOOL;
             let mut wanting = market::MaterialWants {
                 need: &mut tool_material,
                 blocked: &mut tool_material_blocked,

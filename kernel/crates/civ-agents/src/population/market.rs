@@ -1393,6 +1393,10 @@ impl Population {
             let walk_once = std::cell::OnceCell::new();
             for o in s.offers.iter() {
                 let (g, p) = (usize::from(o.good), usize::from(o.payment));
+                // A good already shut is passed over before its definition is read.
+                if !cfg!(debug_assertions) && shut.get(g).copied().flatten() == Some(true) {
+                    continue;
+                }
                 let Some(d) = goods.get(g) else {
                     continue;
                 };

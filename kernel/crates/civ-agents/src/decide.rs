@@ -1107,16 +1107,33 @@ pub fn candidates(
     // Work left out only because another member has the tools for it.
     let mut busy: Vec<u16> = Vec::new();
     // Make activities wait until the tools work waits on are known: food recipes first, then the
-    // ones that make tools.
-    let mut order: Vec<usize> = (0..defs.len())
-        .filter(|&i| defs[i].behavior != Behavior::Make)
-        .collect();
-    order.extend(
-        (0..defs.len()).filter(|&i| defs[i].behavior == Behavior::Make && !(shop.makes_tool)(i)),
-    );
-    order.extend(
-        (0..defs.len()).filter(|&i| defs[i].behavior == Behavior::Make && (shop.makes_tool)(i)),
-    );
+    // ones that make tools. Sorted in one pass over the activities, each asked once, into room
+    // for them all (an exact cut, ADR-0028 §1: three passes, two asks of each make activity and
+    // the growing of the list were 4 % of a village's day).
+    let mut order: Vec<usize> = Vec::with_capacity(defs.len());
+    let mut makes: Vec<(usize, bool)> = Vec::with_capacity(defs.len());
+    for (i, d) in defs.iter().enumerate() {
+        if d.behavior != Behavior::Make {
+            order.push(i);
+        } else {
+            makes.push((i, (shop.makes_tool)(i)));
+        }
+    }
+    order.extend(makes.iter().filter(|m| !m.1).map(|m| m.0));
+    order.extend(makes.iter().filter(|m| m.1).map(|m| m.0));
+    debug_assert_eq!(order, {
+        let mut slow: Vec<usize> = (0..defs.len())
+            .filter(|&i| defs[i].behavior != Behavior::Make)
+            .collect();
+        slow.extend(
+            (0..defs.len())
+                .filter(|&i| defs[i].behavior == Behavior::Make && !(shop.makes_tool)(i)),
+        );
+        slow.extend(
+            (0..defs.len()).filter(|&i| defs[i].behavior == Behavior::Make && (shop.makes_tool)(i)),
+        );
+        slow
+    });
     for i in order {
         let def = &defs[i];
         let id = i as u16;

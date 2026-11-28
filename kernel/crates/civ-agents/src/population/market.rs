@@ -1356,6 +1356,21 @@ impl Population {
         };
         // How much of each tool it needs, reckoned at its first offer: many sellers offer the same.
         let mut tool_needs: Vec<Option<f64>> = vec![None; goods.len()];
+        let reckon_need = |g: usize| {
+            let wanted = (holding.keep[g] - make::SPARE_TOOL).max(0.0);
+            let served = make::served(goods, g);
+            let all = match known {
+                Some(k) => k.lookup.serving(served).map(held).sum(),
+                None => make::serving(goods, served).map(held).sum(),
+            };
+            make::tool_need(wanted, all)
+        };
+        // Whether no offer of each good can be worth weighing, by what the household holds, keeps
+        // and is short of alone, the same at every seller: reckoned at the good's first offer, and
+        // every offer of a good closed passed over at once (an exact cut, ADR-0028 §1: each of a
+        // settlement's offers went through these tests). Each is the first test of its kind
+        // below; under debug assertions a closed good's offers go the slow way, and none may pass.
+        let mut shut: Vec<Option<bool>> = vec![None; goods.len()];
         let mut best: Option<Deal> = None;
         for s in sellers {
             let (seller, at, firm) = (s.id, s.at, s.firm);
@@ -1366,18 +1381,47 @@ impl Population {
                 let Some(d) = goods.get(g) else {
                     continue;
                 };
+                let closed = match shut[g] {
+                    Some(x) => x,
+                    None => {
+                        let short_of = |g: usize| {
+                            (holding.keep.get(g).copied().unwrap_or(0.0) - held(g)).max(0.0)
+                        };
+                        let x = if d.tool.is_some() {
+                            *tool_needs[g].get_or_insert_with(|| reckon_need(g)) <= 0.0
+                        } else if d.purpose == GoodUse::Food && d.kcal_per_kg > 0.0 {
+                            short_kcal <= 0.0
+                        } else if salvage(g) {
+                            short_of(g) <= 1e-6
+                        } else if d.purpose == GoodUse::Material
+                            && d.fuel.is_none()
+                            && worked(g)
+                            && held(g) < holding.keep.get(g).copied().unwrap_or(0.0)
+                        {
+                            false
+                        } else if (d.purpose == GoodUse::Fuel
+                            && d.fuel.and_then(|f| f.technique).is_none_or(knows))
+                            || holding.works.get(g).is_some_and(|&w| w > 0.0)
+                        {
+                            let works_short =
+                                short_of(g).min(holding.works.get(g).copied().unwrap_or(0.0));
+                            let hearth = d.purpose == GoodUse::Fuel
+                                && d.fuel.and_then(|f| f.technique).is_none_or(knows);
+                            (fuel_short <= 0.0 || !hearth) && works_short <= 0.0
+                        } else {
+                            true
+                        };
+                        shut[g] = Some(x);
+                        x
+                    }
+                };
+                if closed && !cfg!(debug_assertions) {
+                    continue;
+                }
                 // What it would buy: a tool it needs (up to one standard tool, worn or not), or
                 // food it is short of (what one person carries, no more than it is short).
                 let (units, worth, own_h) = if d.tool.is_some() {
-                    let need = *tool_needs[g].get_or_insert_with(|| {
-                        let wanted = (holding.keep[g] - make::SPARE_TOOL).max(0.0);
-                        let served = make::served(goods, g);
-                        let all = match known {
-                            Some(k) => k.lookup.serving(served).map(held).sum(),
-                            None => make::serving(goods, served).map(held).sum(),
-                        };
-                        make::tool_need(wanted, all)
-                    });
+                    let need = *tool_needs[g].get_or_insert_with(|| reckon_need(g));
                     let units = f64::from(o.units).min(1.0);
                     if need <= 0.0 || units < MIN_OFFER_TOOL - 1e-6 {
                         continue;
@@ -1484,6 +1528,7 @@ impl Population {
                 } else {
                     continue;
                 };
+                debug_assert!(!closed, "an offer of good {g} passed a test closed to it");
                 // Food bought is limited to a payment one person can carry back.
                 let units = if goods[p].tool.is_none() && d.tool.is_none() && o.price > 0.0 {
                     units.min(params.household.carry_kg / f64::from(o.price))

@@ -61,12 +61,19 @@ pub fn circadian(sleep: &SleepParams, minute_of_day: i64, (rise, set): (i64, i64
 
 /// Body mass at `age` years, kg.
 pub fn mass_kg(energy: &EnergyParams, sex: Sex, age: f64) -> f64 {
-    let table: Vec<(f64, f64)> = energy
-        .mass_by_age
-        .iter()
-        .map(|&(a, m, f)| (a, if sex == Sex::Male { m } else { f }))
-        .collect();
-    interpolate(&table, age)
+    let rows = &energy.mass_by_age;
+    let row = |i: usize| {
+        let (a, m, f) = rows[i];
+        (a, if sex == Sex::Male { m } else { f })
+    };
+    // Read in place, not copied into a table first (an exact cut, ADR-0028 §1: it is asked at
+    // every step of everyone's day).
+    let kg = crate::params::interpolate_rows(rows.len(), row, age);
+    debug_assert_eq!(kg.to_bits(), {
+        let table: Vec<(f64, f64)> = (0..rows.len()).map(row).collect();
+        interpolate(&table, age).to_bits()
+    });
+    kg
 }
 
 /// Basal metabolic rate, kcal per day.

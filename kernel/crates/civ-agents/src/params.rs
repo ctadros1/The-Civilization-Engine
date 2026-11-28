@@ -2535,6 +2535,29 @@ pub struct KnowledgeParams {
     pub record_h: f64,
 }
 
+/// [`interpolate`] in a table of `len` rows read through `row`, nothing gathered: the same
+/// arithmetic on the same rows.
+pub fn interpolate_rows(len: usize, row: impl Fn(usize) -> (f64, f64), x: f64) -> f64 {
+    match len {
+        0 => 0.0,
+        1 => row(0).1,
+        _ => {
+            let first = row(0);
+            if x <= first.0 {
+                return first.1;
+            }
+            for i in 0..len - 1 {
+                let ((x0, y0), (x1, y1)) = (row(i), row(i + 1));
+                if x <= x1 {
+                    let t = if x1 > x0 { (x - x0) / (x1 - x0) } else { 1.0 };
+                    return y0 + t * (y1 - y0);
+                }
+            }
+            row(len - 1).1
+        }
+    }
+}
+
 /// Linear interpolation in an ascending `(x, y)` table, clamped at its ends.
 pub fn interpolate(table: &[(f64, f64)], x: f64) -> f64 {
     match table {

@@ -580,6 +580,17 @@ impl Population {
         };
         // Each recipe at the skill of the best of the members who know it (ADR-0008: knowing is
         // the gate, skill is how well), or of them all if it needs no technique.
+        // The techniques any of them knows, read once from their lists: a recipe of one nobody
+        // knows has no level, and nobody is asked of it (an exact cut, ADR-0028 §1: most
+        // recipes' techniques are unknown to a household, and each was asked of every member).
+        let mut anyone = vec![false; catalog.techniques.len()];
+        for p in &members {
+            for k in p.knows.iter().filter(|k| k.known) {
+                if let Some(slot) = anyone.get_mut(usize::from(k.technique)) {
+                    *slot = true;
+                }
+            }
+        }
         let level = |r: &RecipeDef| -> Option<f64> {
             if r.kwh_per_unit > 0.0 && !powered() {
                 return None;
@@ -587,6 +598,10 @@ impl Population {
             let skill = |p: &&Person| r.skill.map_or(0.0, |k| p.skill(k));
             match r.technique {
                 None => Some(members.iter().map(skill).fold(0.0, f64::max)),
+                Some(t) if !anyone.get(t).copied().unwrap_or(true) => {
+                    debug_assert!(!members.iter().any(|p| p.knows(t)));
+                    None
+                }
                 Some(t) => members
                     .iter()
                     .filter(|p| p.knows(t))
